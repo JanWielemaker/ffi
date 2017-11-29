@@ -1,0 +1,20 @@
+TARGET = cinvoke_lua.[DYNEXT]
+
+all: $(TARGET)
+
+test:
+	lua test.lua
+
+clean:
+	rm -f *.o $(TARGET)
+
+SRCS = cinvoke_lua.c
+
+OBJS = $(SRCS:.c=.o)
+
+$(TARGET): $(OBJS)
+	[BUILDSHARED] $(TARGET) $(OBJS) -L../../lib -lcinvoke
+
+.c.o:
+	gcc [CFLAGS] [DYNCFLAGS] -I../../lib -c $< -o $@
+
