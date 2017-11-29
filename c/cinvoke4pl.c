@@ -409,11 +409,21 @@ ci_function_invoke(term_t prototype, term_t goal)
     cinv_function_invoke(ctx->cictx, f, ctx->entrypoint,
 			 &rv.p, argv);
 
-    if ( ctx->rformat )
+    if ( ctx->rformat && ctx->rformat[0] )
     { switch(ctx->rformat[0])
-      { case 'd':
-	  return PL_cvt_o_float(rv.d, arg);
+      { case 'c': return PL_cvt_o_int64(rv.c, arg);
+        case '2':
+        case 's': return PL_cvt_o_int64(rv.s, arg);
+        case '4':
+        case 'i': return PL_cvt_o_int64(rv.i, arg);
+        case 'l': return PL_cvt_o_int64(rv.l, arg);
+        case '8':
+        case 'e': return PL_cvt_o_int64(rv.e, arg);
+        case 'f': return PL_cvt_o_float(rv.f, arg);
+        case 'd': return PL_cvt_o_float(rv.d, arg);
       }
+    } else
+    { return TRUE;			/* void function */
     }
   }
 
