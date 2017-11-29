@@ -355,11 +355,47 @@ ci_function_invoke(term_t prototype, term_t goal)
       }
 
       switch(*pfmt)
-      { case 'd':
-	{ if ( !PL_cvt_i_float(arg, &as[argc].d) )
+      { case 'c':
+	  if ( !PL_cvt_i_char(arg, &as[argc].c) )
+	    return FALSE;
+	  argv[argc] = &as[argc].c;
+	  break;
+	case 's':
+	case '2':
+	  if ( !PL_cvt_i_short(arg, &as[argc].s) )
+	    return FALSE;
+	  argv[argc] = &as[argc].s;
+	  break;
+	case 'i':
+	case '4':
+	  if ( !PL_cvt_i_int(arg, &as[argc].i) )
+	    return FALSE;
+	  argv[argc] = &as[argc].i;
+	  break;
+	case 'l':
+	  if ( !PL_cvt_i_long(arg, &as[argc].l) )
+	    return FALSE;
+	  argv[argc] = &as[argc].l;
+	  break;
+	case 'e':
+	case '8':
+	{ int64_t e;
+	  if ( !PL_cvt_i_int64(arg, &e) )
+	    return FALSE;
+	  as[argc].e = e;
+	  argv[argc] = &as[argc].e;
+	  break;
+	}
+	case 'f':
+	  if ( !PL_cvt_i_single(arg, &as[argc].f) )
+	    return FALSE;
+	  argv[argc] = &as[argc].f;
+	  break;
+	case 'd':
+	  if ( !PL_cvt_i_float(arg, &as[argc].d) )
 	    return FALSE;
 	  argv[argc] = &as[argc].d;
-	}
+	  break;
       }
     }
 
