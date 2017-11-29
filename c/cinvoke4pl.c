@@ -473,17 +473,67 @@ ci_function_invoke(term_t prototype, term_t goal)
 		 *	     STRUCTURES		*
 		 *******************************/
 
-static foreign_t
-ci_structure_create(term_t ctx, term_t sptr)
+typedef struct ctx_member
+{ atom_t	name;
+  cinv_type_t	type;
+  struct ctx_member *next;
+} ctx_member;
+
+
+typedef struct ctx_structure
 { CInvContext *cictx;
+  atom_t       name;
+  ctx_member  *members;
+  int	       finished;
+} ctx_structure;
 
-  if ( get_ptr(ctx, &cictx, NULL, ATOM_ci_context) )
-  { CInvStructure *cs;
 
-    if ( (cs=cinv_structure_create(cictx)) )
-      return unify_ptr(sptr, cs, cictx, ATOM_ci_struct_decl);
+static int
+struct_add_member(ctx_structure *def, const char *name, cinv_type_t type)
+{ ctx_member *m = malloc(sizeof(*m));
 
-    return ci_error(cictx);
+  if ( m )
+  { ctx_member **mp;
+
+    m->name = PL_new_atom(name);
+    m->type = type;
+    m->next = NULL;
+
+    for(mp = &def->members; *mp; mp = &(*mp)->next)
+      ;
+    *mp = m;
+
+    return TRUE;
+  }
+
+  return PL_resource_error("memory");
+}
+
+
+static foreign_t
+ci_structure_create(term_t ctx, term_t name, term_t sptr)
+{ CInvContext *cictx;
+  atom_t aname;
+
+  if ( get_ptr(ctx, &cictx, NULL, ATOM_ci_context) &&
+       PL_get_atom_ex(name, &aname) )
+  { ctx_structure *def = malloc(sizeof(*def));
+
+    if ( def )
+    { CInvStructure *cs;
+
+      memset(def, 0, sizeof(def));
+
+      def->cictx = cictx;
+      def->name = aname;
+      PL_register_atom(aname);
+
+      if ( (cs=cinv_structure_create(cictx)) )
+	return unify_ptr(sptr, cs, def, ATOM_ci_struct_decl);
+      return ci_error(cictx);
+    } else
+    { return PL_resource_error("memory");
+    }
   }
 
   return FALSE;
@@ -492,18 +542,20 @@ ci_structure_create(term_t ctx, term_t sptr)
 
 static foreign_t
 ci_structure_addmember_value(term_t structure, term_t name, term_t type)
-{ CInvContext *cictx;
+{ ctx_structure *def;
   CInvStructure *cs;
   char *fname;
   cinv_type_t etype;
 
-  if ( get_ptr(structure, &cs, &cictx, ATOM_ci_struct_decl) &&
+  if ( get_ptr(structure, &cs, &def, ATOM_ci_struct_decl) &&
        PL_get_chars(name, &fname, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) &&
        get_type(type, &etype) )
   { cinv_status_t rc;
 
-    rc = cinv_structure_addmember_value(cictx, cs, fname, etype);
-    return ci_status(rc, cictx);
+    if ( !struct_add_member(def, fname, etype) )
+      return FALSE;
+    rc = cinv_structure_addmember_value(def->cictx, cs, fname, etype);
+    return ci_status(rc, def->cictx);
   }
 
   return FALSE;
@@ -512,14 +564,16 @@ ci_structure_addmember_value(term_t structure, term_t name, term_t type)
 
 static foreign_t
 ci_structure_finish(term_t structure)
-{ CInvContext *cictx;
+{ ctx_structure *def;
   CInvStructure *cs;
 
-  if ( get_ptr(structure, &cs, &cictx, ATOM_ci_struct_decl) )
+  if ( get_ptr(structure, &cs, &def, ATOM_ci_struct_decl) )
   { cinv_status_t rc;
 
-    rc = cinv_structure_finish(cictx, cs);
-    return ci_status(rc, cictx);
+    rc = cinv_structure_finish(def->cictx, cs);
+    if ( rc == CINV_SUCCESS )
+      def->finished = TRUE;
+    return ci_status(rc, def->cictx);
   }
 
   return FALSE;
@@ -528,17 +582,17 @@ ci_structure_finish(term_t structure)
 
 static foreign_t
 ci_structure_create_instance(term_t structure, term_t inst)
-{ CInvContext *cictx;
+{ ctx_structure *def;
   CInvStructure *cs;
 
-  if ( get_ptr(structure, &cs, &cictx, ATOM_ci_struct_decl) )
+  if ( get_ptr(structure, &cs, &def, ATOM_ci_struct_decl) )
   { void *ptr;
 
-    if ( (ptr=cinv_structure_create_instance(cictx, cs)) )
-    { return unify_ptr(inst, ptr, cs, ATOM_ci_struct);
+    if ( (ptr=cinv_structure_create_instance(def->cictx, cs)) )
+    { return unify_ptr(inst, ptr, def, ATOM_ci_struct);
     }
 
-    return ci_error(cictx);
+    return ci_error(def->cictx);
   }
 
   return FALSE;
@@ -584,7 +638,7 @@ install(void)
   PL_register_foreign("ci_function_create", 5, ci_function_create, 0);
   PL_register_foreign("ci_function_invoke", 2, ci_function_invoke, 0);
 
-  PL_register_foreign("ci_structure_create", 2, ci_structure_create, 0);
+  PL_register_foreign("ci_structure_create", 3, ci_structure_create, 0);
   PL_register_foreign("ci_structure_addmember_value",
 					    3, ci_structure_addmember_value, 0);
   PL_register_foreign("ci_structure_finish", 2, ci_structure_finish, 0);
