@@ -39,7 +39,7 @@
 /** <module> Bind Prolog predicates to C functions
 */
 
-:- use_foreign_library('lib/x86_64-linux/dc4pl').
+:- use_foreign_library('lib/x86_64-linux/cinvoke4pl').
 
 :- multifile
     user:file_search_path/2.

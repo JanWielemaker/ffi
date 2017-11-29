@@ -34,46 +34,48 @@
 
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
-#include <dynload.h>
-#include <dyncall.h>
+#include <cinvoke.h>
 #include <assert.h>
-#include <pthread.h>
 
 static int debug = 1;
-static pthread_key_t key;
 
 #define DEBUG(g) if ( debug ) do { g; } while(0)
 
-static atom_t ATOM_dc_library;
-static atom_t ATOM_dc_func;
+static atom_t ATOM_ci_context;
+static atom_t ATOM_ci_library;
+static atom_t ATOM_ci_function;
+static atom_t ATOM_ci_prototype;
+static atom_t ATOM_cdecl;
+static atom_t ATOM_stdcall;
+static atom_t ATOM_fastcall;
 
-typedef struct dc_ptr
+typedef struct ci_ptr
 { void *ptr;					/* the pointer */
   atom_t type;					/* Its type */
   void (*free)(void *ptr);			/* Its free function */
-} dc_ptr;
+} ci_ptr;
 
 
 static int
-write_dc_ptr(IOSTREAM *s, atom_t aref, int flags)
-{ dc_ptr *ref = PL_blob_data(aref, NULL, NULL);
+write_ci_ptr(IOSTREAM *s, atom_t aref, int flags)
+{ ci_ptr *ref = PL_blob_data(aref, NULL, NULL);
   (void)flags;
 
-  Sfprintf(s, "<dc_ptr>(%s,%p)", PL_atom_chars(ref->type), ref->ptr);
+  Sfprintf(s, "<ci_ptr>(%s,%p)", PL_atom_chars(ref->type), ref->ptr);
   return TRUE;
 }
 
 
 static void
-acquire_dc_ptr(atom_t aref)
-{ dc_ptr *ref = PL_blob_data(aref, NULL, NULL);
+acquire_ci_ptr(atom_t aref)
+{ ci_ptr *ref = PL_blob_data(aref, NULL, NULL);
   (void)ref;
 }
 
 
 static int
-release_dc_ptr(atom_t aref)
-{ dc_ptr *ref = PL_blob_data(aref, NULL, NULL);
+release_ci_ptr(atom_t aref)
+{ ci_ptr *ref = PL_blob_data(aref, NULL, NULL);
 
   if ( ref->free && ref->ptr )
     (*ref->free)(ref->ptr);
@@ -83,62 +85,104 @@ release_dc_ptr(atom_t aref)
 
 
 static int
-save_dc_ptr(atom_t aref, IOSTREAM *fd)
-{ dc_ptr *ref = PL_blob_data(aref, NULL, NULL);
+save_ci_ptr(atom_t aref, IOSTREAM *fd)
+{ ci_ptr *ref = PL_blob_data(aref, NULL, NULL);
   (void)fd;
 
-  return PL_warning("Cannot save reference to <dc_ptr>(%s,%p)",
+  return PL_warning("Cannot save reference to <ci_ptr>(%s,%p)",
 		    PL_atom_chars(ref->type), ref->ptr);
 }
 
 
 static atom_t
-load_dc_ptr(IOSTREAM *fd)
+load_ci_ptr(IOSTREAM *fd)
 { (void)fd;
 
-  return PL_new_atom("<dc_ptr>");
+  return PL_new_atom("<ci_ptr>");
 }
 
 
-static PL_blob_t dc_ptr_blob =
+static PL_blob_t ci_ptr_blob =
 { PL_BLOB_MAGIC,
   PL_BLOB_UNIQUE,
-  "dc_ptr",
-  release_dc_ptr,
+  "ci_ptr",
+  release_ci_ptr,
   NULL,
-  write_dc_ptr,
-  acquire_dc_ptr,
-  save_dc_ptr,
-  load_dc_ptr
+  write_ci_ptr,
+  acquire_ci_ptr,
+  save_ci_ptr,
+  load_ci_ptr
 };
 
 
 static int
 unify_ptr(term_t t, void *ptr, atom_t type)
-{ dc_ptr ref;
+{ ci_ptr ref;
 
   ref.ptr  = ptr;
   ref.type = type;
   ref.free = NULL;
 
-  return PL_unify_blob(t, &ref, sizeof(ref), &dc_ptr_blob);
+  return PL_unify_blob(t, &ref, sizeof(ref), &ci_ptr_blob);
 }
 
 
 static int
-get_ptr(term_t t, void **ptrp, atom_t ptrtype)
+get_ptr(term_t t, void *ptrp, atom_t ptrtype)
 { PL_blob_t *type;
   void *bp;
 
   if ( PL_get_blob(t, &bp, NULL, &type) &&
-       type == &dc_ptr_blob )
-  { dc_ptr *ref = bp;
+       type == &ci_ptr_blob )
+  { ci_ptr *ref = bp;
+    void **ptrpp = ptrp;
 
-    *ptrp = ref->ptr;
+    *ptrpp = ref->ptr;
     return TRUE;
   }
 
   return FALSE;
+}
+
+
+		 /*******************************
+		 *	    CONVERSIONS		*
+		 *******************************/
+
+static int
+get_cc(term_t cc, cinv_callconv_t *v)
+{ atom_t a;
+
+  if ( PL_get_atom_ex(cc, &a) )
+  { if      ( a == ATOM_cdecl )    *v = CINV_CC_CDECL;
+    else if ( a == ATOM_stdcall )  *v = CINV_CC_STDCALL;
+    else if ( a == ATOM_fastcall ) *v = CINV_CC_STDCALL;
+    else return PL_domain_error("ic_calling_convention", cc);
+
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+
+		 /*******************************
+		 *	      ERRORS		*
+		 *******************************/
+
+static int
+ci_error(CInvContext *cictx)
+{ Sdprintf("Error!\n");
+  return FALSE;
+}
+
+static int
+ci_status(cinv_status_t status, CInvContext *cictx)
+{ if ( status == CINV_SUCCESS )
+  { return TRUE;
+  } else
+  { return ci_error(cictx);
+  }
 }
 
 
@@ -148,16 +192,30 @@ get_ptr(term_t t, void **ptrp, atom_t ptrtype)
 
 
 static foreign_t
-dc_load_library(term_t file, term_t ptr)
-{ char *name;
+ci_context_create(term_t ctx)
+{ CInvContext *cictx;
 
-  if ( PL_get_file_name(file, &name, PL_FILE_OSPATH|PL_FILE_SEARCH|PL_FILE_READ) )
-  { void *h;
+  if ( (cictx=cinv_context_create()) )
+    return unify_ptr(ctx, cictx, ATOM_ci_context);
+
+  return FALSE;
+}
+
+
+static foreign_t
+ci_library_create(term_t ctx, term_t path, term_t lib)
+{ char *name;
+  CInvContext *cictx;
+
+  if ( get_ptr(ctx, &cictx, ATOM_ci_context) &&
+       PL_get_file_name(path, &name,
+			PL_FILE_OSPATH|PL_FILE_SEARCH|PL_FILE_READ) )
+  { CInvLibrary *h;
 
     DEBUG(Sdprintf("Opening %s\n", name));
 
-    if ( (h=dlLoadLibrary(name)) )
-      return unify_ptr(ptr, h, ATOM_dc_library);
+    if ( (h=cinv_library_create(cictx, name)) )
+      return unify_ptr(lib, h, ATOM_ci_library);
   }
 
   return FALSE;
@@ -165,13 +223,15 @@ dc_load_library(term_t file, term_t ptr)
 
 
 static foreign_t
-dc_free_library(term_t h)
-{ void *ptr;
+ci_free_library(term_t ctx, term_t lib)
+{ CInvContext *cictx;
+  CInvLibrary *libh;
 
-  if ( get_ptr(h, &ptr, ATOM_dc_library) )
-  { dlFreeLibrary(ptr);
+  if ( get_ptr(ctx, &cictx, ATOM_ci_context) &&
+       get_ptr(lib, &libh, ATOM_ci_library) )
+  { cinv_status_t rc = cinv_library_delete(cictx, libh);
 
-    return TRUE;
+    return ci_status(rc, cictx);
   }
 
   return FALSE;
@@ -179,18 +239,20 @@ dc_free_library(term_t h)
 
 
 static foreign_t
-dc_find_symbol(term_t lib, term_t name, term_t func)
-{ void *libh;
+ci_library_load_entrypoint(term_t ctx, term_t lib, term_t name, term_t func)
+{ CInvContext *cictx;
+  CInvLibrary *libh;
   char *fname;
 
-  if ( get_ptr(lib, &libh, ATOM_dc_library) &&
+  if ( get_ptr(ctx, &cictx, ATOM_ci_context) &&
+       get_ptr(lib, &libh, ATOM_ci_library) &&
        PL_get_chars(name, &fname, CVT_ATOM|CVT_EXCEPTION) )
   { void *f;
 
     DEBUG(Sdprintf("Find %s in %p\n", fname, libh));
 
-    if ( (f=dlFindSymbol(libh, fname)) )
-      return unify_ptr(func, f, ATOM_dc_func);
+    if ( (f=cinv_library_load_entrypoint(cictx, libh, fname)) )
+      return unify_ptr(func, f, ATOM_ci_function);
   }
 
   return FALSE;
@@ -198,93 +260,56 @@ dc_find_symbol(term_t lib, term_t name, term_t func)
 
 
 static foreign_t
-dc_call(term_t function, term_t signature, term_t goal)
-{ void *fptr;
-  char *sig;
+ci_function_create(term_t ctx, term_t cc, term_t ret, term_t parms, term_t func)
+{ CInvContext *cictx;
+  cinv_callconv_t ccv;
+  char *rformat;
+  char *pformat;
 
-  if ( get_ptr(function, &fptr, ATOM_dc_func) &&
-       PL_get_chars(signature, &sig, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) )
-  { int i;
-    DCCallVM *vm;
-    term_t arg = PL_new_term_ref();
-    int mode = 1;			/* input */
-    int rc;
+  if ( get_ptr(ctx, &cictx, ATOM_ci_context) &&
+       get_cc(cc, &ccv) &&
+       PL_get_chars(ret, &rformat, CVT_ATOM|CVT_EXCEPTION) &&
+       PL_get_chars(parms, &pformat, CVT_ATOM|CVT_EXCEPTION) )
+  { CInvFunction *f;
 
-    if ( !(vm=pthread_getspecific(key)) )
-    { vm = dcNewCallVM(4096);
-      DEBUG(Sdprintf("Created vm at %p\n", vm));
-      dcMode(vm, DC_CALL_C_DEFAULT);
-      pthread_setspecific(key, vm);
-    } else
-    { //DEBUG(Sdprintf("Reusing vm at %p\n", vm));
-      dcReset(vm);
-    }
-
-    if ( *sig == '(' )
-      sig++;
-
-    for(i=0; ; i++)
-    { if ( !PL_get_arg(i+mode, goal, arg) )
-      { rc = ( PL_put_integer(arg, i+mode) &&
-	       PL_existence_error("d_arg", arg) );
-	goto error;
-      }
-
-      if ( mode == 1 )
-      { switch(sig[i])
-	{ case 'd':
-	  { double d;
-
-	    if ( !(rc=PL_cvt_i_float(arg, &d)) )
-	      goto error;
-	    dcArgDouble(vm, d);
-	    break;
-	  }
-	  case ')':
-	    mode = 0;			/* output */
-	    break;
-          default:
-	    rc = PL_syntax_error("dc_signature", NULL);
-	    goto error;
-	}
-      } else
-      { switch(sig[i])
-	{ case 'd':
-	  { double d = dcCallDouble(vm, fptr);
-	    rc = PL_cvt_o_float(d, arg);
-	    break;
-	  }
-          default:
-	    rc = PL_syntax_error("dc_signature", NULL);
-	    goto error;
-	}
-	break;
-      }
-    }
-
-  error:
-    return rc;
+    if ( (f=cinv_function_create(cictx, ccv, rformat, pformat)) )
+      return unify_ptr(func, f, ATOM_ci_prototype);
+    return ci_error(cictx);
   }
 
   return FALSE;
 }
 
 
-static void
-dc_cleanup(void *ctx)
-{ dcFree(ctx);
+static foreign_t
+ci_function_invoke(term_t ctx, term_t prototype, term_t fptr,
+		   term_t goal)
+{
 }
 
 
+
+
+#define MKATOM(n) \
+        ATOM_ ## n = PL_new_atom(#n)
+#define MKFUNCTOR(n,a) \
+        FUNCTOR_ ## n ## a = PL_new_functor(PL_new_atom(#n), a)
+
 install_t
 install(void)
-{ ATOM_dc_library = PL_new_atom("dc_library");
-  ATOM_dc_func    = PL_new_atom("dc_function");
+{ MKATOM(ci_context);
+  MKATOM(ci_library);
+  MKATOM(ci_function);
+  MKATOM(ci_prototype);
+  MKATOM(cdecl);
+  MKATOM(stdcall);
+  MKATOM(fastcall);
 
-  PL_register_foreign("dc_load_library", 2, dc_load_library, 0);
-  PL_register_foreign("dc_free_library", 1, dc_free_library, 0);
-  PL_register_foreign("dc_find_symbol",  3, dc_find_symbol,  0);
-  PL_register_foreign("dc_call",         3, dc_call,         0);
-
-  pthread_key_create(&key, dc_cleanup);
+  PL_register_foreign("ci_context_create",  1, ci_context_create,  0);
+  PL_register_foreign("ci_library_create",  3, ci_library_create,  0);
+  PL_register_foreign("ci_free_library",    2, ci_free_library,    0);
+  PL_register_foreign("ci_library_load_entrypoint",
+					    4, ci_library_load_entrypoint, 0);
+  PL_register_foreign("ci_function_create", 5, ci_function_create, 0);
+  PL_register_foreign("ci_function_invoke", 4, ci_function_invoke, 0);
 }
