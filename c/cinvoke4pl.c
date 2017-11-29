@@ -46,9 +46,21 @@ static atom_t ATOM_ci_context;
 static atom_t ATOM_ci_library;
 static atom_t ATOM_ci_function;
 static atom_t ATOM_ci_prototype;
+static atom_t ATOM_ci_struct;
+
 static atom_t ATOM_cdecl;
 static atom_t ATOM_stdcall;
 static atom_t ATOM_fastcall;
+
+static atom_t ATOM_char;
+static atom_t ATOM_short;
+static atom_t ATOM_int;
+static atom_t ATOM_long;
+static atom_t ATOM_extralong;
+static atom_t ATOM_float;
+static atom_t ATOM_double;
+static atom_t ATOM_ptr;
+
 
 typedef struct ci_ptr
 { void *ptr;					/* the pointer */
@@ -177,6 +189,29 @@ get_cc(term_t cc, cinv_callconv_t *v)
 }
 
 
+static int
+get_type(term_t type, cinv_type_t *v)
+{ atom_t a;
+
+  if ( PL_get_atom_ex(type, &a) )
+  { if      ( a == ATOM_char )      *v = CINV_T_CHAR;
+    else if ( a == ATOM_short )     *v = CINV_T_SHORT;
+    else if ( a == ATOM_int )       *v = CINV_T_INT;
+    else if ( a == ATOM_long )      *v = CINV_T_LONG;
+    else if ( a == ATOM_extralong ) *v = CINV_T_EXTRALONG;
+    else if ( a == ATOM_float )     *v = CINV_T_FLOAT;
+    else if ( a == ATOM_double )    *v = CINV_T_DOUBLE;
+    else if ( a == ATOM_ptr )       *v = CINV_T_PTR;
+    else return PL_domain_error("ic_type", type);
+
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+
+
 		 /*******************************
 		 *	      ERRORS		*
 		 *******************************/
@@ -239,6 +274,8 @@ ci_library_create(term_t ctx, term_t path, term_t lib)
 
     if ( (h=cinv_library_create(cictx, name)) )
       return unify_ptr(lib, h, cictx, ATOM_ci_library);
+
+    return ci_error(cictx);
   }
 
   return FALSE;
@@ -431,6 +468,67 @@ ci_function_invoke(term_t prototype, term_t goal)
 }
 
 
+		 /*******************************
+		 *	     STRUCTURES		*
+		 *******************************/
+
+static foreign_t
+ci_structure_create(term_t ctx, term_t sptr)
+{ CInvContext *cictx;
+
+  if ( get_ptr(ctx, &cictx, NULL, ATOM_ci_context) )
+  { CInvStructure *cs;
+
+    if ( (cs=cinv_structure_create(cictx)) )
+      return unify_ptr(sptr, cs, cictx, ATOM_ci_struct);
+
+    return ci_error(cictx);
+  }
+
+  return FALSE;
+}
+
+
+static foreign_t
+ci_structure_addmember_value(term_t structure, term_t name, term_t type)
+{ CInvContext *cictx;
+  CInvStructure *cs;
+  char *fname;
+  cinv_type_t etype;
+
+  if ( get_ptr(structure, &cs, &cictx, ATOM_ci_struct) &&
+       PL_get_chars(name, &fname, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) &&
+       get_type(type, &etype) )
+  { cinv_status_t rc;
+
+    rc = cinv_structure_addmember_value(cictx, cs, fname, etype);
+    return ci_status(rc, cictx);
+  }
+
+  return FALSE;
+}
+
+
+static foreign_t
+ci_structure_finish(term_t structure)
+{ CInvContext *cictx;
+  CInvStructure *cs;
+
+  if ( get_ptr(structure, &cs, &cictx, ATOM_ci_struct) )
+  { cinv_status_t rc;
+
+    rc = cinv_structure_finish(cictx, cs);
+    return ci_status(rc, cictx);
+  }
+
+  return FALSE;
+}
+
+
+		 /*******************************
+		 *	     REGISTER		*
+		 *******************************/
+
 #define MKATOM(n) \
         ATOM_ ## n = PL_new_atom(#n)
 #define MKFUNCTOR(n,a) \
@@ -442,9 +540,20 @@ install(void)
   MKATOM(ci_library);
   MKATOM(ci_function);
   MKATOM(ci_prototype);
+  MKATOM(ci_struct);
+
   MKATOM(cdecl);
   MKATOM(stdcall);
   MKATOM(fastcall);
+
+  MKATOM(char);
+  MKATOM(short);
+  MKATOM(int);
+  MKATOM(long);
+  MKATOM(extralong);
+  MKATOM(float);
+  MKATOM(double);
+  MKATOM(ptr);
 
   PL_register_foreign("ci_context_create",  1, ci_context_create,  0);
   PL_register_foreign("ci_library_create",  3, ci_library_create,  0);
@@ -453,4 +562,9 @@ install(void)
 					    3, ci_library_load_entrypoint, 0);
   PL_register_foreign("ci_function_create", 5, ci_function_create, 0);
   PL_register_foreign("ci_function_invoke", 2, ci_function_invoke, 0);
+
+  PL_register_foreign("ci_structure_create", 2, ci_structure_create, 0);
+  PL_register_foreign("ci_structure_addmember_value",
+					    3, ci_structure_addmember_value, 0);
+  PL_register_foreign("ci_structure_finish", 2, ci_structure_finish, 0);
 }
