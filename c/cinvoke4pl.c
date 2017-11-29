@@ -481,11 +481,23 @@ typedef struct ctx_member
 
 
 typedef struct ctx_structure
-{ CInvContext *cictx;
-  atom_t       name;
-  ctx_member  *members;
-  int	       finished;
+{ CInvContext   *cictx;
+  CInvStructure *structure;
+  atom_t         name;
+  ctx_member    *members;
+  int	         finished;
 } ctx_structure;
+
+
+static int
+get_atom_and_string(term_t t, atom_t *aname, const char **sname)
+{ if ( PL_get_atom_ex(t, aname) )
+  { *sname = PL_atom_chars(*aname);
+    return TRUE;
+  }
+
+  return FALSE;
+}
 
 
 static int
@@ -510,6 +522,20 @@ struct_add_member(ctx_structure *def, const char *name, cinv_type_t type)
 }
 
 
+static ctx_member *
+struct_find_member(ctx_structure *def, term_t t, atom_t name)
+{ ctx_member *m;
+
+  for(m=def->members; m; m=m->next)
+  { if ( m->name == name )
+      return m;
+  }
+
+  PL_existence_error("member", t);
+  return NULL;
+}
+
+
 static foreign_t
 ci_structure_create(term_t ctx, term_t name, term_t sptr)
 { CInvContext *cictx;
@@ -529,7 +555,9 @@ ci_structure_create(term_t ctx, term_t name, term_t sptr)
       PL_register_atom(aname);
 
       if ( (cs=cinv_structure_create(cictx)) )
+      { def->structure = cs;
 	return unify_ptr(sptr, cs, def, ATOM_ci_struct_decl);
+      }
       return ci_error(cictx);
     } else
     { return PL_resource_error("memory");
@@ -599,6 +627,72 @@ ci_structure_create_instance(term_t structure, term_t inst)
 }
 
 
+static foreign_t
+ci_structure_instance_setvalue(term_t inst, term_t name, term_t value)
+{ ctx_structure *def;
+  void *ptr;
+  atom_t aname;
+  const char *sname;
+  ctx_member *m;
+
+  if ( get_ptr(inst, &ptr, &def, ATOM_ci_struct) &&
+       get_atom_and_string(name, &aname, &sname) &&
+       (m=struct_find_member(def, name, aname)) )
+  { cinv_status_t status;
+    argstore store;
+    void *vptr;
+
+    switch(m->type)
+    { case CINV_T_CHAR:
+	if ( !PL_cvt_i_char(value, &store.c) ) return FALSE;
+        vptr = &store.c;
+	break;
+      case CINV_T_SHORT:
+	if ( !PL_cvt_i_short(value, &store.s) ) return FALSE;
+        vptr = &store.s;
+	break;
+      case CINV_T_INT:
+	if ( !PL_cvt_i_int(value, &store.i) ) return FALSE;
+        vptr = &store.i;
+	break;
+      case CINV_T_LONG:
+	if ( !PL_cvt_i_long(value, &store.l) ) return FALSE;
+        vptr = &store.l;
+	break;
+      case CINV_T_EXTRALONG:
+      { int64_t e;
+	if ( !PL_cvt_i_int64(value, &e) ) return FALSE;
+	store.e = e;
+        vptr = &store.e;
+	break;
+      }
+      case CINV_T_FLOAT:
+	if ( !PL_cvt_i_single(value, &store.f) ) return FALSE;
+        vptr = &store.f;
+	break;
+      case CINV_T_DOUBLE:
+	if ( !PL_cvt_i_float(value, &store.d) ) return FALSE;
+        vptr = &store.d;
+	break;
+      case CINV_T_PTR:
+	assert(0);
+        break;
+    }
+
+    status = cinv_structure_instance_setvalue(
+		 def->cictx,
+		 def->structure,
+		 ptr,
+		 sname,
+		 vptr);
+
+    return ci_status(status, def->cictx);
+  }
+
+  return FALSE;
+}
+
+
 		 /*******************************
 		 *	     REGISTER		*
 		 *******************************/
@@ -644,4 +738,6 @@ install(void)
   PL_register_foreign("ci_structure_finish", 2, ci_structure_finish, 0);
   PL_register_foreign("ci_structure_create_instance",
 					    2, ci_structure_create_instance, 0);
+  PL_register_foreign("ci_structure_instance_setvalue",
+					    3, ci_structure_instance_setvalue, 0);
 }
