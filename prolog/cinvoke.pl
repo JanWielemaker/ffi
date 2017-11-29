@@ -32,7 +32,7 @@
     POSSIBILITY OF SUCH DAMAGE.
 */
 
-:- module(dyncall,
+:- module(cinvoke,
           [ dc_bind/4                   % :Goal, +Signature, +File, +Func
           ]).
 
@@ -63,31 +63,55 @@ user:file_search_path(dc, '/lib/x86_64-linux-gnu').
 %
 %   True when FuncPtr is a pointer to Name in the library Handle
 
-%!  dc_file_handle(+Base, -FHandle)
+%!  ic_context(-Context)
+%
+%   Global context for the cinvoke library
+
+:- dynamic  ci_context_cache/1.
+:- volatile ci_context_cache/1.
+
+ci_context(Ctx) :-
+    ci_context_cache(Ctx0),
+    !,
+    Ctx = Ctx0.
+ci_context(Ctx) :-
+    with_mutex(cinvoke, ci_context_sync(Ctx0)),
+    Ctx = Ctx0.
+
+ci_context_sync(Ctx) :-
+    ci_context_cache(Ctx),
+    !.
+ci_context_sync(Ctx) :-
+    ci_context_create(Ctx),
+    asserta(ci_context_cache(Ctx)).
+
+
+%!  ci_library(+Base, -FHandle)
 %
 %   Find a file handle for a foreign library
 
-:- dynamic  dc_file_handle_cache/2.
-:- volatile dc_file_handle_cache/2.
+:- dynamic  ci_library_cache/2.
+:- volatile ci_library_cache/2.
 
-dc_file_handle(Base, FHandle) :-
-    dc_file_handle_cache(Base, FHandle0),
+ci_library(Base, FHandle) :-
+    ci_library_cache(Base, FHandle0),
     !,
     FHandle = FHandle0.
-dc_file_handle(Base, FHandle) :-
-    with_mutex(dyncall, dc_file_handle_sync(Base, FHandle)).
+ci_library(Base, FHandle) :-
+    with_mutex(dyncall, ci_library_sync(Base, FHandle)).
 
-dc_file_handle_sync(Base, FHandle) :-
-    dc_file_handle_cache(Base, FHandle0),
+ci_library_sync(Base, FHandle) :-
+    ci_library_cache(Base, FHandle0),
     !,
     FHandle = FHandle0.
-dc_file_handle_sync(Base, FHandle) :-
+ci_library_sync(Base, FHandle) :-
     absolute_file_name(dc(Base), Path,
                        [ access(read),
                          file_type(executable)
                        ]),
-    dc_load_library(Path, FHandle),
-    assertz(dc_file_handle_cache(Base, FHandle)).
+    ci_context(Ctx),
+    ci_library_create(Ctx, Path, FHandle),
+    assertz(ci_library_cache(Base, FHandle)).
 
 
 		 /*******************************
@@ -105,8 +129,10 @@ system:term_expansion((:- dc_bind(Goal, Signature, File, Func)),
     dc_expand(Goal, Signature, File, Func, Clause).
 
 dc_expand(Goal, Signature, File, Func,
-          (Goal :- dyncall:dc_call(FuncPtr, Signature, Goal))) :-
-    dc_file_handle(File, FH),
-    writeln(FH),
-    dc_find_symbol(FH, Func, FuncPtr).
+          (Goal :- cinvoke:ci_function_invoke(Prototype, Goal))) :-
+    split_string(Signature, ")", "", [Params, Ret]),
+    ci_library(File, FH),
+    ci_library_load_entrypoint(FH, Func, FuncPtr),
+    ci_function_create(FuncPtr, cdecl, Ret, Params, Prototype).
+
 
