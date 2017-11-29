@@ -47,6 +47,7 @@ static atom_t ATOM_ci_library;
 static atom_t ATOM_ci_function;
 static atom_t ATOM_ci_prototype;
 static atom_t ATOM_ci_struct;
+static atom_t ATOM_ci_struct_decl;
 
 static atom_t ATOM_cdecl;
 static atom_t ATOM_stdcall;
@@ -480,7 +481,7 @@ ci_structure_create(term_t ctx, term_t sptr)
   { CInvStructure *cs;
 
     if ( (cs=cinv_structure_create(cictx)) )
-      return unify_ptr(sptr, cs, cictx, ATOM_ci_struct);
+      return unify_ptr(sptr, cs, cictx, ATOM_ci_struct_decl);
 
     return ci_error(cictx);
   }
@@ -496,7 +497,7 @@ ci_structure_addmember_value(term_t structure, term_t name, term_t type)
   char *fname;
   cinv_type_t etype;
 
-  if ( get_ptr(structure, &cs, &cictx, ATOM_ci_struct) &&
+  if ( get_ptr(structure, &cs, &cictx, ATOM_ci_struct_decl) &&
        PL_get_chars(name, &fname, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) &&
        get_type(type, &etype) )
   { cinv_status_t rc;
@@ -514,11 +515,30 @@ ci_structure_finish(term_t structure)
 { CInvContext *cictx;
   CInvStructure *cs;
 
-  if ( get_ptr(structure, &cs, &cictx, ATOM_ci_struct) )
+  if ( get_ptr(structure, &cs, &cictx, ATOM_ci_struct_decl) )
   { cinv_status_t rc;
 
     rc = cinv_structure_finish(cictx, cs);
     return ci_status(rc, cictx);
+  }
+
+  return FALSE;
+}
+
+
+static foreign_t
+ci_structure_create_instance(term_t structure, term_t inst)
+{ CInvContext *cictx;
+  CInvStructure *cs;
+
+  if ( get_ptr(structure, &cs, &cictx, ATOM_ci_struct_decl) )
+  { void *ptr;
+
+    if ( (ptr=cinv_structure_create_instance(cictx, cs)) )
+    { return unify_ptr(inst, ptr, cs, ATOM_ci_struct);
+    }
+
+    return ci_error(cictx);
   }
 
   return FALSE;
@@ -541,6 +561,7 @@ install(void)
   MKATOM(ci_function);
   MKATOM(ci_prototype);
   MKATOM(ci_struct);
+  MKATOM(ci_struct_decl);
 
   MKATOM(cdecl);
   MKATOM(stdcall);
@@ -567,4 +588,6 @@ install(void)
   PL_register_foreign("ci_structure_addmember_value",
 					    3, ci_structure_addmember_value, 0);
   PL_register_foreign("ci_structure_finish", 2, ci_structure_finish, 0);
+  PL_register_foreign("ci_structure_create_instance",
+					    2, ci_structure_create_instance, 0);
 }
