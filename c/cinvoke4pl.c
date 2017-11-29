@@ -693,6 +693,68 @@ ci_structure_instance_setvalue(term_t inst, term_t name, term_t value)
 }
 
 
+static foreign_t
+ci_structure_instance_getvalue(term_t inst, term_t name, term_t value)
+{ ctx_structure *def;
+  void *ptr;
+  atom_t aname;
+  const char *sname;
+  ctx_member *m;
+
+  if ( get_ptr(inst, &ptr, &def, ATOM_ci_struct) &&
+       get_atom_and_string(name, &aname, &sname) &&
+       (m=struct_find_member(def, name, aname)) )
+  { void *vptr;
+
+    if ( (vptr=cinv_structure_instance_getvalue(
+		   def->cictx,
+		   def->structure,
+		   ptr,
+		   sname)) )
+    { switch(m->type)
+      { case CINV_T_CHAR:
+	{ char *vp = vptr;
+	  return PL_cvt_o_int64(*vp, value);
+	}
+	case CINV_T_SHORT:
+	{ short *vp = vptr;
+	  return PL_cvt_o_int64(*vp, value);
+	}
+	case CINV_T_INT:
+	{ int *vp = vptr;
+	  return PL_cvt_o_int64(*vp, value);
+	}
+	case CINV_T_LONG:
+	{ long *vp = vptr;
+	  return PL_cvt_o_int64(*vp, value);
+	}
+	case CINV_T_EXTRALONG:
+	{ int64_t *vp = vptr;
+	  return PL_cvt_o_int64(*vp, value);
+	}
+	case CINV_T_FLOAT:
+	{ float *vp = vptr;
+	  return PL_cvt_o_float(*vp, value);
+	}
+	case CINV_T_DOUBLE:
+	{ double *vp = vptr;
+	  return PL_cvt_o_float(*vp, value);
+	}
+	case CINV_T_PTR:
+	  assert(0);
+	  return FALSE;
+      }
+    }
+
+    return ci_error(def->cictx);
+  }
+
+  return FALSE;
+}
+
+
+
+
 		 /*******************************
 		 *	     REGISTER		*
 		 *******************************/
@@ -740,4 +802,6 @@ install(void)
 					    2, ci_structure_create_instance, 0);
   PL_register_foreign("ci_structure_instance_setvalue",
 					    3, ci_structure_instance_setvalue, 0);
+  PL_register_foreign("ci_structure_instance_getvalue",
+					    3, ci_structure_instance_getvalue, 0);
 }
