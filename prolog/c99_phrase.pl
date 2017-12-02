@@ -511,7 +511,7 @@ direct_abstract_declarator_suffix(dads(PTL)) -->
 direct_abstract_declarator_suffix(-) -->
     [].
 
-typedef_name(typedef(Name)) -->
+typedef_name(user_type(Name)) -->
     [id(Name)].
 
 initializer(init(E)) -->
@@ -530,7 +530,7 @@ initializer1(init(D,I)) -->
 initializer1(init(-,I)) -->
     initializer(I).
 
-designation(=(D)) -->
+designation(D) -->
     designator_list(D), [=], !.
 
 designator_list([H|T]) -->
