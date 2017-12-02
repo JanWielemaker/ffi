@@ -39,12 +39,233 @@
 
 c99_parse(AST) -->
     c99_tokens(Tokens),
-    { phrase(declarations(AST), Tokens) }.
+    { phrase(translation_unit(AST), Tokens) }.
 
-declarations([H|T]) --> declaration(H), !, declarations(T).
-declarations([]) --> [].
 
-% A2.2. Declarations
+		 /*******************************
+		 *       A.2.1 Expression	*
+		 *******************************/
+
+primary_expression(E) --> [id(E)].
+primary_expression(E) --> constant(E).
+primary_expression(E) --> string_literal(E).
+primary_expression(E) --> ['('], expression(E), [')'].
+
+constant(i(I)) --> [i(I)].
+constant(l(I)) --> [l(I)].
+constant(ll(I)) --> [ll(I)].
+constant(u(I)) --> [u(I)].
+constant(ul(I)) --> [ul(I)].
+constant(ull(I)) --> [ull(I)].
+constant(float(F)) --> [float(F)].
+constant(double(D)) --> [double(D)].
+constant(enum_value(Name)) --> [enum_value(Name)].
+constant(char(Codes)) --> [char(Codes)].
+constant(wchar(Codes)) --> [wchar(Codes)].
+
+string_literal(str(S)) --> [str(S)].
+string_literal(wstr(S)) --> [wstr(S)].
+
+postfix_expression(e(P, PF)) -->
+    primary_expression(P),
+    expression_postfix(PF).
+
+expression_postfix(array(I)) -->
+    ['['], expression(I), [']'].
+expression_postfix(args(List)) -->
+    ['('], argument_expression_list_opt(List), [')'].
+expression_postfix(.(Id)) -->
+    [ '.', id(Id) ].
+expression_postfix(++) -->
+    [++].
+expression_postfix(--) -->
+    [--].
+expression_postfix(cast(Type, Init)) -->
+    ['('], type_name(Type), [')', '{'],
+    initializer_list(Init), opt_comma, ['}'].
+
+argument_expression_list_opt([H|T]) -->
+    assignment_expression(H),
+    argument_expression_list_opt(T).
+argument_expression_list_opt([]) --> [].
+
+unary_expression(E) -->
+    postfix_expression(E).
+unary_expression(++(UE)) -->
+    [++], unary_expression(UE).
+unary_expression(--(UE)) -->
+    [--], unary_expression(UE).
+unary_expression(op(Op, Expr)) -->
+    unary_operator(Op),
+    cast_expression(Expr).
+unary_expression(sizeof(Expr)) -->
+    [sizeof], unary_expression(Expr).
+unary_expression(sizeof(type(Type))) -->
+    [sizeof, '('], type_name(Type), [')'].
+
+unary_operator(&) --> [&].
+unary_operator(*) --> [*].
+unary_operator(+) --> [+].
+unary_operator(-) --> [-].
+unary_operator(~) --> [~].
+unary_operator(!) --> [!].
+
+cast_expression(Expr) -->
+    unary_expression(Expr).
+cast_expression(cast(Type, Expr)) -->
+    ['('], type_name(Type), [')'], cast_expression(Expr).
+
+multiplicative_expression(Expr) -->
+    cast_expression(A),
+    (   multiplicative_op(Op)
+    ->  multiplicative_expression(B),
+        { re_nest(Op, A, B, Expr) }
+    ;   { Expr = A }
+    ).
+
+multiplicative_op(*) --> [*].
+multiplicative_op(/) --> [/].
+multiplicative_op('%') --> ['%'].
+
+re_nest(Op, A, o(Op2, B, C), Expr) :-
+    re_nest(Op2, o(Op,A,B), C, Expr).
+re_nest(Op, A, B, o(Op, A, B)).
+
+additive_expression(Expr) -->
+    multiplicative_expression(A),
+    (   additive_op(Op)
+    ->  additive_expression(B),
+        { re_nest(Op, A, B, Expr) }
+    ;   { Expr = A }
+    ).
+
+additive_op(+) --> [+].
+additive_op(-) --> [-].
+
+shift_expression(Expr) -->
+    additive_expression(A),
+    (   shift_op(Op)
+    ->  shift_expression(B),
+        { re_nest(Op, A, B, Expr) }
+    ;   { Expr = A }
+    ).
+
+shift_op(<<) --> [<<].
+shift_op(>>) --> [>>].
+
+relational_expression(Expr) -->
+    shift_expression(A),
+    (   relational_op(Op)
+    ->  relational_expression(B),
+        { re_nest(Op, A, B, Expr) }
+    ;   { Expr = A }
+    ).
+
+relational_op(<) --> [<].
+relational_op(>) --> [>].
+relational_op(>=) --> [>=].
+relational_op(<=) --> [<=].
+
+equality_expression(Expr) -->
+    relational_expression(A),
+    (   equality_op(Op)
+    ->  equality_expression(B),
+        { re_nest(Op, A, B, Expr) }
+    ;   { Expr = A }
+    ).
+
+equality_op(==) --> [==].
+equality_op('!=') --> ['!='].
+
+and_expression(Expr) -->
+    equality_expression(A),
+    (   [&]
+    ->  and_expression(B),
+        { re_nest(&, A, B, Expr) }
+    ;   { Expr = A }
+    ).
+
+exclusive_or_expression(Expr) -->
+    and_expression(A),
+    (   [^]
+    ->  exclusive_or_expression(B),
+        { re_nest(^, A, B, Expr) }
+    ;   { Expr = A }
+    ).
+
+
+inclusive_or_expression(Expr) -->
+    exclusive_or_expression(A),
+    (   ['|']
+    ->  inclusive_or_expression(B),
+        { re_nest('|', A, B, Expr) }
+    ;   { Expr = A }
+    ).
+
+logical_and_expression(Expr) -->
+    inclusive_or_expression(A),
+    (   [&&]
+    ->  logical_and_expression(B),
+        { re_nest(&&, A, B, Expr) }
+    ;   { Expr = A }
+    ).
+
+logical_or_expression(Expr) -->
+    logical_and_expression(A),
+    (   ['||']
+    ->  logical_or_expression(B),
+        { re_nest('||', A, B, Expr) }
+    ;   { Expr = A }
+    ).
+
+conditional_expression(Expr) -->
+    logical_or_expression(A),
+    (   [?]
+    ->  expression(If),
+        [:],
+        conditional_expression(Then),
+        { Expr = cond(A, If, Then) }
+    ;   { Expr = A }
+    ).
+
+assignment_expression(Expr) -->
+    conditional_expression(Expr).
+assignment_expression(assign(Op, UE, AE)) -->
+    unary_expression(UE),
+    assignment_operator(Op),
+    assignment_expression(AE).
+
+assignment_expression_opt(Expr) -->
+    assignment_expression(Expr).
+assignment_expression_opt(-) --> [].
+
+assignment_operator(=)    --> [=].
+assignment_operator(*=)   --> [*=].
+assignment_operator(/=)   --> [/=].
+assignment_operator('%=') --> ['%='].
+assignment_operator(+=)   --> [+=].
+assignment_operator(-=)   --> [-=].
+assignment_operator(<<=)  --> [<<=].
+assignment_operator(>>=)  --> [>>=].
+assignment_operator(&=)   --> [&=].
+assignment_operator(^=)   --> [^=].
+assignment_operator('|=') --> ['|='].
+
+expression(Expr) -->
+    assignment_expression(A),
+    (   [',']
+    ->  expression(B),
+        { re_nest(=, A, B, Expr) }
+    ;   { Expr = A }
+    ).
+
+constant_expression(E) -->
+    conditional_expression(E).
+
+
+		 /*******************************
+		 *      A2.2. Declarations	*
+		 *******************************/
 
 declaration(decl(DS, I)) -->
     declaration_specifiers(DS),
@@ -216,6 +437,10 @@ parameter_type_list([H|T]) -->
     ;   {T=[]}
     ).
 
+parameter_type_list_opt(List) -->
+    parameter_type_list(List).
+parameter_type_list_opt([]) --> [].
+
 parameter_list([H|T]) -->
     parameter_declaration(H),
     (   [',']
@@ -291,6 +516,17 @@ initializer(init(E)) -->
 initializer(init(IL)) -->
     ['{'], initializer_list(IL), opt_comma, ['}'], !.
 
+initializer_list([H|T]) -->
+    initializer1(H), !,
+    initializer_list(T).
+initializer_list([]) --> [].
+
+initializer1(init(D,I)) -->
+    designation(D), !,
+    initializer(I).
+initializer1(init(-,I)) -->
+    initializer(I).
+
 designation(=(D)) -->
     designator_list(D), [=], !.
 
@@ -307,3 +543,94 @@ designator([E]) -->
     constant_expression(E).
 designator(.(Id)) -->
     [id(Id)].
+
+		 /*******************************
+		 *       A.2.3 Statements	*
+		 *******************************/
+
+statement(S) --> labeled_statement(S).
+statement(S) --> compound_statement(S).
+statement(S) --> expression_statement(S).
+statement(S) --> selection_statement(S).
+statement(S) --> iteration_statement(S).
+statement(S) --> jump_statement(S).
+
+labeled_statement(label(L, Statement)) -->
+    [id(L), [:]], !, statement(Statement).
+labeled_statement(case(V, Statement)) -->
+    [case], constant_expression(V), [:], !, statement(Statement).
+labeled_statement(default(Statement)) -->
+    [default, :], !, statement(Statement).
+
+compound_statement(block(Statements)) -->
+    ['{'], block_item_list_opt(Statements), ['}'].
+
+block_item_list_opt([H|T]) -->
+    block_item(H), !,
+    block_item_list_opt(T).
+block_item_list_opt([]) --> [].
+
+block_item(H) --> declaration(H).
+block_item(H) --> statement(H).
+
+expression_statement(E) -->
+    expression_opt(E), [;], !.
+
+expression_opt(E) -->
+    expression(E), !.
+expression_opt(void) -->
+    [].
+
+selection_statement(if(Cond, If, Then)) -->
+    [if, '('], expression(Cond), [')'],
+    statement(If),
+    (   [else]
+    ->  statement(Then)
+    ;   {Then = void}
+    ).
+selection_statement(switch(Expr, Statement)) -->
+    [switch, '('], expression(Expr), [')'],
+    statement(Statement).
+
+iteration_statement(while(Expr, Statement)) -->
+    [while, '('], expression(Expr), [')'], statement(Statement).
+iteration_statement(do_while(Expr, Statement)) -->
+    [do], statement(Statement), [while, '('], expression(Expr), [')', ';'].
+iteration_statement(for(Init, Cond, Iter, Statement)) -->
+    [for, '('], expression_opt(Init), [;], expression_opt(Cond), [;],
+    expression_opt(Iter), [')'], statement(Statement).
+iteration_statement(for2(Decl, Expr1, Expr2, Statement)) -->
+    [for, '('], declaration(Decl), expression_opt(Expr1), [;],
+    expression_opt(Expr2), [')'], statement(Statement).
+
+jump_statement(goto(Id)) -->
+    [ goto, id(Id) ].
+jump_statement(continue) -->
+    [ continue ].
+jump_statement(break) -->
+    [ break ].
+jump_statement(return(Expr)) -->
+    [ return ], expression(Expr).
+
+		 /*******************************
+		 *            A.2.4		*
+		 *******************************/
+
+translation_unit([H|T]) -->
+    external_declaration(H), !,
+    translation_unit(T).
+translation_unit([]) --> [].
+
+external_declaration(D) --> function_definition(D).
+external_declaration(D) --> declaration(D).
+
+function_definition(function(Specifiers, Declarator, Params, Body)) -->
+    declaration_specifiers(Specifiers),
+    declarator(Declarator),
+    declaration_list_opt(Params),
+    compound_statement(Body).
+
+declaration_list_opt([H|T]) -->
+    declaration(H), !,
+    declaration_list_opt(T).
+declaration_list_opt([]) --> [].
