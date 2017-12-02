@@ -411,6 +411,7 @@ direct_declarator_suffix(dds(PTL)) -->
     ['('], parameter_type_list(PTL), [')'], !.
 direct_declarator_suffix(dds(IDList)) -->
     ['('], identifier_list_opt(IDList), [')'], !.
+direct_declarator_suffix(-) --> [].
 
 pointer([ptr(TQL)|T]) -->
     [*], type_qualifier_list(TQL),
