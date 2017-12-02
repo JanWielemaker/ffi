@@ -66,23 +66,25 @@ constant(wchar(Codes)) --> [wchar(Codes)].
 string_literal(str(S)) --> [str(S)].
 string_literal(wstr(S)) --> [wstr(S)].
 
-postfix_expression(e(P, PF)) -->
+postfix_expression(Expr) -->
     primary_expression(P),
-    expression_postfix(PF).
+    expression_postfix(P, Expr).
 
-expression_postfix(array(I)) -->
+expression_postfix(E0, array(E0,I)) -->
     ['['], expression(I), [']'].
-expression_postfix(args(List)) -->
+expression_postfix(E0, args(E0, List)) -->
     ['('], argument_expression_list_opt(List), [')'].
-expression_postfix(.(Id)) -->
+expression_postfix(E0, member(E0, Id)) -->
     [ '.', id(Id) ].
-expression_postfix(++) -->
+expression_postfix(E0, post_incr(E0)) -->
     [++].
-expression_postfix(--) -->
+expression_postfix(E0, post_decr(E0)) -->
     [--].
-expression_postfix(cast(Type, Init)) -->
+expression_postfix(E0, cast(E0, Type, Init)) -->
     ['('], type_name(Type), [')', '{'],
     initializer_list(Init), opt_comma, ['}'].
+expression_postfix(E, E) -->
+    [].
 
 argument_expression_list_opt([H|T]) -->
     assignment_expression(H),
