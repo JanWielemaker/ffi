@@ -2,7 +2,7 @@
           [ c99_tokens//1,              % -List
             c99_token//1                % -Token
           ]).
-:- use_module(library(dcg/basics), [blanks//0]).
+:- use_module(library(dcg/basics), [blanks//0, string_without//2]).
 
 c99_tokens([H|T]) -->
     c99_token(H), !,
@@ -23,6 +23,8 @@ token(T) --> identifier(T).
 token(T) --> constant(T).
 token(T) --> string_literal(T).
 token(T) --> punctuator(T).
+token(T) --> header_name(T).
+token(T) --> pp_number(T).
 
 keyword(auto)         --> "auto".
 keyword(break)        --> "break".
@@ -130,7 +132,7 @@ decimal_constant(D) -->
     nonzero_digit(D0), digits(DT), { number_chars(D, [D0|DT]) }.
 
 octal_constant(D) -->
-    "0", octal_digits(L), { number_chars(D, [0'0,0'o|L]) }.
+    "0", octal_digits(L), { L == [] -> D = 0 ; number_chars(D, ['0',o|L]) }.
 
 digits([H|T]) --> digit(H), !, digits(T).
 digits([]) --> [].
@@ -433,3 +435,47 @@ punctuator('^=') --> "^=".
 punctuator('&&') --> "&&".
 punctuator('||') --> "||".
 punctuator('|=') --> "|=".
+
+header_name(Header) -->
+    ">", string_without(">\n", Codes), ">", !,
+    { atom_codes(Name, Codes),
+      Header = header(ab, Name)
+    }.
+header_name(Header) -->
+    "\"", string_without("\"\n", Codes), "\"", !,
+    { atom_codes(Name, Codes),
+      Header = header(dq, Name)
+    }.
+
+pp_number(PP) -->
+    digits(D1a),
+    (   ".",
+        digits(D2a)
+    ->  {append(D1a, [.|D2a], D1)}
+    ;   {D1 = D1a}
+    ),
+    (   identifier_nondigit(NDa)
+    ->  {D2 = [NDa]}
+    ;   {D2 = []}
+    ),
+    pp_e(D3),
+    (   "."
+    ->  {D4 = [.]}
+    ;   {D4 = []}
+    ),
+    { append([D1,D2,D3,D4], D),
+      string_chars(S, D),
+      PP = pp(S)
+    }.
+
+pp_e([C1|C2]) -->
+    pp_ee(C1),
+    pp_sign(C2).
+
+pp_ee(e) --> "e".
+pp_ee('E') --> "e".
+pp_ee(p) --> "p".
+pp_ee('P') --> "P".
+
+pp_sign('-') --> "-".
+pp_sign('+') --> "+".
