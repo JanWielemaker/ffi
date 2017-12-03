@@ -623,12 +623,13 @@ jump_statement(return(Expr)) -->
 
 translation_unit([H|T]) -->
     external_declaration(H), !,
-    { update_types(H) },
+    { update_types(H), pp(H) },
     translation_unit(T).
 translation_unit([]) --> [].
 
 external_declaration(D) --> function_definition(D).
 external_declaration(D) --> declaration(D).
+external_declaration(D) --> pp(D).
 
 function_definition(function(Specifiers, Declarator, Params, Body)) -->
     declaration_specifiers(Specifiers),
@@ -640,6 +641,9 @@ declaration_list_opt([H|T]) -->
     declaration(H), !,
     declaration_list_opt(T).
 declaration_list_opt([]) --> [].
+
+pp(pp(Line)) -->
+    [pp(Line)].
 
 
 		 /*******************************

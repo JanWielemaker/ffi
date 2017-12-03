@@ -36,7 +36,7 @@
           [ c99_tokens//1,              % -List
             c99_token//1                % -Token
           ]).
-:- use_module(library(dcg/basics), [blanks//0, string_without//2]).
+:- use_module(library(dcg/basics), [blanks//0, string//1, string_without//2]).
 
 %!  c99_tokens(-Tokens)// is semidet.
 %
@@ -80,10 +80,11 @@ c99_token(Token) -->
 %
 %   A1: recognise a C99 token.
 
-token(T) --> keyword(T).
+token(T) --> keyword(T), \+ identifier_cont_char(_).
 token(T) --> identifier(T).
 token(T) --> constant(T).
 token(T) --> string_literal(T).
+token(T) --> pp_line(T).
 token(T) --> punctuator(T).
 token(T) --> header_name(T).
 token(T) --> pp_number(T).
@@ -130,12 +131,14 @@ identifier(Id) --> identifier_nondigit(H), identifier_cont(T),
 		   {atom_chars(I, [H|T]), Id = id(I)}.
 
 identifier_cont([H|T]) -->
-    (   identifier_nondigit(H)
-    ->  []
-    ;   digit(H)
-    ), !,
+    identifier_cont_char(H), !,
     identifier_cont(T).
 identifier_cont([]) --> [].
+
+identifier_cont_char(H) -->
+    identifier_nondigit(H), !.
+identifier_cont_char(H) -->
+    digit(H).
 
 identifier_nondigit(I) --> nondigit(I).
 identifier_nondigit(I) --> universal_character_name(I).
@@ -501,7 +504,7 @@ punctuator('||') --> "||".
 punctuator('|=') --> "|=".
 
 header_name(Header) -->
-    ">", string_without(">\n", Codes), ">", !,
+    "<", string_without(">\n", Codes), ">", !,
     { atom_codes(Name, Codes),
       Header = header(ab, Name)
     }.
@@ -543,3 +546,8 @@ pp_ee('P') --> "P".
 
 pp_sign('-') --> "-".
 pp_sign('+') --> "+".
+
+pp_line(pp(Line)) -->
+    "#", string(Codes), "\n", !,
+    { string_codes(Line, [0'#|Codes]) }.
+
