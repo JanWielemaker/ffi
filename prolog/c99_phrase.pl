@@ -346,9 +346,10 @@ struct_declaration_list([H|T]) -->
     struct_declaration_list(T).
 struct_declaration_list([]) --> [].
 
-struct_declaration(f(QL, DL)) -->
+struct_declaration(f(QL, DL, GCC)) -->
     specifier_qualifier_list(QL),
     struct_declarator_list(DL),
+    gcc_attributes_opt(GCC),
     [;].
 
 specifier_qualifier_list([H|T]) -->
@@ -753,4 +754,8 @@ update_types(_).
 		 *           EXAMINE AST	*
 		 *******************************/
 
-declarator_name(declarator(_Ptr, dd(Name, _)), Name).
+declarator_name(declarator(_Ptr, dd(Name, _)), Name) :-
+    atom(Name), !.
+% typedef ssize_t (*Sread_function)(void *handle, char *buf, size_t bufsize);
+declarator_name(declarator(_Ptr, dd(Declarator,_)), Name) :-
+    declarator_name(Declarator, Name).
