@@ -126,6 +126,11 @@ keyword(while)        --> "while".
 keyword('_Bool')      --> "_Bool".
 keyword('_Complex')   --> "_Complex".
 keyword('_Imaginary') --> "_Imaginary".
+keyword('__attribute__') --> "__attribute__".   % GCC
+keyword('__restrict__') --> "__restrict__".
+keyword('__restrict__') --> "__restrict".
+keyword(inline) --> "__inline__".
+keyword(inline) --> "__inline".
 
 identifier(Id) --> identifier_nondigit(H), identifier_cont(T),
 		   {atom_chars(I, [H|T]), Id = id(I)}.

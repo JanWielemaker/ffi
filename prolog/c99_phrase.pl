@@ -270,9 +270,10 @@ constant_expression(E) -->
 		 *      A2.2. Declarations	*
 		 *******************************/
 
-declaration(decl(DS, I)) -->
+declaration(decl(DS, I, GCC)) -->
     declaration_specifiers(DS),
     init_declarator_list(I),
+    gcc_attributes_opt(GCC),
     [;].
 
 declaration_specifiers([H|T]) -->
@@ -284,6 +285,7 @@ declaration_specifier(DS) --> storage_class_specifier(DS).
 declaration_specifier(DS) --> type_specifier(DS).
 declaration_specifier(DS) --> type_qualifier(DS).
 declaration_specifier(DS) --> function_specifier(DS).
+declaration_specifier(DS) --> gcc_attributes(DS).
 
 init_declarator_list([H|T]) -->
     init_declarator(H),
@@ -385,6 +387,7 @@ opt_comma --> [].
 type_qualifier(const)    --> [const].
 type_qualifier(restrict) --> [restrict].
 type_qualifier(volatile) --> [volatile].
+type_qualifier('__restrict__') --> ['__restrict__']. % GCC
 
 function_specifier(inline) --> [inline].
 
@@ -549,6 +552,52 @@ designator([E]) -->
 designator(.(Id)) -->
     [id(Id)].
 
+%!  gcc_attributes(-Term)
+%
+%   Process GCC __attribute((List)) syntax
+%   @see https://gcc.gnu.org/onlinedocs/gcc/Attribute-Syntax.html
+
+gcc_attributes_opt([H|T]) -->
+    gcc_attributes(H), !,
+    gcc_attributes_opt(T).
+gcc_attributes_opt([]) --> [].
+
+gcc_attributes(gcc_attributes(List)) -->
+    ['__attribute__', '(', '('], gcc_attribute_list(List), [')', ')'].
+
+gcc_attribute_list(List) -->
+    [','], !,
+    gcc_attribute_list(List).
+gcc_attribute_list([H|T]) -->
+    gcc_attribute(H),
+    (   [',']
+    ->  gcc_attribute_list(T)
+    ;   {T=[]}
+    ).
+
+gcc_attribute(H) -->
+    gcc_attribute_name(Name),
+    ['('], !, gcc_attribute_param_list(Params), [')'],
+    { H =.. [Name|Params] }.
+gcc_attribute(H) -->
+    gcc_attribute_name(H).
+
+gcc_attribute_name(H) --> [id(H)].
+gcc_attribute_name(H) --> [H], {atom(H)}.
+
+gcc_attribute_param_list([H|T]) -->
+    gcc_attribute_param(H),
+    (   [',']
+    ->  gcc_attribute_param_list(T)
+    ;   {T=[]}
+    ).
+
+gcc_attribute_param(H) -->
+    gcc_attribute_name(H).
+gcc_attribute_param(H) -->
+    constant_expression(H).
+
+
 		 /*******************************
 		 *       A.2.3 Statements	*
 		 *******************************/
@@ -659,7 +708,7 @@ init_state :-
 defined_type(Name) :-
     typedef(Name).
 
-update_types(decl(What, As)) :-
+update_types(decl(What, As, _GCC)) :-
     memberchk(storage(typedef), What), !,
     forall(( member(A, As),
              declarator_name(A, Name)
