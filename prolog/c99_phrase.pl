@@ -321,6 +321,8 @@ type_specifier(type(signed))     --> [signed].
 type_specifier(type(unsigned))   --> [unsigned].
 type_specifier(type('_Bool'))    --> ['_Bool'].
 type_specifier(type('_Complex')) --> ['_Complex'].
+type_specifier(type('__builtin_va_list')) --> ['__builtin_va_list'].
+type_specifier(type('__gnuc_va_list')) --> ['__gnuc_va_list'].
 type_specifier(type(Type))       --> struct_or_union_specifier(Type).
 type_specifier(type(Type))       --> enum_specifier(Type).
 type_specifier(type(Type))       --> typedef_name(Type).
@@ -378,8 +380,25 @@ struct_declarator(SD) -->
 enum_specifier(enum(ID, EL)) -->
     [enum], opt_id(ID),
     ['{'], enumerator_list(EL), opt_comma, ['}'].
-enumerator_list(enum(ID)) -->
+enum_specifier(enum(ID)) -->
     [enum, id(ID)].
+
+enumerator_list([H|T]) -->
+    enumerator(H), !,
+    (   [','], \+ ['}']
+    ->  enumerator_list(T)
+    ;   {T=[]}
+    ).
+
+enumerator(enum_value(H, V)) -->
+    enumeration_constant(H),
+    (   [=]
+    ->  constant_expression(V)
+    ;   {V = (-)}
+    ).
+
+enumeration_constant(Id) -->
+    [id(Id)].
 
 opt_comma --> [','], !.
 opt_comma --> [].
@@ -388,6 +407,7 @@ type_qualifier(const)    --> [const].
 type_qualifier(restrict) --> [restrict].
 type_qualifier(volatile) --> [volatile].
 type_qualifier('__restrict__') --> ['__restrict__']. % GCC
+type_qualifier('__extension__') --> ['__extension__']. % GCC
 
 function_specifier(inline) --> [inline].
 
@@ -437,10 +457,10 @@ type_qualifier_list_opt([H|T]) -->
     type_qualifier_list_opt(T).
 type_qualifier_list_opt([]) --> [].
 
-parameter_type_list([H|T]) -->
-    parameter_list(H),
-    (   [',']
-    ->  parameter_type_list(T)
+parameter_type_list(List) -->
+    parameter_list(List, T),
+    (   [',', '...']
+    ->  {T=[param([], '...')]}
     ;   {T=[]}
     ).
 
@@ -448,11 +468,11 @@ parameter_type_list_opt(List) -->
     parameter_type_list(List).
 parameter_type_list_opt([]) --> [].
 
-parameter_list([H|T]) -->
+parameter_list([H|T0], T) -->
     parameter_declaration(H),
-    (   [',']
-    ->  parameter_list(T)
-    ;   {T=[]}
+    (   [','], \+ ['...']
+    ->  parameter_list(T0, T)
+    ;   {T=T0}
     ).
 
 parameter_declaration(param(S,D)) -->
@@ -564,6 +584,8 @@ gcc_attributes_opt([]) --> [].
 
 gcc_attributes(gcc_attributes(List)) -->
     ['__attribute__', '(', '('], gcc_attribute_list(List), [')', ')'].
+gcc_attributes(ASM) -->
+    asm(ASM).
 
 gcc_attribute_list(List) -->
     [','], !,
@@ -596,6 +618,17 @@ gcc_attribute_param(H) -->
     gcc_attribute_name(H).
 gcc_attribute_param(H) -->
     constant_expression(H).
+gcc_attribute_param(alignof(Decl)) -->
+    ['__alignof__', '('], declaration_specifiers(Decl), [')'].
+
+asm(ASM) -->
+    ['__asm__', '('], asm_list(Statements), [')'],
+    { ASM = asm(Statements) }.
+
+asm_list([H|T]) -->
+    [ str(H) ], !,
+    asm_list(T).
+asm_list([]) --> [].
 
 
 		 /*******************************

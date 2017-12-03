@@ -74,7 +74,11 @@ c99_tokens([]) -->
 
 c99_token(Token) -->
     blanks,
-    token(Token), !.
+    token(Token0),
+    (   {Token0 = pp(_)}
+    ->  c99_token(Token)
+    ;   {Token0 = Token}
+    ).
 
 %!  token(-Token)//
 %
@@ -129,8 +133,13 @@ keyword('_Imaginary') --> "_Imaginary".
 keyword('__attribute__') --> "__attribute__".   % GCC
 keyword('__restrict__') --> "__restrict__".
 keyword('__restrict__') --> "__restrict".
+keyword('__extension__') --> "__extension__".
 keyword(inline) --> "__inline__".
 keyword(inline) --> "__inline".
+keyword('__builtin_va_list') --> "__builtin_va_list".
+keyword('__gnuc_va_list') --> "__gnuc_va_list".
+keyword('__asm__') --> "__asm__".
+keyword('__alignof__') --> "__alignof__".
 
 identifier(Id) --> identifier_nondigit(H), identifier_cont(T),
 		   {atom_chars(I, [H|T]), Id = id(I)}.
@@ -459,6 +468,7 @@ punctuator('(') --> "(".
 punctuator(')') --> ")".
 punctuator('{') --> "{".
 punctuator('}') --> "}".
+punctuator('...') --> "...".
 punctuator('.') --> ".".
 punctuator('->') --> "->".
 punctuator('++') --> "++".
@@ -480,7 +490,6 @@ punctuator('>=') --> ">=".
 punctuator('?') --> "?".
 punctuator(':') --> ":".
 punctuator(';') --> ";".
-punctuator('...') --> "...".
 punctuator('=') --> "=".
 punctuator('*=') --> "*=".
 punctuator('/=') --> "/=".
