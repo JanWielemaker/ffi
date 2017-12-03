@@ -38,6 +38,7 @@
 :- use_module(c99_tokens).
 
 c99_parse(AST) -->
+    { init_state },
     c99_tokens(Tokens),
     { phrase(translation_unit(AST), Tokens) }.
 
@@ -388,7 +389,7 @@ type_qualifier(volatile) --> [volatile].
 function_specifier(inline) --> [inline].
 
 declarator(declarator(P, DD)) --> pointer(P), !, direct_declarator(DD).
-declarator(declarator(DD))    --> direct_declarator(DD).
+declarator(declarator(-, DD)) --> direct_declarator(DD).
 
 direct_declarator(dd(Id, DDS)) -->
     [id(Id)], !, direct_declarator_suffix(DDS).
@@ -416,11 +417,11 @@ direct_declarator_suffix(dds(IDList)) -->
 direct_declarator_suffix(-) --> [].
 
 pointer([ptr(TQL)|T]) -->
-    [*], type_qualifier_list(TQL),
+    [*], type_qualifier_list_opt(TQL),
     pointers(T).
 
 pointers([ptr(TQL)|T]) -->
-    [*], type_qualifier_list(TQL), !,
+    [*], type_qualifier_list_opt(TQL), !,
     pointers(T).
 pointers([]) --> [].
 
@@ -512,7 +513,8 @@ direct_abstract_declarator_suffix(-) -->
     [].
 
 typedef_name(user_type(Name)) -->
-    [id(Name)].
+    [id(Name)],
+    { defined_type(Name) }.
 
 initializer(init(E)) -->
     assignment_expression(E).
@@ -621,6 +623,7 @@ jump_statement(return(Expr)) -->
 
 translation_unit([H|T]) -->
     external_declaration(H), !,
+    { update_types(H) },
     translation_unit(T).
 translation_unit([]) --> [].
 
@@ -637,3 +640,31 @@ declaration_list_opt([H|T]) -->
     declaration(H), !,
     declaration_list_opt(T).
 declaration_list_opt([]) --> [].
+
+
+		 /*******************************
+		 *              STATE		*
+		 *******************************/
+
+:- thread_local
+    typedef/1.
+
+init_state :-
+    retractall(typedef(_)).
+
+defined_type(Name) :-
+    typedef(Name).
+
+update_types(decl(What, As)) :-
+    memberchk(storage(typedef), What), !,
+    forall(( member(A, As),
+             declarator_name(A, Name)
+           ),
+             assertz(typedef(Name))).
+update_types(_).
+
+		 /*******************************
+		 *           EXAMINE AST	*
+		 *******************************/
+
+declarator_name(declarator(_Ptr, dd(Name, _)), Name).
