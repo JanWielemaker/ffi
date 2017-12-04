@@ -201,9 +201,9 @@ constant(C) --> character_constant(C).
 integer_constant(C) -->
     decimal_constant(D), opt_integer_suffix(S), {mkic(S,D,C)}.
 integer_constant(C) -->
-    octal_constant(D), opt_integer_suffix(S), {mkic(S,D,C)}.
-integer_constant(C) -->
     hexadecimal_constant(D), opt_integer_suffix(S), {mkic(S,D,C)}.
+integer_constant(C) -->
+    octal_constant(D), opt_integer_suffix(S), {mkic(S,D,C)}.
 
 mkic(Suffix, Value, Token) :- Token =.. [Suffix,Value].
 

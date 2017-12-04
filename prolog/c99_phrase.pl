@@ -348,7 +348,7 @@ struct_declaration_list([]) --> [].
 
 struct_declaration(f(QL, DL, GCC)) -->
     specifier_qualifier_list(QL),
-    struct_declarator_list(DL),
+    struct_declarator_list_opt(DL),             % GCC: optional
     gcc_attributes_opt(GCC),
     [;].
 
@@ -359,6 +359,10 @@ specifier_qualifier_list([]) --> [].
 
 specifier_qualifier(SQ) --> type_specifier(SQ).
 specifier_qualifier(SQ) --> type_qualifier(SQ).
+
+struct_declarator_list_opt(List) -->
+    struct_declarator_list(List), !.
+struct_declarator_list_opt([]) --> [].
 
 struct_declarator_list([H|T]) -->
     struct_declarator(H),
