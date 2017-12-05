@@ -77,7 +77,7 @@ postfix_expression(Expr) -->
 
 expression_postfix(E0, array(E0,I)) -->
     ['['], expression(I), [']'].
-expression_postfix(E0, args(E0, List)) -->
+expression_postfix(E0, call(E0, List)) -->
     ['('], argument_expression_list_opt(List), [')'].
 expression_postfix(E0, member(E0, Id)) -->
     [ '.', id(Id) ].
@@ -91,9 +91,15 @@ expression_postfix(E0, cast(E0, Type, Init)) -->
 expression_postfix(E, E) -->
     [].
 
-argument_expression_list_opt([H|T]) -->
+argument_expression_list([H|T]) -->
     assignment_expression(H),
-    argument_expression_list_opt(T).
+    (   [',']
+    ->  argument_expression_list(T)
+    ;   {T=[]}
+    ).
+
+argument_expression_list_opt(List) -->
+    argument_expression_list(List), !.
 argument_expression_list_opt([]) --> [].
 
 unary_expression(E) -->
