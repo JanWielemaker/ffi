@@ -438,29 +438,36 @@ declarator(declarator(P, DD)) --> pointer(P), !, direct_declarator(DD).
 declarator(declarator(-, DD)) --> direct_declarator(DD).
 
 direct_declarator(dd(Id, DDS)) -->
-    [id(Id)], !, direct_declarator_suffix(DDS).
+    [id(Id)], !,
+    direct_declarator_suffix_opt(DDS).
 direct_declarator(dd(D, DDS))  -->
-    ['('], declarator(D), [')'], direct_declarator_suffix(DDS).
+    ['('], declarator(D), [')'],
+    direct_declarator_suffix_opt(DDS).
 
-direct_declarator_suffix(dds(TQL, Ass)) -->
-    ['['],
-    type_qualifier_list_opt(TQL), assignment_expression_opt(Ass),
-    [']'], !.
-direct_declarator_suffix(dds(TQL, Ass)) -->
-    ['[', static],
-    type_qualifier_list_opt(TQL), assignment_expression(Ass),
-    [']'], !.
-direct_declarator_suffix(dds(TQL, Ass)) -->
-    ['['],
-    type_qualifier_list(TQL), [static], assignment_expression(Ass),
-    [']'], !.
-direct_declarator_suffix(dds(TQL, *)) -->
-    ['['], type_qualifier_list_opt(TQL), [*,']'], !.
-direct_declarator_suffix(dds(PTL)) -->
-    ['('], parameter_type_list(PTL), [')'], !.
-direct_declarator_suffix(dds(IDList)) -->
-    ['('], identifier_list_opt(IDList), [')'], !.
-direct_declarator_suffix(-) --> [].
+direct_declarator_suffix_opt(DDS) -->
+    direct_declarator_suffix(DDS), !.
+direct_declarator_suffix_opt(-) --> [].
+
+direct_declarator_suffix(DDS) -->
+    ['['], array_direct_declarator_suffix(DDS), [']'].
+direct_declarator_suffix(DDS) -->
+    ['('], param_direct_declarator_suffix(DDS), [')'].
+
+array_direct_declarator_suffix(dds(TQL, Ass)) -->
+    type_qualifier_list_opt(TQL), assignment_expression_opt(Ass).
+array_direct_declarator_suffix(dds(TQL, Ass)) -->
+    [static],
+    type_qualifier_list_opt(TQL), assignment_expression(Ass).
+array_direct_declarator_suffix(dds(TQL, Ass)) -->
+    type_qualifier_list(TQL), [static], assignment_expression(Ass).
+array_direct_declarator_suffix(dds(TQL, *)) -->
+    type_qualifier_list_opt(TQL), [*].
+
+param_direct_declarator_suffix(dds(PTL)) -->
+    parameter_type_list(PTL), !.
+param_direct_declarator_suffix(dds(IDList)) -->
+    identifier_list_opt(IDList), !.
+
 
 pointer([ptr(TQL)|T]) -->
     [*], type_qualifier_list_opt(TQL),
