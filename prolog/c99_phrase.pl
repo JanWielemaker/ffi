@@ -752,8 +752,8 @@ translation_unit([]) --> [].
 
 external_declaration(D) -->
     declaration_specifiers(DS), !,
-    (   function_definition(DS, D)
-    ;   specifiers_declaration(DS, D)
+    (   specifiers_declaration(DS, D)
+    ;   function_definition(DS, D)
     ).
 external_declaration(D) --> pp(D).
 
