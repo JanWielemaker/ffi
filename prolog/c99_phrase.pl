@@ -622,14 +622,17 @@ gcc_attribute_list([H|T]) -->
 
 gcc_attribute(H) -->
     gcc_attribute_name(Name),
-    ['('], !, gcc_attribute_param_list(Params), [')'],
-    { H =.. [Name|Params] }.
-gcc_attribute(H) -->
-    gcc_attribute_name(H).
+    (   ['(']
+    ->  gcc_attribute_param_list(Params), [')'],
+        { H =.. [Name|Params] }
+    ;   { H = Name }
+    ).
 
 gcc_attribute_name(H) --> [id(H)].
 gcc_attribute_name(H) --> [H], {atom(H)}.
 
+gcc_attribute_param_list([]), [')'] -->
+    [')'], !.
 gcc_attribute_param_list([H|T]) -->
     gcc_attribute_param(H),
     (   [',']
