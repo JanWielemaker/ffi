@@ -32,11 +32,12 @@
     POSSIBILITY OF SUCH DAMAGE.
 */
 
-:- module(c99,
+:- module(c99_tokens,
           [ c99_tokens//1,              % -List
             c99_token//1                % -Token
           ]).
-:- use_module(library(dcg/basics), [blanks//0, string//1, string_without//2]).
+:- use_module(library(dcg/basics),
+              [ blanks//0, string//1, string_without//2, eos//0]).
 
 %!  c99_tokens(-Tokens)// is semidet.
 %
@@ -66,19 +67,19 @@
 %       - pp(String)			pp-number?
 
 
-c99_tokens([H|T]) -->
+c99_tokens(List) -->
     c99_token(H), !,
-    c99_tokens(T).
+    (   {H = pp(_)}
+    ->  c99_tokens(List)
+    ;   {List = [H|T]},
+        c99_tokens(T)
+    ).
 c99_tokens([]) -->
     blanks.
 
 c99_token(Token) -->
     blanks,
-    token(Token0),
-    (   {Token0 = pp(_)}
-    ->  c99_token(Token)
-    ;   {Token0 = Token}
-    ).
+    token(Token).
 
 %!  token(-Token)//
 %
@@ -574,6 +575,8 @@ pp_sign('-') --> "-".
 pp_sign('+') --> "+".
 
 pp_line(pp(Line)) -->
-    "#", string(Codes), "\n", !,
+    "#", string(Codes), eol, !,
     { string_codes(Line, [0'#|Codes]) }.
 
+eol --> "\n", !.
+eol --> eos.

@@ -36,6 +36,7 @@
           [ c99_parse//1,                        % -AST
             c99_parse_cont//1
           ]).
+:- use_module(library(debug)).
 :- use_module(c99_tokens).
 
 c99_parse(AST) -->
@@ -711,13 +712,13 @@ iteration_statement(for2(Decl, Expr1, Expr2, Statement)) -->
     expression_opt(Expr2), [')'], statement(Statement).
 
 jump_statement(goto(Id)) -->
-    [ goto, id(Id) ].
+    [ goto, id(Id), ';' ].
 jump_statement(continue) -->
-    [ continue ].
+    [ continue, ';' ].
 jump_statement(break) -->
-    [ break ].
+    [ break, ';' ].
 jump_statement(return(Expr)) -->
-    [ return ], expression(Expr).
+    [ return ], expression_statement(Expr).
 
 		 /*******************************
 		 *            A.2.4		*
@@ -725,7 +726,12 @@ jump_statement(return(Expr)) -->
 
 translation_unit([H|T]) -->
     external_declaration(H), !,
-    { update_types(H), pp(H) },
+    { update_types(H),
+      (   debugging(c99(unit))
+      ->  pp(H)
+      ;   true
+      )
+    },
     translation_unit(T).
 translation_unit([]) --> [].
 
