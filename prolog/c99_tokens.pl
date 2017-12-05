@@ -473,49 +473,61 @@ punctuator('.') --> ".".
 punctuator('->') --> "->".
 punctuator('++') --> "++".
 punctuator('--') --> "--".
+punctuator('&=') --> "&=".
+punctuator('&&') --> "&&".
 punctuator('&') --> "&".
+punctuator('*=') --> "*=".
 punctuator('*') --> "*".
+punctuator('+=') --> "+=".
 punctuator('+') --> "+".
+punctuator('-=') --> "-=".
 punctuator('-') --> "-".
 punctuator('~') --> "~".
+punctuator('!=') --> "!=".
 punctuator('!') --> "!".
+punctuator('/=') --> "/=".
 punctuator('/') --> "/".
+punctuator('%=') --> "%=".
+punctuator('%>') --> "%>".
+punctuator('%:%:') --> "%:%:".
+punctuator('%:') --> "%:".
 punctuator('%') --> "%".
+punctuator('<<=') --> "<<=".
+punctuator('>>=') --> ">>=".
 punctuator('<<') --> "<<".
 punctuator('>>') --> ">>".
-punctuator('<') --> "<".
-punctuator('>') --> ">".
+punctuator('<:') --> "<:".
 punctuator('<=') --> "<=".
+punctuator('<%') --> "<%".
+punctuator('<') --> "<".
+punctuator(':>') --> ":>".
 punctuator('>=') --> ">=".
+punctuator('>') --> ">".
 punctuator('?') --> "?".
 punctuator(':') --> ":".
 punctuator(';') --> ";".
-punctuator('=') --> "=".
-punctuator('*=') --> "*=".
-punctuator('/=') --> "/=".
-punctuator('%=') --> "%=".
-punctuator('+=') --> "+=".
-punctuator('-=') --> "-=".
-punctuator('<<=') --> "<<=".
-punctuator(',') --> ",".
-punctuator('#') --> "#".
-punctuator('##') --> "##".
-punctuator('<:') --> "<:".
-punctuator(':>') --> ":>".
-punctuator('<%') --> "<%".
-punctuator('%>') --> "%>".
-punctuator('%:') --> "%:".
-punctuator('%:%:') --> "%:%:".
 punctuator('==') --> "==".
-punctuator('>>=') --> ">>=".
-punctuator('!=') --> "!=".
-punctuator('&=') --> "&=".
-punctuator('^') --> "^".
-punctuator('|') --> "|".
+punctuator('=') --> "=".
+punctuator(',') --> ",".
+punctuator('##') --> "##".
+punctuator('#') --> "#".
 punctuator('^=') --> "^=".
-punctuator('&&') --> "&&".
+punctuator('^') --> "^".
 punctuator('||') --> "||".
 punctuator('|=') --> "|=".
+punctuator('|') --> "|".
+
+check_punctuators :-			% verify longest matches are first
+    findall(P, punctuator(P,_,_), L),
+    (   append(_, [P|T], L),
+        member(P2, T),
+        sub_atom(P2, 0, _, _, P),
+        format('~p should be before ~p~n', [P2, P]),
+        fail
+    ;   true
+    ).
+
+:- check_punctuators.
 
 header_name(Header) -->
     "<", string_without(">\n", Codes), ">", !,
