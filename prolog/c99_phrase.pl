@@ -339,20 +339,22 @@ type_specifier(type('_Bool'))    --> ['_Bool'].
 type_specifier(type('_Complex')) --> ['_Complex'].
 type_specifier(type('__builtin_va_list')) --> ['__builtin_va_list'].
 type_specifier(type('__gnuc_va_list')) --> ['__gnuc_va_list'].
-type_specifier(type(Type))       --> struct_or_union_specifier(Type).
-type_specifier(type(Type))       --> enum_specifier(Type).
-type_specifier(type(Type))       --> typedef_name(Type).
+type_specifier(type(Type))       --> [struct],   struct_specifier(Type).
+type_specifier(type(Type))       --> [union],    union_specifier(Type).
+type_specifier(type(Type))       --> [enum],     enum_specifier(Type).
+type_specifier(type(Type))       --> [id(Name)], {typedef_name(Name, Type)}.
 
-struct_or_union_specifier(struct(Id, Fields)) -->
-    [ struct ], opt_id(Id),
+struct_specifier(struct(Id, Fields)) -->
+    opt_id(Id),
     ['{'], struct_declaration_list(Fields), ['}'].
-struct_or_union_specifier(struct(Id)) -->
-    [ struct, id(Id) ].
-struct_or_union_specifier(union(Id, Fields)) -->
-    [ union ], opt_id(Id),
+struct_specifier(struct(Id)) -->
+    [ id(Id) ].
+
+union_specifier(union(Id, Fields)) -->
+    opt_id(Id),
     ['{'], struct_declaration_list(Fields), ['}'].
-struct_or_union_specifier(union(Id)) -->
-    [ union, id(Id) ].
+union_specifier(union(Id)) -->
+    [ id(Id) ].
 
 opt_id(Id) --> [id(Id)], !.
 opt_id(-)  --> [].
@@ -399,10 +401,10 @@ struct_declarator(SD) -->
     {SD = bitfield(-, E)}.
 
 enum_specifier(enum(ID, EL)) -->
-    [enum], opt_id(ID),
+    opt_id(ID),
     ['{'], enumerator_list(EL), opt_comma, ['}'].
 enum_specifier(enum(ID)) -->
-    [enum, id(ID)].
+    [id(ID)].
 
 enumerator_list([H|T]) -->
     enumerator(H), !,
@@ -556,9 +558,9 @@ direct_abstract_declarator_suffix(dads(PTL)) -->
 direct_abstract_declarator_suffix(-) -->
     [].
 
-typedef_name(user_type(Name)) -->
-    [id(Name)],
-    { defined_type(Name) }.
+typedef_name(Name, Type) :-
+    defined_type(Name),
+    Type = user_type(Name).
 
 initializer(init(E)) -->
     assignment_expression(E).
