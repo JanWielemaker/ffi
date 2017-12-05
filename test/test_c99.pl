@@ -14,6 +14,12 @@ tstat :-
               [ stat ], AST),
     pp(AST).
 
+tstrcpy :-
+    c99_types("#include <string.h>",
+              [ strcpy ], AST),
+    pp(AST).
+
+
 t(N) :-
     p(N, P),
     phrase(c99_parse(AST), P),
