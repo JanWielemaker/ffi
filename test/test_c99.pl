@@ -14,6 +14,12 @@ tstat :-
               [ stat ], AST),
     pp(AST).
 
+tstat_ast(AST) :-
+    c99_header_ast("#include <sys/types.h>
+                   #include <sys/stat.h>
+                   #include <unistd.h>",
+                   AST).
+
 tstrcpy :-
     c99_types("#include <string.h>",
               [ strcpy ], AST),

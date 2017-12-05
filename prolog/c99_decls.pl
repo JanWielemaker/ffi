@@ -5,6 +5,7 @@
 :- use_module(library(process)).
 :- use_module(library(pure_input)).
 :- use_module(library(apply)).
+:- use_module(library(lists)).
 :- use_module(c99_phrase).
 
 %!  c99_types(+Header, +Functions, -AST)
@@ -13,14 +14,21 @@
 
 c99_types(Header, Functions, Types) :-
     c99_header_ast(Header, AST),
-    maplist(prototype(AST), Functions, Types).
+    phrase(prototypes(Functions, AST), Types).
 
-prototype(AST, Func, function(Func, RType, Params)) :-
-    skeleton(prototype(Return, RDecl, Params0), Func, FuncDecl),
-    memberchk(FuncDecl, AST),
-    maplist(param, Params0, Params),
-    memberchk(type(BasicType), Return),
-    pointers(RDecl, BasicType, RType).
+prototypes([], _) --> [].
+prototypes([H|T], AST) --> prototype(H, AST), prototypes(T, AST).
+
+prototype(Func, AST) -->
+    { skeleton(prototype(Return, RDecl, Params0), Func, FuncDecl),
+      memberchk(FuncDecl, AST),
+      maplist(param, Params0, Params),
+      memberchk(type(BasicType), Return),
+      pointers(RDecl, BasicType, RType)
+    },
+    [ function(Func, RType, Params) ],
+    type(RType, AST),
+    types(Params, AST).
 
 %!  skeleton(+Type, +Id, -Skeleton)
 %
@@ -41,8 +49,39 @@ pointers([], Type, Type).
 pointers([ptr(_)|T], Basic, Type) :-
     pointers(T, *(Basic), Type).
 
-type_in(AST, Type) :-
-    sub_term(type(Type), AST).
+
+		 /*******************************
+		 *      TYPE DEFINITIONS	*
+		 *******************************/
+
+types([], _) --> [].
+types([H|T], AST) --> (type(H, AST) -> [] ; []), types(T, AST).
+
+type(_Name-Type, AST) --> !, type(Type, AST).
+type(*(Type), AST) --> !, type(Type, AST).
+type(Type, AST) -->
+    { ast_type(Type, AST, Defined) },
+    [ Defined ],
+    type(Defined, AST).
+type(type(Type), AST) -->
+    type(Type, AST).
+type(type(_, struct, Fields), AST) -->
+    types(Fields, AST).
+type(f(Types, _Declarator, _Attrs), AST) -->
+    types(Types, AST).
+
+ast_type(struct(Name), AST, type(Name, struct, Fields)) :-
+    member(decl(Specifier, _Decl, _Attrs), AST),
+    memberchk(type(struct(Name, Fields)), Specifier), !.
+ast_type(user_type(Name), AST, type(Name, typedef, Primitive)) :-
+    member(decl(Specifier,
+                [ declarator(_, dd(Name, _))], _Attrs), AST),
+    selectchk(storage(typedef), Specifier, Primitive), !.
+
+
+		 /*******************************
+		 *       CALL PREPROCESSOR	*
+		 *******************************/
 
 %!  c99_header_ast(+Header, -AST)
 
