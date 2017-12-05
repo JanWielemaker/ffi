@@ -33,12 +33,16 @@
 */
 
 :- module(c99_grammar,
-          [ c99_parse//1                        % -AST
+          [ c99_parse//1,                        % -AST
+            c99_parse_cont//1
           ]).
 :- use_module(c99_tokens).
 
 c99_parse(AST) -->
     { init_state },
+    c99_parse_cont(AST).
+
+c99_parse_cont(AST) -->
     c99_tokens(Tokens),
     { phrase(translation_unit(AST), Tokens) }.
 
