@@ -128,10 +128,10 @@ unary_operator(-) --> [-].
 unary_operator(~) --> [~].
 unary_operator(!) --> [!].
 
-cast_expression(Expr) -->
-    unary_expression(Expr).
 cast_expression(cast(Type, Expr)) -->
     ['('], type_name(Type), [')'], cast_expression(Expr).
+cast_expression(Expr) -->
+    unary_expression(Expr).
 
 multiplicative_expression(Expr) -->
     cast_expression(A),
