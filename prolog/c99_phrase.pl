@@ -663,7 +663,7 @@ statement(S) --> iteration_statement(S).
 statement(S) --> jump_statement(S).
 
 labeled_statement(label(L, Statement)) -->
-    [id(L), [:]], !, statement(Statement).
+    [id(L), :], !, statement(Statement).
 labeled_statement(case(V, Statement)) -->
     [case], constant_expression(V), [:], !, statement(Statement).
 labeled_statement(default(Statement)) -->
