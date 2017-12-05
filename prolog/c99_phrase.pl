@@ -286,8 +286,11 @@ constant_expression(E) -->
 		 *      A2.2. Declarations	*
 		 *******************************/
 
-declaration(decl(DS, I, GCC)) -->
+declaration(Decl) -->
     declaration_specifiers(DS),
+    specifiers_declaration(DS, Decl).
+
+specifiers_declaration(DS, decl(DS, I, GCC)) -->
     init_declarator_list(I),
     gcc_attributes_opt(GCC),
     [;].
@@ -747,12 +750,15 @@ translation_unit([H|T]) -->
     translation_unit(T).
 translation_unit([]) --> [].
 
-external_declaration(D) --> function_definition(D).
-external_declaration(D) --> declaration(D).
+external_declaration(D) -->
+    declaration_specifiers(DS), !,
+    (   function_definition(DS, D)
+    ;   specifiers_declaration(DS, D)
+    ).
 external_declaration(D) --> pp(D).
 
-function_definition(function(Specifiers, Declarator, Params, Body)) -->
-    declaration_specifiers(Specifiers),
+function_definition(Specifiers,
+                    function(Specifiers, Declarator, Params, Body)) -->
     declarator(Declarator),
     declaration_list_opt(Params),
     compound_statement(Body).
