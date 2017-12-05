@@ -81,6 +81,8 @@ expression_postfix(E0, call(E0, List)) -->
     ['('], argument_expression_list_opt(List), [')'].
 expression_postfix(E0, member(E0, Id)) -->
     [ '.', id(Id) ].
+expression_postfix(E0, member_ptr(E0, Id)) -->
+    [ '->', id(Id) ].
 expression_postfix(E0, post_incr(E0)) -->
     [++].
 expression_postfix(E0, post_decr(E0)) -->
@@ -241,12 +243,12 @@ conditional_expression(Expr) -->
     ;   { Expr = A }
     ).
 
-assignment_expression(Expr) -->
-    conditional_expression(Expr).
 assignment_expression(assign(Op, UE, AE)) -->
     unary_expression(UE),
     assignment_operator(Op),
     assignment_expression(AE).
+assignment_expression(Expr) -->
+    conditional_expression(Expr).
 
 assignment_expression_opt(Expr) -->
     assignment_expression(Expr).
