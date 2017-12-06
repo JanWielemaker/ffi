@@ -32,6 +32,7 @@
     POSSIBILITY OF SUCH DAMAGE.
 */
 
+#define PL_ARITY_AS_SIZE 1
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
 #include <cinvoke.h>
@@ -53,120 +54,7 @@ static atom_t ATOM_cdecl;
 static atom_t ATOM_stdcall;
 static atom_t ATOM_fastcall;
 
-static atom_t ATOM_char;
-static atom_t ATOM_short;
-static atom_t ATOM_int;
-static atom_t ATOM_long;
-static atom_t ATOM_extralong;
-static atom_t ATOM_float;
-static atom_t ATOM_double;
-static atom_t ATOM_ptr;
-
-
-typedef struct ci_ptr
-{ void *ptr;					/* the pointer */
-  atom_t type;					/* Its type */
-  void *ctx;					/* Pointer context */
-  void (*free)(void *ptr);			/* Its free function */
-} ci_ptr;
-
-
-static int
-write_ci_ptr(IOSTREAM *s, atom_t aref, int flags)
-{ ci_ptr *ref = PL_blob_data(aref, NULL, NULL);
-  (void)flags;
-
-  Sfprintf(s, "<ci_ptr>(%s,%p)", PL_atom_chars(ref->type), ref->ptr);
-  return TRUE;
-}
-
-
-static void
-acquire_ci_ptr(atom_t aref)
-{ ci_ptr *ref = PL_blob_data(aref, NULL, NULL);
-  (void)ref;
-}
-
-
-static int
-release_ci_ptr(atom_t aref)
-{ ci_ptr *ref = PL_blob_data(aref, NULL, NULL);
-
-  if ( ref->free && ref->ptr )
-    (*ref->free)(ref->ptr);
-
-  return TRUE;
-}
-
-
-static int
-save_ci_ptr(atom_t aref, IOSTREAM *fd)
-{ ci_ptr *ref = PL_blob_data(aref, NULL, NULL);
-  (void)fd;
-
-  return PL_warning("Cannot save reference to <ci_ptr>(%s,%p)",
-		    PL_atom_chars(ref->type), ref->ptr);
-}
-
-
-static atom_t
-load_ci_ptr(IOSTREAM *fd)
-{ (void)fd;
-
-  return PL_new_atom("<ci_ptr>");
-}
-
-
-static PL_blob_t ci_ptr_blob =
-{ PL_BLOB_MAGIC,
-  PL_BLOB_UNIQUE,
-  "ci_ptr",
-  release_ci_ptr,
-  NULL,
-  write_ci_ptr,
-  acquire_ci_ptr,
-  save_ci_ptr,
-  load_ci_ptr
-};
-
-
-static int
-unify_ptr(term_t t, void *ptr, void *ctx, atom_t type)
-{ ci_ptr ref;
-
-  ref.ptr  = ptr;
-  ref.type = type;
-  ref.ctx  = ctx;
-  ref.free = NULL;
-
-  return PL_unify_blob(t, &ref, sizeof(ref), &ci_ptr_blob);
-}
-
-
-static int
-get_ptr(term_t t, void *ptrp, void *ctxp, atom_t ptrtype)
-{ PL_blob_t *type;
-  void *bp;
-
-  if ( PL_get_blob(t, &bp, NULL, &type) &&
-       type == &ci_ptr_blob )
-  { ci_ptr *ref = bp;
-    void **ptrpp = ptrp;
-
-    if ( ptrtype != ref->type )
-      return PL_type_error(PL_atom_chars(ref->type), t);
-
-    *ptrpp = ref->ptr;
-    if ( ctxp )
-    { void **ctxpp = ctxp;
-      *ctxpp = ref->ctx;
-    }
-
-    return TRUE;
-  }
-
-  return FALSE;
-}
+#include "c_memory.c"
 
 
 		 /*******************************
@@ -195,14 +83,14 @@ get_type(term_t type, cinv_type_t *v)
 { atom_t a;
 
   if ( PL_get_atom_ex(type, &a) )
-  { if      ( a == ATOM_char )      *v = CINV_T_CHAR;
-    else if ( a == ATOM_short )     *v = CINV_T_SHORT;
-    else if ( a == ATOM_int )       *v = CINV_T_INT;
-    else if ( a == ATOM_long )      *v = CINV_T_LONG;
-    else if ( a == ATOM_extralong ) *v = CINV_T_EXTRALONG;
-    else if ( a == ATOM_float )     *v = CINV_T_FLOAT;
-    else if ( a == ATOM_double )    *v = CINV_T_DOUBLE;
-    else if ( a == ATOM_ptr )       *v = CINV_T_PTR;
+  { if      ( a == ATOM_char )     *v = CINV_T_CHAR;
+    else if ( a == ATOM_short )    *v = CINV_T_SHORT;
+    else if ( a == ATOM_int )      *v = CINV_T_INT;
+    else if ( a == ATOM_long )     *v = CINV_T_LONG;
+    else if ( a == ATOM_longlong ) *v = CINV_T_EXTRALONG;
+    else if ( a == ATOM_float )    *v = CINV_T_FLOAT;
+    else if ( a == ATOM_double )   *v = CINV_T_DOUBLE;
+    else if ( a == ATOM_pointer )  *v = CINV_T_PTR;
     else return PL_domain_error("ic_type", type);
 
     return TRUE;
@@ -777,14 +665,7 @@ install(void)
   MKATOM(stdcall);
   MKATOM(fastcall);
 
-  MKATOM(char);
-  MKATOM(short);
-  MKATOM(int);
-  MKATOM(long);
-  MKATOM(extralong);
-  MKATOM(float);
-  MKATOM(double);
-  MKATOM(ptr);
+  install_c_memory();
 
   PL_register_foreign("ci_context_create",  1, ci_context_create,  0);
   PL_register_foreign("ci_library_create",  3, ci_library_create,  0);

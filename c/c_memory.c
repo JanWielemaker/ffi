@@ -32,6 +32,7 @@
     POSSIBILITY OF SUCH DAMAGE.
 */
 
+#define PL_ARITY_AS_SIZE 1
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
 
@@ -202,41 +203,41 @@ c_free(term_t ptr)
 { PL_blob_t *type;
   void *bp;
 
-  if ( PL_get_blob(t, &bp, NULL, &type) &&
+  if ( PL_get_blob(ptr, &bp, NULL, &type) &&
        type == &c_ptr_blob )
   { free_ptr(bp);
     return TRUE;
   }
 
-  return FALSE;
+  return PL_type_error("c_ptr", ptr);
 }
 
 
 static foreign_t
 c_typeof(term_t ptr, term_t type)
-{ PL_blob_t *type;
+{ PL_blob_t *btype;
   void *bp;
 
-  if ( PL_get_blob(t, &bp, NULL, &type) &&
-       type == &c_ptr_blob )
+  if ( PL_get_blob(ptr, &bp, NULL, &btype) &&
+       btype == &c_ptr_blob )
   { c_ptr *ref = bp;
 
     return PL_unify_atom(type, ref->type);
   }
 
-  return FALSE;
+  return PL_type_error("c_ptr", ptr);
 }
 
 
 static foreign_t
 c_load(term_t ptr, term_t offset, term_t type, term_t value)
-{ PL_blob_t *type;
+{ PL_blob_t *btype;
   void *bp;
   atom_t ta;
   size_t off;
 
-  if ( PL_get_blob(t, &bp, NULL, &type) &&
-       type == &c_ptr_blob &&
+  if ( PL_get_blob(ptr, &bp, NULL, &btype) &&
+       btype == &c_ptr_blob &&
        PL_get_size_ex(offset, &off) )
   { atom_t ta;
     size_t tarity;
@@ -265,19 +266,21 @@ c_load(term_t ptr, term_t offset, term_t type, term_t value)
 	return PL_unify_float(value, *p);
       } else if ( ta == ATOM_double )
       { const double *p = vp;
-	return PL_unify_float(value, *v);
+	return PL_unify_float(value, *p);
       } else if ( ta == ATOM_pointer )
-      { const void **p = vp;
+      { void **p = vp;
 	return unify_ptr(value, *p, NULL, ATOM_void);
       } else
 	return PL_domain_error("c_type", type);
     } else if ( PL_get_name_arity(type, &ta, &tarity) )
-    { term_t arg = PL_new_term();
+    { term_t arg = PL_new_term_ref();
 
       if ( ta == ATOM_pointer && tarity == 1 )
-      { _PL_get_arg(1, type, arg);
+      { atom_t atype;
+
+	_PL_get_arg(1, type, arg);
 	if ( PL_get_atom_ex(arg, &atype) )
-	{ const void **p = vp;
+	{ void **p = vp;
 	  return unify_ptr(value, *p, NULL, atype);
 	}
 	return FALSE;
@@ -307,13 +310,13 @@ i_ptr(term_t value, void **vp)
 
 static foreign_t
 c_store(term_t ptr, term_t offset, term_t type, term_t value)
-{ PL_blob_t *type;
+{ PL_blob_t *btype;
   void *bp;
   atom_t ta;
   size_t off;
 
-  if ( PL_get_blob(t, &bp, NULL, &type) &&
-       type == &c_ptr_blob &&
+  if ( PL_get_blob(ptr, &bp, NULL, &btype) &&
+       btype == &c_ptr_blob &&
        PL_get_size_ex(offset, &off) )
   { atom_t ta;
     size_t tarity;
@@ -366,14 +369,14 @@ c_alignof(term_t type, term_t bytes)
   int sz;
 
   if ( PL_get_atom_ex(type, &ta) )
-  {      if ( ta == ATOM_char )     sz = alignof(char);
-    else if ( ta == ATOM_short )    sz = alignof(short);
-    else if ( ta == ATOM_int )      sz = alignof(int);
-    else if ( ta == ATOM_long )     sz = alignof(long);
-    else if ( ta == ATOM_longlong ) sz = alignof(long long);
-    else if ( ta == ATOM_float )    sz = alignof(float);
-    else if ( ta == ATOM_double )   sz = alignof(double);
-    else if ( ta == ATOM_pointer )  sz = alignof(void*);
+  {      if ( ta == ATOM_char )     sz = __alignof__(char);
+    else if ( ta == ATOM_short )    sz = __alignof__(short);
+    else if ( ta == ATOM_int )      sz = __alignof__(int);
+    else if ( ta == ATOM_long )     sz = __alignof__(long);
+    else if ( ta == ATOM_longlong ) sz = __alignof__(long long);
+    else if ( ta == ATOM_float )    sz = __alignof__(float);
+    else if ( ta == ATOM_double )   sz = __alignof__(double);
+    else if ( ta == ATOM_pointer )  sz = __alignof__(void*);
     else return PL_domain_error("c_type", type);
 
     return PL_unify_integer(bytes, sz);
