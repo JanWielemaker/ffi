@@ -33,7 +33,16 @@
 */
 
 :- module(cinvoke,
-          [ dc_bind/4                   % :Goal, +Signature, +File, +Func
+          [ dc_bind/4,                  % :Goal, +Signature, +File, +Func
+
+                                        % Memory access predicates
+            c_alloc/3,                  % -Ptr, +Type, +Size
+            c_free/1,                   % +Ptr
+            c_typeof/2,                 % +Ptr, -Type
+            c_load/4,                   % +Ptr, +Offset, +Type, -Value
+            c_store/4,                  % +Ptr, +Offset, +Type, +Value
+            c_sizeof/2,                 % +Type, -Bytes
+            c_alignof/2                 % +Type, -Bytes
           ]).
 
 /** <module> Bind Prolog predicates to C functions

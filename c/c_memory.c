@@ -41,6 +41,11 @@ static atom_t ATOM_short;
 static atom_t ATOM_int;
 static atom_t ATOM_long;
 static atom_t ATOM_longlong;
+static atom_t ATOM_uchar;
+static atom_t ATOM_ushort;
+static atom_t ATOM_uint;
+static atom_t ATOM_ulong;
+static atom_t ATOM_ulonglong;
 static atom_t ATOM_float;
 static atom_t ATOM_double;
 static atom_t ATOM_pointer;
@@ -248,19 +253,35 @@ c_load(term_t ptr, term_t offset, term_t type, term_t value)
     { if ( ta == ATOM_char )
       { const char *p = vp;
 	return PL_unify_integer(value, *p);
+      } else if ( ta == ATOM_uchar )
+      { const unsigned char *p = vp;
+	return PL_unify_integer(value, *p);
       } else if ( ta == ATOM_short )
       { const short *p = vp;
+	return PL_unify_integer(value, *p);
+      } else if ( ta == ATOM_ushort )
+      { const unsigned short *p = vp;
 	return PL_unify_integer(value, *p);
       } else if ( ta == ATOM_int )
       { const int *p = vp;
 	return PL_unify_integer(value, *p);
+      } else if ( ta == ATOM_uint )
+      { const unsigned int *p = vp;
+	return PL_unify_uint64(value, *p);
       } else if ( ta == ATOM_long )
       { const long *p = vp;
 	return PL_unify_integer(value, *p);
+      } else if ( ta == ATOM_ulong )
+      { const unsigned long *p = vp;
+	return PL_unify_uint64(value, *p);
       } else if ( ta == ATOM_longlong )
       { const long long *p = vp;
 	int64_t v = (int64_t)*p;
 	return PL_unify_integer(value, v);
+      } else if ( ta == ATOM_ulonglong )
+      { const unsigned long long *p = vp;
+	uint64_t v = (uint64_t)*p;
+	return PL_unify_uint64(value, v);
       } else if ( ta == ATOM_float )
       { const float *p = vp;
 	return PL_unify_float(value, *p);
@@ -346,14 +367,19 @@ c_sizeof(term_t type, term_t bytes)
   int sz;
 
   if ( PL_get_atom_ex(type, &ta) )
-  {      if ( ta == ATOM_char )     sz = sizeof(char);
-    else if ( ta == ATOM_short )    sz = sizeof(short);
-    else if ( ta == ATOM_int )      sz = sizeof(int);
-    else if ( ta == ATOM_long )     sz = sizeof(long);
-    else if ( ta == ATOM_longlong ) sz = sizeof(long long);
-    else if ( ta == ATOM_float )    sz = sizeof(float);
-    else if ( ta == ATOM_double )   sz = sizeof(double);
-    else if ( ta == ATOM_pointer )  sz = sizeof(void*);
+  {      if ( ta == ATOM_char )      sz = sizeof(char);
+    else if ( ta == ATOM_uchar )     sz = sizeof(unsigned char);
+    else if ( ta == ATOM_short )     sz = sizeof(short);
+    else if ( ta == ATOM_ushort )    sz = sizeof(unsigned short);
+    else if ( ta == ATOM_int )       sz = sizeof(int);
+    else if ( ta == ATOM_uint )      sz = sizeof(unsigned int);
+    else if ( ta == ATOM_long )      sz = sizeof(long);
+    else if ( ta == ATOM_ulong )     sz = sizeof(unsigned long);
+    else if ( ta == ATOM_longlong )  sz = sizeof(long long);
+    else if ( ta == ATOM_ulonglong ) sz = sizeof(unsigned long long);
+    else if ( ta == ATOM_float )     sz = sizeof(float);
+    else if ( ta == ATOM_double )    sz = sizeof(double);
+    else if ( ta == ATOM_pointer )   sz = sizeof(void*);
     else return PL_domain_error("c_type", type);
 
     return PL_unify_integer(bytes, sz);
@@ -369,14 +395,19 @@ c_alignof(term_t type, term_t bytes)
   int sz;
 
   if ( PL_get_atom_ex(type, &ta) )
-  {      if ( ta == ATOM_char )     sz = __alignof__(char);
-    else if ( ta == ATOM_short )    sz = __alignof__(short);
-    else if ( ta == ATOM_int )      sz = __alignof__(int);
-    else if ( ta == ATOM_long )     sz = __alignof__(long);
-    else if ( ta == ATOM_longlong ) sz = __alignof__(long long);
-    else if ( ta == ATOM_float )    sz = __alignof__(float);
-    else if ( ta == ATOM_double )   sz = __alignof__(double);
-    else if ( ta == ATOM_pointer )  sz = __alignof__(void*);
+  {      if ( ta == ATOM_char )      sz = __alignof__(char);
+    else if ( ta == ATOM_uchar )     sz = __alignof__(unsigned char);
+    else if ( ta == ATOM_short )     sz = __alignof__(short);
+    else if ( ta == ATOM_ushort )    sz = __alignof__(unsigned short);
+    else if ( ta == ATOM_int )       sz = __alignof__(int);
+    else if ( ta == ATOM_uint )      sz = __alignof__(unsigned int);
+    else if ( ta == ATOM_long )      sz = __alignof__(long);
+    else if ( ta == ATOM_ulong )     sz = __alignof__(unsigned long);
+    else if ( ta == ATOM_longlong )  sz = __alignof__(long long);
+    else if ( ta == ATOM_ulonglong ) sz = __alignof__(unsigned long long);
+    else if ( ta == ATOM_float )     sz = __alignof__(float);
+    else if ( ta == ATOM_double )    sz = __alignof__(double);
+    else if ( ta == ATOM_pointer )   sz = __alignof__(void*);
     else return PL_domain_error("c_type", type);
 
     return PL_unify_integer(bytes, sz);
@@ -397,6 +428,11 @@ install_c_memory(void)
   MKATOM(int);
   MKATOM(long);
   MKATOM(longlong);
+  MKATOM(uchar);
+  MKATOM(ushort);
+  MKATOM(uint);
+  MKATOM(ulong);
+  MKATOM(ulonglong);
   MKATOM(float);
   MKATOM(double);
   MKATOM(pointer);
