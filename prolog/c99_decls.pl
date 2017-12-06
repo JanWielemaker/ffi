@@ -27,7 +27,7 @@ prototype(Func, AST) -->
       pointers(RDecl, BasicType, RType)
     },
     [ function(Func, RType, Params) ],
-    type(RType, AST),
+    type_opt(RType, AST),
     types(Params, AST).
 
 %!  skeleton(+Type, +Id, -Skeleton)
@@ -55,7 +55,11 @@ pointers([ptr(_)|T], Basic, Type) :-
 		 *******************************/
 
 types([], _) --> [].
-types([H|T], AST) --> (type(H, AST) -> [] ; []), types(T, AST).
+types([H|T], AST) --> type_opt(H, AST), types(T, AST).
+
+type_opt(Type, AST) -->
+    type(Type, AST), !.
+type_opt(_, _) --> [].
 
 type(_Name-Type, AST) --> !, type(Type, AST).
 type(*(Type), AST) --> !, type(Type, AST).
@@ -68,6 +72,8 @@ type(type(Type), AST) -->
 type(type(_, struct, Fields), AST) -->
     types(Fields, AST).
 type(f(Types, _Declarator, _Attrs), AST) -->
+    types(Types, AST).
+type(type(_, typedef, Types), AST) -->
     types(Types, AST).
 
 ast_type(struct(Name), AST, type(Name, struct, Fields)) :-

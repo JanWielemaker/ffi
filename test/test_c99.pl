@@ -43,7 +43,8 @@ p(4, `
 `).
 
 
-
+incl(AST) :-
+    phrase_from_file(c99_parse(AST), 'incl.h', []).
 
 
 
