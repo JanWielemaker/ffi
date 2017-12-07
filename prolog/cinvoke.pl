@@ -42,8 +42,14 @@
             c_load/4,                   % +Ptr, +Offset, +Type, -Value
             c_store/4,                  % +Ptr, +Offset, +Type, +Value
             c_sizeof/2,                 % +Type, -Bytes
-            c_alignof/2                 % +Type, -Bytes
+            c_alignof/2,                % +Type, -Bytes
+
+            c_struct/2,                 % +Name, +Fields
+            c_struct_alloc/2,           % -Ptr, +Name
+            c_struct_load/3,            % +Ptr, +Field, -Value
+            c_struct_store/3            % +Ptr, +Field, +Value
           ]).
+:- use_module(library(error)).
 
 /** <module> Bind Prolog predicates to C functions
 */
@@ -144,4 +150,108 @@ dc_expand(Goal, Signature, File, Func,
     ci_library_load_entrypoint(FH, Func, FuncPtr),
     ci_function_create(FuncPtr, cdecl, Ret, Params, Prototype).
 
+
+		 /*******************************
+		 *          STRUCTURES		*
+		 *******************************/
+
+%!  c_struct(+Name, +Fields)
+%
+%   Declare a C structure with name  Name.   Fields  is  a list of field
+%   specifications of the form:
+%
+%     - f(Name, Type)
+%
+%   Where Type is one of
+%
+%     - A primitive type (`char`, `uchar`, ...)
+%     - struct(Name)
+%     - union(Name)
+%     - enum(Name)
+%     - *(Type)
+%     - array(Type, Size)
+%
+%   A structure declaration is compiled into a number of clauses
+
+c_struct(Name, Fields) :-
+    throw(error(context_error(nodirective, c_struct(Name, Fields)), _)).
+
+:- multifile
+    system:term_expansion/2.
+
+system:term_expansion((:- c_struct(Name, Fields)), Clauses) :-
+    phrase(struct_compile(Name, Fields), Clauses).
+
+struct_compile(Name, Fields) -->
+    field_clauses(Fields, Name, 0, End, 0, Alignment),
+    { Size is Alignment*((End+Alignment-1)//Alignment) },
+    [ c_struct(Name, Size, Alignment) ].
+
+field_clauses([], _, End, End, Align, Align) --> [].
+field_clauses([f(Name,Type)|T], Struct, Off0, Off, Align0, Align) -->
+    { alignof(Type, Alignment),
+      Align1 is max(Align0, Alignment),
+      Off1 is Alignment*((Off0+Alignment-1)//Alignment),
+      sizeof(Type, Size),
+      Off2 is Off1 + Size
+    },
+    [ c_struct_field(Struct, Name, Off1, Type) ],
+    field_clauses(T, Struct, Off2, Off, Align1, Align).
+
+
+alignof(Type, Alignment) :-
+    c_alignof(Type, Alignment),
+    !.
+alignof(struct(Name), Alignment) :-
+    c_struct(Name, _Size, Alignment),
+    !.
+alignof(Type, _Alignment) :-
+    existence_error(type, Type).
+
+sizeof(Type, Size) :-
+    c_sizeof(Type, Size),
+    !.
+sizeof(struct(Name), Size) :-
+    c_struct(Name, Size, _Alignment),
+    !.
+sizeof(Type, _Alignment) :-
+    existence_error(type, Type).
+
+
+%!  c_struct(?Name, ?Size, ?Align)
+%
+%   Total size of the struct in bytes and alignment restrictions.
+
+%!  c_struct_field(?Name, ?Field, ?Offset, ?Type)
+%
+%   Fact to provide efficient access to fields
+
+%!  c_struct_alloc(-Ptr, +Name) is det.
+%
+%   Allocate a C structure
+
+c_struct_alloc(Ptr, Name) :-
+    c_struct(Name, Size, _Align),
+    !,
+    c_alloc(Ptr, Name, Size).
+c_struct_alloc(_Ptr, Name) :-
+    existence_error(struct, Name).
+
+%!  c_struct_load(+Ptr, +Field, -Value) is det.
+%
+%   Load the value of a field from a C structure.
+
+c_struct_load(Ptr, Field, Value) :-
+    c_typeof(Ptr, Name),
+    c_struct_field(Name, Field, Offset, Type),
+    c_load(Ptr, Offset, Type, Value).
+
+%!  c_struct_store(+Ptr, +Field, +Value) is det.
+%
+%   Store Value into Field of a structure
+
+c_struct_store(Ptr, Field, Value) :-
+    c_typeof(Ptr, Name),
+    c_struct_field(Name, Field, Offset, Type),
+    c_store(Ptr, Offset, Type, Value).
 
