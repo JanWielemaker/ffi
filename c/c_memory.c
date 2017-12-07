@@ -437,7 +437,7 @@ c_sizeof(term_t type, term_t bytes)
     else if ( ta == ATOM_float )     sz = sizeof(float);
     else if ( ta == ATOM_double )    sz = sizeof(double);
     else if ( ta == ATOM_pointer )   sz = sizeof(void*);
-    else return PL_domain_error("c_type", type);
+    else return FALSE;
 
     return PL_unify_integer(bytes, sz);
   }
@@ -465,7 +465,7 @@ c_alignof(term_t type, term_t bytes)
     else if ( ta == ATOM_float )     sz = __alignof__(float);
     else if ( ta == ATOM_double )    sz = __alignof__(double);
     else if ( ta == ATOM_pointer )   sz = __alignof__(void*);
-    else return PL_domain_error("c_type", type);
+    else return FALSE;
 
     return PL_unify_integer(bytes, sz);
   }
