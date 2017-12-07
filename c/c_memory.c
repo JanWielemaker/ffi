@@ -350,8 +350,11 @@ c_store(term_t ptr, term_t offset, term_t type, term_t value)
       else if ( ta == ATOM_short )     return PL_cvt_i_short(value, vp);
       else if ( ta == ATOM_ushort )    return PL_cvt_i_ushort(value, vp);
       else if ( ta == ATOM_int )       return PL_cvt_i_int(value, vp);
+      else if ( ta == ATOM_uint )      return PL_cvt_i_uint(value, vp);
       else if ( ta == ATOM_long )      return PL_cvt_i_long(value, vp);
+      else if ( ta == ATOM_ulong )     return PL_cvt_i_ulong(value, vp);
       else if ( ta == ATOM_longlong )  return PL_cvt_i_int64(value, vp);
+      else if ( ta == ATOM_ulonglong ) return PL_cvt_i_uint64(value, vp);
       else if ( ta == ATOM_float )     return PL_cvt_i_single(value, vp);
       else if ( ta == ATOM_double )    return PL_cvt_i_float(value, vp);
       else if ( ta == ATOM_pointer )   return i_ptr(value, vp);
