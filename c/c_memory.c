@@ -51,6 +51,8 @@ static atom_t ATOM_double;
 static atom_t ATOM_pointer;
 static atom_t ATOM_void;
 
+#define SZ_UNKNOWN (~(size_t)0)
+
 typedef struct c_ptr
 { void *ptr;				/* the pointer */
   atom_t type;				/* Its type */
@@ -137,13 +139,14 @@ static PL_blob_t c_ptr_blob =
 
 
 static int
-unify_ptr(term_t t, void *ptr, void *ctx, atom_t type)
+unify_ptr(term_t t, void *ptr, void *ctx, size_t size, atom_t type)
 { c_ptr *ref = malloc(sizeof(*ref));
 
   if ( ref )
   { ref->ptr  = ptr;
     ref->type = type;
     ref->ctx  = ctx;
+    ref->size = size;
     ref->free = NULL;
   }
 
@@ -192,7 +195,7 @@ c_alloc(term_t ptr, term_t type, term_t size)
 
     if ( p )
     { memset(p, 0, sz);
-      if ( unify_ptr(ptr, p, NULL, ta) )
+      if ( unify_ptr(ptr, p, NULL, sz, ta) )
 	return TRUE;
       free(p);
     } else
@@ -260,6 +263,10 @@ c_typeof(term_t ptr, term_t type)
 }
 
 
+#define VALID(ref, off, type) \
+	((off)+sizeof(type) <= ref->size) ? TRUE : \
+	PL_domain_error("offset", offset)
+
 static foreign_t
 c_load(term_t ptr, term_t offset, term_t type, term_t value)
 { PL_blob_t *btype;
@@ -278,45 +285,50 @@ c_load(term_t ptr, term_t offset, term_t type, term_t value)
     if ( PL_get_atom(type, &ta) )
     { if ( ta == ATOM_char )
       { const char *p = vp;
-	return PL_unify_integer(value, *p);
+	return VALID(ref, off, char) && PL_unify_integer(value, *p);
       } else if ( ta == ATOM_uchar )
       { const unsigned char *p = vp;
-	return PL_unify_integer(value, *p);
+	return VALID(ref, off, char) && PL_unify_integer(value, *p);
       } else if ( ta == ATOM_short )
       { const short *p = vp;
-	return PL_unify_integer(value, *p);
+	return VALID(ref, off, short) && PL_unify_integer(value, *p);
       } else if ( ta == ATOM_ushort )
       { const unsigned short *p = vp;
-	return PL_unify_integer(value, *p);
+	return VALID(ref, off, short) && PL_unify_integer(value, *p);
       } else if ( ta == ATOM_int )
       { const int *p = vp;
-	return PL_unify_integer(value, *p);
+	return VALID(ref, off, int) && PL_unify_integer(value, *p);
       } else if ( ta == ATOM_uint )
       { const unsigned int *p = vp;
-	return PL_unify_uint64(value, *p);
+	return VALID(ref, off, int) && PL_unify_uint64(value, *p);
       } else if ( ta == ATOM_long )
       { const long *p = vp;
-	return PL_unify_integer(value, *p);
+	return VALID(ref, off, long) && PL_unify_integer(value, *p);
       } else if ( ta == ATOM_ulong )
       { const unsigned long *p = vp;
-	return PL_unify_uint64(value, *p);
+	return VALID(ref, off, long) && PL_unify_uint64(value, *p);
       } else if ( ta == ATOM_longlong )
       { const long long *p = vp;
+	if ( !VALID(ref, off, long long ) )
+	  return FALSE;
 	int64_t v = (int64_t)*p;
 	return PL_unify_integer(value, v);
       } else if ( ta == ATOM_ulonglong )
       { const unsigned long long *p = vp;
+	if ( !VALID(ref, off, long long ) )
+	  return FALSE;
 	uint64_t v = (uint64_t)*p;
 	return PL_unify_uint64(value, v);
       } else if ( ta == ATOM_float )
       { const float *p = vp;
-	return PL_unify_float(value, *p);
+	return VALID(ref, off, float) && PL_unify_float(value, *p);
       } else if ( ta == ATOM_double )
       { const double *p = vp;
-	return PL_unify_float(value, *p);
+	return VALID(ref, off, double) && PL_unify_float(value, *p);
       } else if ( ta == ATOM_pointer )
       { void **p = vp;
-	return unify_ptr(value, *p, NULL, ATOM_void);
+	return VALID(ref, off, void*) &&
+	       unify_ptr(value, *p, NULL, SZ_UNKNOWN, ATOM_void);
       } else
 	return PL_domain_error("c_type", type);
     } else if ( PL_get_name_arity(type, &ta, &tarity) )
@@ -328,7 +340,8 @@ c_load(term_t ptr, term_t offset, term_t type, term_t value)
 	_PL_get_arg(1, type, arg);
 	if ( PL_get_atom_ex(arg, &atype) )
 	{ void **p = vp;
-	  return unify_ptr(value, *p, NULL, atype);
+	  return VALID(ref, off, void*) &&
+		 unify_ptr(value, *p, NULL, SZ_UNKNOWN, atype);
 	}
 	return FALSE;
       }
@@ -371,19 +384,32 @@ c_store(term_t ptr, term_t offset, term_t type, term_t value)
     void *vp = (void*)((char *)ref->ptr + off);
 
     if ( PL_get_atom(type, &ta) )
-    {      if ( ta == ATOM_char )      return PL_cvt_i_char(value, vp);
-      else if ( ta == ATOM_uchar )     return PL_cvt_i_uchar(value, vp);
-      else if ( ta == ATOM_short )     return PL_cvt_i_short(value, vp);
-      else if ( ta == ATOM_ushort )    return PL_cvt_i_ushort(value, vp);
-      else if ( ta == ATOM_int )       return PL_cvt_i_int(value, vp);
-      else if ( ta == ATOM_uint )      return PL_cvt_i_uint(value, vp);
-      else if ( ta == ATOM_long )      return PL_cvt_i_long(value, vp);
-      else if ( ta == ATOM_ulong )     return PL_cvt_i_ulong(value, vp);
-      else if ( ta == ATOM_longlong )  return PL_cvt_i_int64(value, vp);
-      else if ( ta == ATOM_ulonglong ) return PL_cvt_i_uint64(value, vp);
-      else if ( ta == ATOM_float )     return PL_cvt_i_single(value, vp);
-      else if ( ta == ATOM_double )    return PL_cvt_i_float(value, vp);
-      else if ( ta == ATOM_pointer )   return i_ptr(value, vp);
+    {      if ( ta == ATOM_char )
+	return VALID(ref, off, char) && PL_cvt_i_char(value, vp);
+      else if ( ta == ATOM_uchar )
+	return VALID(ref, off, char) && PL_cvt_i_uchar(value, vp);
+      else if ( ta == ATOM_short )
+	return VALID(ref, off, short) && PL_cvt_i_short(value, vp);
+      else if ( ta == ATOM_ushort )
+	return VALID(ref, off, short) && PL_cvt_i_ushort(value, vp);
+      else if ( ta == ATOM_int )
+	return VALID(ref, off, int) && PL_cvt_i_int(value, vp);
+      else if ( ta == ATOM_uint )
+	return VALID(ref, off, int) && PL_cvt_i_uint(value, vp);
+      else if ( ta == ATOM_long )
+	return VALID(ref, off, long) && PL_cvt_i_long(value, vp);
+      else if ( ta == ATOM_ulong )
+	return VALID(ref, off, long) && PL_cvt_i_ulong(value, vp);
+      else if ( ta == ATOM_longlong )
+	return VALID(ref, off, long long) && PL_cvt_i_int64(value, vp);
+      else if ( ta == ATOM_ulonglong )
+	return VALID(ref, off, long long) && PL_cvt_i_uint64(value, vp);
+      else if ( ta == ATOM_float )
+	return VALID(ref, off, float) && PL_cvt_i_single(value, vp);
+      else if ( ta == ATOM_double )
+	return VALID(ref, off, double) && PL_cvt_i_float(value, vp);
+      else if ( ta == ATOM_pointer )
+	return VALID(ref, off, void*) && i_ptr(value, vp);
       else return PL_domain_error("c_type", type);
     }
   }

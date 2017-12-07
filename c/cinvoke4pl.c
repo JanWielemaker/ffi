@@ -143,7 +143,7 @@ ci_context_create(term_t ctx)
 { CInvContext *cictx;
 
   if ( (cictx=cinv_context_create()) )
-    return unify_ptr(ctx, cictx, NULL, ATOM_ci_context);
+    return unify_ptr(ctx, cictx, NULL, sizeof(*cictx), ATOM_ci_context);
 
   return FALSE;
 }
@@ -162,7 +162,7 @@ ci_library_create(term_t ctx, term_t path, term_t lib)
     DEBUG(Sdprintf("Opening %s\n", name));
 
     if ( (h=cinv_library_create(cictx, name)) )
-      return unify_ptr(lib, h, cictx, ATOM_ci_library);
+      return unify_ptr(lib, h, cictx, sizeof(*h), ATOM_ci_library);
 
     return ci_error(cictx);
   }
@@ -199,7 +199,7 @@ ci_library_load_entrypoint(term_t lib, term_t name, term_t func)
     DEBUG(Sdprintf("Find %s in %p\n", fname, libh));
 
     if ( (f=cinv_library_load_entrypoint(cictx, libh, fname)) )
-      return unify_ptr(func, f, cictx, ATOM_ci_function);
+      return unify_ptr(func, f, cictx, sizeof(*f), ATOM_ci_function);
   }
 
   return FALSE;
@@ -227,13 +227,13 @@ ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t fun
     { ctx_prototype *p = malloc(sizeof(*p));
 
       if ( p )
-      { memset(p, 0, sizeof(p));
+      { memset(p, 0, sizeof(*p));
 	p->cictx = cictx;
 	p->entrypoint = entrypoint;
 	p->rformat    = strdup(rformat);
 	p->pformat    = strdup(pformat);
 
-	return unify_ptr(func, f, p, ATOM_ci_prototype);
+	return unify_ptr(func, f, p, sizeof(*p), ATOM_ci_prototype);
       } else
       { return PL_resource_error("memory");
       }
@@ -444,7 +444,7 @@ ci_structure_create(term_t ctx, term_t name, term_t sptr)
 
       if ( (cs=cinv_structure_create(cictx)) )
       { def->structure = cs;
-	return unify_ptr(sptr, cs, def, ATOM_ci_struct_decl);
+	return unify_ptr(sptr, cs, def, sizeof(*cs), ATOM_ci_struct_decl);
       }
       return ci_error(cictx);
     } else
@@ -505,7 +505,7 @@ ci_structure_create_instance(term_t structure, term_t inst)
   { void *ptr;
 
     if ( (ptr=cinv_structure_create_instance(def->cictx, cs)) )
-    { return unify_ptr(inst, ptr, def, ATOM_ci_struct);
+    { return unify_ptr(inst, ptr, def, sizeof(*ptr), ATOM_ci_struct);
     }
 
     return ci_error(def->cictx);
