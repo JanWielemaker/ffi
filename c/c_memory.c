@@ -264,8 +264,8 @@ c_typeof(term_t ptr, term_t type)
 
 
 #define VALID(ref, off, type) \
-	((off)+sizeof(type) <= ref->size) ? TRUE : \
-	PL_domain_error("offset", offset)
+	(((off)+sizeof(type) <= ref->size) ? TRUE : \
+	PL_domain_error("offset", offset))
 
 static foreign_t
 c_load(term_t ptr, term_t offset, term_t type, term_t value)
