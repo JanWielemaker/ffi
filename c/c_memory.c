@@ -346,7 +346,9 @@ c_store(term_t ptr, term_t offset, term_t type, term_t value)
 
     if ( PL_get_atom(type, &ta) )
     {      if ( ta == ATOM_char )      return PL_cvt_i_char(value, vp);
+      else if ( ta == ATOM_uchar )     return PL_cvt_i_uchar(value, vp);
       else if ( ta == ATOM_short )     return PL_cvt_i_short(value, vp);
+      else if ( ta == ATOM_ushort )    return PL_cvt_i_ushort(value, vp);
       else if ( ta == ATOM_int )       return PL_cvt_i_int(value, vp);
       else if ( ta == ATOM_long )      return PL_cvt_i_long(value, vp);
       else if ( ta == ATOM_longlong )  return PL_cvt_i_int64(value, vp);
