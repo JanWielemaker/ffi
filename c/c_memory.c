@@ -204,6 +204,32 @@ c_alloc(term_t ptr, term_t type, term_t size)
 
 
 static foreign_t
+c_realloc(term_t ptr, term_t size)
+{ size_t sz;
+  PL_blob_t *type;
+  void *bp;
+
+  if ( PL_get_size_ex(size, &sz) &&
+       PL_get_blob(ptr, &bp, NULL, &type) &&
+       type == &c_ptr_blob )
+  { c_ptr *ref = bp;
+    void *p = realloc(ref->ptr, sz);
+
+    if ( p )
+    { memset(p, 0, sz);
+      if ( sz > ref->size )
+	memset((char*)p+ref->size, 0, sz-ref->size);
+      ref->size = sz;
+      return TRUE;
+    } else
+      PL_resource_error("memory");
+  }
+
+  return FALSE;
+}
+
+
+static foreign_t
 c_free(term_t ptr)
 { PL_blob_t *type;
   void *bp;
@@ -444,6 +470,7 @@ install_c_memory(void)
   MKATOM(void);
 
   PL_register_foreign("c_alloc",   3, c_alloc,   0);
+  PL_register_foreign("c_realloc", 2, c_realloc, 0);
   PL_register_foreign("c_free",    1, c_free,    0);
   PL_register_foreign("c_load",    4, c_load,    0);
   PL_register_foreign("c_store",   4, c_store,   0);
