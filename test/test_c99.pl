@@ -1,6 +1,13 @@
+:- use_module('../prolog/cinvoke').
 :- use_module('../prolog/c99_tokens').
 :- use_module('../prolog/c99_phrase').
 :- use_module('../prolog/c99_decls').
+
+:- c_import("#include <sys/types.h>
+             #include <sys/stat.h>
+             #include <unistd.h>",
+            [ 'glibc.so.6' ],
+            [ stat ]).
 
 tmath :-
     c99_types("#include <math.h>",

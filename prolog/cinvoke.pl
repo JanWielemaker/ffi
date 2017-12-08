@@ -34,6 +34,7 @@
 
 :- module(cinvoke,
           [ dc_bind/4,                  % :Goal, +Signature, +File, +Func
+            c_import/3,                 % +Header, +Libs, +Functions
 
                                         % Memory access predicates
             c_alloc/3,                  % -Ptr, +Type, +Size
@@ -50,6 +51,7 @@
             c_struct_store/3            % +Ptr, +Field, +Value
           ]).
 :- use_module(library(error)).
+:- use_module(c99_decls).
 
 /** <module> Bind Prolog predicates to C functions
 */
@@ -57,7 +59,10 @@
 :- use_foreign_library('lib/x86_64-linux/cinvoke4pl').
 
 :- multifile
-    user:file_search_path/2.
+    user:file_search_path/2,
+    system:term_expansion/2,
+    user:exception/3.
+
 
 user:file_search_path(dc, '/lib/x86_64-linux-gnu').
 
@@ -152,6 +157,62 @@ dc_expand(Goal, Signature, File, Func,
 
 
 		 /*******************************
+		 *             IMPORT		*
+		 *******************************/
+
+%!  c_import(+Header, +Libs, +Functions)
+%
+%   Import Functions as predicates from Libs   based  on the declaration
+%   from Header.
+
+c_import(Header, Libs, Functions) :-
+        throw(error(context_error(nodirective,
+                                  c_import(Header, Libs, Functions)), _)).
+
+system:term_expansion((:- c_import(Header, Libs, Functions)),
+                      Clauses) :-
+    c99_types(Header, Functions, Types),
+    phrase(compile_types(Types), Clauses, Rest1),
+    phrase(wrap_functions(Functions, Types), Rest1, Rest2),
+    phrase(libs(Libs), Rest2).
+
+compile_types([]) --> [].
+compile_types([struct(Name,Fields)|T]) --> !,
+    struct_compile(Name, Fields),
+    compile_types(T).
+compile_types([_|T]) --> !,
+    compile_types(T).
+
+wrap_functions([], _) --> [].
+wrap_functions([H|T], Types) -->
+    wrap_function(H, Types), wrap_functions(T, Types).
+
+wrap_function(Name, Types) -->
+    { memberchk(function(Name, Ret, Params), Types),
+      Signature =.. [Name|Params]
+    },
+    [ '$c_function'(Signature, Ret) ].
+
+libs([]) --> [].
+libs([H|T]) --> [ '$c_lib'(H) ], libs(T).
+
+
+%!  user:exception(+Type, +Context, -Action) is semidet.
+
+user:exception(undefined_predicate, PI, retry) :-
+    pi_head(PI, M:Head),
+    '$c_current_predicate'(_, M:'$c_function'(_,_)),
+    M:'$c_function'(Head, _Ret),
+    debug(ctypes, 'Defining ~p', [M:Head]),
+    fail.
+
+pi_head(Module:Name/Arity, Module:Head) :-
+    functor(Head, Name, Arity).
+pi_head(Name/Arity, user:Head) :-
+    functor(Head, Name, Arity).
+
+
+		 /*******************************
 		 *          STRUCTURES		*
 		 *******************************/
 
@@ -176,16 +237,13 @@ dc_expand(Goal, Signature, File, Func,
 c_struct(Name, Fields) :-
     throw(error(context_error(nodirective, c_struct(Name, Fields)), _)).
 
-:- multifile
-    system:term_expansion/2.
-
 system:term_expansion((:- c_struct(Name, Fields)), Clauses) :-
     phrase(struct_compile(Name, Fields), Clauses).
 
 struct_compile(Name, Fields) -->
     field_clauses(Fields, Name, 0, End, 0, Alignment),
     { Size is Alignment*((End+Alignment-1)//Alignment) },
-    [ c_struct(Name, Size, Alignment) ].
+    [ '$c_struct'(Name, Size, Alignment) ].
 
 field_clauses([], _, End, End, Align, Align) --> [].
 field_clauses([f(Name,Type)|T], Struct, Off0, Off, Align0, Align) -->
@@ -195,7 +253,7 @@ field_clauses([f(Name,Type)|T], Struct, Off0, Off, Align0, Align) -->
       sizeof(Type, Size),
       Off2 is Off1 + Size
     },
-    [ c_struct_field(Struct, Name, Off1, Type) ],
+    [ '$c_struct_field'(Struct, Name, Off1, Type) ],
     field_clauses(T, Struct, Off2, Off, Align1, Align).
 
 
@@ -203,7 +261,7 @@ alignof(Type, Alignment) :-
     c_alignof(Type, Alignment),
     !.
 alignof(struct(Name), Alignment) :-
-    c_struct(Name, _Size, Alignment),
+    '$c_struct'(Name, _Size, Alignment),
     !.
 alignof(Type, _Alignment) :-
     existence_error(type, Type).
@@ -212,7 +270,7 @@ sizeof(Type, Size) :-
     c_sizeof(Type, Size),
     !.
 sizeof(struct(Name), Size) :-
-    c_struct(Name, Size, _Alignment),
+    '$c_struct'(Name, Size, _Alignment),
     !.
 sizeof(Type, _Alignment) :-
     existence_error(type, Type).
@@ -231,7 +289,7 @@ sizeof(Type, _Alignment) :-
 %   Allocate a C structure
 
 c_struct_alloc(Ptr, Name) :-
-    c_struct(Name, Size, _Align),
+    '$c_struct'(Name, Size, _Align),
     !,
     c_alloc(Ptr, Name, Size).
 c_struct_alloc(_Ptr, Name) :-
@@ -243,7 +301,7 @@ c_struct_alloc(_Ptr, Name) :-
 
 c_struct_load(Ptr, Field, Value) :-
     c_typeof(Ptr, Name),
-    c_struct_field(Name, Field, Offset, Type),
+    '$c_struct_field'(Name, Field, Offset, Type),
     c_load(Ptr, Offset, Type, Value).
 
 %!  c_struct_store(+Ptr, +Field, +Value) is det.
@@ -252,6 +310,6 @@ c_struct_load(Ptr, Field, Value) :-
 
 c_struct_store(Ptr, Field, Value) :-
     c_typeof(Ptr, Name),
-    c_struct_field(Name, Field, Offset, Type),
+    '$c_struct_field'(Name, Field, Offset, Type),
     c_store(Ptr, Offset, Type, Value).
 
