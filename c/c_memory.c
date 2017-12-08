@@ -423,7 +423,7 @@ c_sizeof(term_t type, term_t bytes)
 { atom_t ta;
   int sz;
 
-  if ( PL_get_atom_ex(type, &ta) )
+  if ( PL_get_atom(type, &ta) )
   {      if ( ta == ATOM_char )      sz = sizeof(char);
     else if ( ta == ATOM_uchar )     sz = sizeof(unsigned char);
     else if ( ta == ATOM_short )     sz = sizeof(short);
@@ -451,7 +451,7 @@ c_alignof(term_t type, term_t bytes)
 { atom_t ta;
   int sz;
 
-  if ( PL_get_atom_ex(type, &ta) )
+  if ( PL_get_atom(type, &ta) )
   {      if ( ta == ATOM_char )      sz = __alignof__(char);
     else if ( ta == ATOM_uchar )     sz = __alignof__(unsigned char);
     else if ( ta == ATOM_short )     sz = __alignof__(short);
