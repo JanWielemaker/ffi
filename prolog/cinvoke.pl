@@ -176,19 +176,20 @@ system:term_expansion((:- c_import(Header, Libs, Functions)),
                       Clauses) :-
     maplist(functor_name, Functions, FunctionNames),
     c99_types(Header, FunctionNames, Types),
-    phrase(c_import(Libs, Functions, Types), Clauses).
+    phrase(c_import(Libs, Functions, FunctionNames, Types), Clauses).
 
 functor_name(Spec, Name) :-
     functor(Spec, Name, _).
 
-c_import(Libs, Functions, Types) -->
+c_import(Libs, Functions, FunctionNames, Types) -->
     decls(Types),
     compile_types(Types, Types),
     wrap_functions(Functions, Types),
-    libs(Libs).
+    libs(Libs, FunctionNames).
 
 decls(_) -->
-    [ (:- discontiguous(('$c_struct'/3,
+    [ (:- discontiguous(('$c_lib'/2,
+                         '$c_struct'/3,
                          '$c_struct_field'/4))) ].
 
 compile_types([], _) --> [].
@@ -203,13 +204,10 @@ wrap_functions([H|T], Types) -->
     wrap_function(H, Types), wrap_functions(T, Types).
 
 wrap_function(Signature, Types) -->
-    { Signature =.. [Name|_SigArgs],
+    { Signature =.. [Name|SigArgs],
       memberchk(function(Name, Ret, Params), Types),
-      length(Params, Arity0),
-      (   Ret == void
-      ->  Arity = Arity0
-      ;   Arity is Arity0+1
-      ),
+      length(SigArgs, Arity),
+      matching_signature(Name, SigArgs, Ret, Params),
       functor(Head, Name, Arity),
       prolog_load_context(module, M)
     },
@@ -218,8 +216,23 @@ wrap_function(Signature, Types) -->
       (Head :- cinvoke:define(M:Head))
     ].
 
-libs([]) --> [].
-libs([H|T]) --> [ '$c_lib'(H) ], libs(T).
+matching_signature(Name, SigArgs, Ret, Params) :-
+    append(RealArgs, [_], SigArgs),
+    !,
+    (   same_length(RealArgs, Params)
+    ->  true
+    ;   print_message(error, cinvoke(nonmatching_params(SigArgs, Params))),
+        fail
+    ),
+    (   Ret == void
+    ->  print_message(error, cinvoke(void_function(Name))),
+        fail
+    ;   true
+    ).
+
+
+libs([], _) --> [].
+libs([H|T], Functions) --> [ '$c_lib'(H, Functions) ], libs(T, Functions).
 
 %!  define(:Signature)
 %
@@ -244,7 +257,8 @@ link_clause(M:Goal,
     atom_codes(Ret, RetChars),
     functor(Goal, Name, Arity),
     functor(Head, Name, Arity),
-    (   M:'$c_lib'(Lib),
+    (   M:'$c_lib'(Lib, Funcs),
+        memberchk(Name, Funcs),
         ci_library(Lib, FH),
         ci_library_load_entrypoint(FH, Name, FuncPtr)
     ->  debug(ctypes, 'Binding ~p (Ret=~p, Params=~p)', [Name, Ret, Params]),
