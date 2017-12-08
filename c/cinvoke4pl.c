@@ -322,6 +322,11 @@ ci_function_invoke(term_t prototype, term_t goal)
 	    return FALSE;
 	  argv[argc] = &as[argc].d;
 	  break;
+	case 'p':
+	  if ( !get_ptr(arg, &as[argc].p, NULL, 0) )
+	    return FALSE;
+	  argv[argc] = &as[argc].p;
+	  break;
       }
     }
 
