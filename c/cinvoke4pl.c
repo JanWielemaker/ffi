@@ -206,10 +206,9 @@ ci_library_load_entrypoint(term_t lib, term_t name, term_t func)
 }
 
 
-static char *
-ci_signature(const char *s)
-{ char buf[100];
-  char *o = buf;
+static int
+ci_signature(const char *s, char *buf)
+{ char *o = buf;
   int size = 0;					/* -2..2 */
 
   for(; *s; s++)
@@ -232,29 +231,26 @@ ci_signature(const char *s)
 	  case  0: *o++ = 'i'; break;
 	  case  1: *o++ = 'l'; break;
 	  case  2: *o++ = 'e'; break;
-	  default: PL_syntax_error("invalid signature", NULL);
-	           return NULL;
+	  default: return PL_syntax_error("invalid signature", NULL);
 	}
       case 'f':
 	switch(size)
 	{ case  0: *o++ = 'f'; break;
 	  case  1: *o++ = 'd'; break;
-	  default: PL_syntax_error("invalid signature", NULL);
-	           return NULL;
+	  default: return PL_syntax_error("invalid signature", NULL);
 	}
       case 'p':
 	*o++ = 'p';
         break;
       default:
-	PL_syntax_error("invalid signature", NULL);
-        return NULL;
+	return PL_syntax_error("invalid signature", NULL);
     }
 
     size = 0;
   }
 
   *o = '\0';
-  return strdup(buf);
+  return TRUE;
 }
 
 
@@ -265,26 +261,26 @@ ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t fun
   cinv_callconv_t ccv;
   char *rformat;
   char *pformat;
-  char *ci_rformat = NULL;
-  char *ci_pformat = NULL;
+  char ci_rformat[16];
+  char ci_pformat[100];
 
   if ( get_ptr(entry, &entrypoint, &cictx, ATOM_ci_function) &&
        get_cc(cc, &ccv) &&
        PL_get_chars(ret, &rformat, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) &&
        PL_get_chars(parms, &pformat, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) &&
-       (ci_rformat = ci_signature(rformat)) &&
-       (ci_pformat = ci_signature(pformat)) )
+       ci_signature(rformat, ci_rformat) &&
+       ci_signature(pformat, ci_pformat) )
   { CInvFunction *f;
 
-    if ( (f=cinv_function_create(cictx, ccv, rformat, pformat)) )
+    if ( (f=cinv_function_create(cictx, ccv, ci_rformat, ci_pformat)) )
     { ctx_prototype *p = malloc(sizeof(*p));
 
       if ( p )
       { memset(p, 0, sizeof(*p));
 	p->cictx = cictx;
 	p->entrypoint = entrypoint;
-	p->rformat    = ci_rformat;
-	p->pformat    = ci_pformat;
+	p->rformat    = strdup(rformat);
+	p->pformat    = strdup(pformat);
 
 	return unify_ptr(func, f, p, sizeof(*p), ATOM_ci_prototype);
       } else
@@ -293,9 +289,6 @@ ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t fun
     }
     return ci_error(cictx);
   }
-
-  if ( ci_rformat ) free(ci_rformat);
-  if ( ci_pformat ) free(ci_pformat);
 
   return FALSE;
 }
@@ -383,8 +376,15 @@ ci_function_invoke(term_t prototype, term_t goal)
 	case '-':
 	  io = -1;
 	  continue;
+      }
 
-	case 'i':				/* scalars */
+      if ( !PL_get_arg(argc+1, goal, arg) )
+      { return ( PL_put_integer(arg, argc+1) &&
+		 PL_existence_error("d_arg", arg) );
+      }
+
+      switch(*pfmt)
+      { case 'i':				/* scalars */
 	  switch(size)
 	  { case -2:
 	      if ( unsig )
@@ -439,6 +439,7 @@ ci_function_invoke(term_t prototype, term_t goal)
 	    default:
 	      assert(0);
 	  }
+	  break;
 	case 'f':
 	  switch(size)
 	  { case 0:
@@ -454,6 +455,7 @@ ci_function_invoke(term_t prototype, term_t goal)
 	    default:
 	      assert(0);
 	  }
+	  break;
 	case 'p':				/* pointers */
 	  if ( !get_ptr(arg, &as[argc].p, NULL, 0) )
 	    return FALSE;
@@ -463,16 +465,10 @@ ci_function_invoke(term_t prototype, term_t goal)
 	  assert(0);
       }
 
-      if ( pfmt[1] )				/* advance args */
-      { unsig = FALSE;
-	size = 0;				/* -2..2 */
-	io = 0;
-	argc++;
-	if ( !PL_get_arg(argc+1, goal, arg) )
-	{ return ( PL_put_integer(arg, argc+1) &&
-		   PL_existence_error("d_arg", arg) );
-	}
-      }
+      argc++;
+      unsig = FALSE;
+      size = 0;
+      io = 0;
     }
 
     if ( ctx->rformat && ctx->rformat[0] )
