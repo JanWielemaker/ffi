@@ -7,11 +7,11 @@
              #include <sys/stat.h>
              #include <unistd.h>",
             [ 'libc.so.6' ],
-            [ stat ]).
+            [ stat(+string,-struct(stat),[-int])]).
 
 :- c_import("#include <math.h>",
             [ 'libm.so.6' ],
-            [ sin ]).
+            [ sin(+double, [-double]) ]).
 
 tmath :-
     c99_types("#include <math.h>",
