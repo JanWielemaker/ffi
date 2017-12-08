@@ -206,6 +206,58 @@ ci_library_load_entrypoint(term_t lib, term_t name, term_t func)
 }
 
 
+static char *
+ci_signature(const char *s)
+{ char buf[100];
+  char *o = buf;
+  int size = 0;					/* -2..2 */
+
+  for(; *s; s++)
+  { switch(*s)
+    { case 'u':					/* modifiers */
+      case '+':
+      case '-':
+	continue;
+      case 'h':
+	size--;
+        continue;
+      case 'l':
+	size++;
+        continue;
+
+      case 'i':
+	switch(size)
+	{ case -2: *o++ = 'c'; break;
+          case -1: *o++ = 's'; break;
+	  case  0: *o++ = 'i'; break;
+	  case  1: *o++ = 'l'; break;
+	  case  2: *o++ = 'e'; break;
+	  default: PL_syntax_error("invalid signature", NULL);
+	           return NULL;
+	}
+      case 'f':
+	switch(size)
+	{ case  0: *o++ = 'f'; break;
+	  case  1: *o++ = 'd'; break;
+	  default: PL_syntax_error("invalid signature", NULL);
+	           return NULL;
+	}
+      case 'p':
+	*o++ = 'p';
+        break;
+      default:
+	PL_syntax_error("invalid signature", NULL);
+        return NULL;
+    }
+
+    size = 0;
+  }
+
+  *o = '\0';
+  return strdup(buf);
+}
+
+
 static foreign_t
 ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t func)
 { void *entrypoint;
@@ -213,15 +265,16 @@ ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t fun
   cinv_callconv_t ccv;
   char *rformat;
   char *pformat;
+  char *ci_rformat = NULL;
+  char *ci_pformat = NULL;
 
   if ( get_ptr(entry, &entrypoint, &cictx, ATOM_ci_function) &&
        get_cc(cc, &ccv) &&
        PL_get_chars(ret, &rformat, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) &&
-       PL_get_chars(parms, &pformat, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) )
+       PL_get_chars(parms, &pformat, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) &&
+       (ci_rformat = ci_signature(rformat)) &&
+       (ci_pformat = ci_signature(pformat)) )
   { CInvFunction *f;
-
-    if ( pformat[0] == '(' )
-      pformat++;			/* dyncall compatibility */
 
     if ( (f=cinv_function_create(cictx, ccv, rformat, pformat)) )
     { ctx_prototype *p = malloc(sizeof(*p));
@@ -230,8 +283,8 @@ ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t fun
       { memset(p, 0, sizeof(*p));
 	p->cictx = cictx;
 	p->entrypoint = entrypoint;
-	p->rformat    = strdup(rformat);
-	p->pformat    = strdup(pformat);
+	p->rformat    = ci_rformat;
+	p->pformat    = ci_pformat;
 
 	return unify_ptr(func, f, p, sizeof(*p), ATOM_ci_prototype);
       } else
@@ -241,6 +294,9 @@ ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t fun
     return ci_error(cictx);
   }
 
+  if ( ci_rformat ) free(ci_rformat);
+  if ( ci_pformat ) free(ci_pformat);
+
   return FALSE;
 }
 
@@ -249,17 +305,50 @@ ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t fun
 
 typedef union argstore
 { char c;
+  unsigned char uc;
   short s;
+  unsigned short us;
   int i;
+  unsigned int ui;
   long l;
-  long long e;
+  unsigned long ul;
+  int64_t ll;
+  uint64_t ull;
   float f;
   double d;
   void *p;
-  int16_t i2;
-  int32_t i4;
-  int64_t i8;
 } argstore;
+
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+What do we want to know about an argument?
+
+  - Scalars
+    - Float/Int
+    - Size
+    - Unsigned (int)
+  - Pointers
+    - Input, output (both?)
+    - Strings
+      - Encoding
+      - If output, free?
+    - Structs
+
+Encoding:
+
+  - Primary type: i, f, p (integer, float, pointer)
+  - Integer
+    - size: hh (char), h (short), l (long), ll (long long)
+    - signed: u (unsigned) s (signed)
+  - Float size: l (double)
+  - Pointer:
+    - +,-: input/output
+    - s (string), w (wide string)
+
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
+
+
 
 static foreign_t
 ci_function_invoke(term_t prototype, term_t goal)
@@ -273,60 +362,116 @@ ci_function_invoke(term_t prototype, term_t goal)
     int argc = 0;
     term_t arg = PL_new_term_ref();
     const char *pfmt;
+    int unsig = FALSE;
+    int size = 0;				/* -2..2 */
+    int io = 0;					/* -1: output, +1: input */
 
-    for(pfmt = ctx->pformat; *pfmt; pfmt++, argc++)
-    { if ( !PL_get_arg(argc+1, goal, arg) )
-      { return ( PL_put_integer(arg, argc+1) &&
-		 PL_existence_error("d_arg", arg) );
-      }
-
-      switch(*pfmt)
-      { case 'c':
-	  if ( !PL_cvt_i_char(arg, &as[argc].c) )
-	    return FALSE;
-	  argv[argc] = &as[argc].c;
-	  break;
-	case 's':
-	case '2':
-	  if ( !PL_cvt_i_short(arg, &as[argc].s) )
-	    return FALSE;
-	  argv[argc] = &as[argc].s;
-	  break;
-	case 'i':
-	case '4':
-	  if ( !PL_cvt_i_int(arg, &as[argc].i) )
-	    return FALSE;
-	  argv[argc] = &as[argc].i;
-	  break;
+    for(pfmt = ctx->pformat; *pfmt; pfmt++)
+    { switch(*pfmt)
+      { case 'u':				/* modifiers */
+	  unsig = TRUE;
+	  continue;
+	case 'h':
+	  size--;
+	  continue;
 	case 'l':
-	  if ( !PL_cvt_i_long(arg, &as[argc].l) )
-	    return FALSE;
-	  argv[argc] = &as[argc].l;
-	  break;
-	case 'e':
-	case '8':
-	{ int64_t e;
-	  if ( !PL_cvt_i_int64(arg, &e) )
-	    return FALSE;
-	  as[argc].e = e;
-	  argv[argc] = &as[argc].e;
-	  break;
-	}
+	  size++;
+	  continue;
+	case '+':
+	  io = 1;
+	  continue;
+	case '-':
+	  io = -1;
+	  continue;
+
+	case 'i':				/* scalars */
+	  switch(size)
+	  { case -2:
+	      if ( unsig )
+	      { if ( !PL_cvt_i_uchar(arg, &as[argc].uc) )
+		  return FALSE;
+	      } else
+	      { if ( !PL_cvt_i_char(arg, &as[argc].c) )
+		  return FALSE;
+	      }
+	      argv[argc] = &as[argc].c;
+	      break;
+	    case -1:
+	      if ( unsig )
+	      { if ( !PL_cvt_i_ushort(arg, &as[argc].us) )
+		  return FALSE;
+	      } else
+	      { if ( !PL_cvt_i_short(arg, &as[argc].s) )
+		  return FALSE;
+	      }
+	      argv[argc] = &as[argc].s;
+	      break;
+	    case 0:
+	      if ( unsig )
+	      { if ( !PL_cvt_i_uint(arg, &as[argc].ui) )
+		  return FALSE;
+	      } else
+	      { if ( !PL_cvt_i_int(arg, &as[argc].i) )
+		  return FALSE;
+	      }
+	      argv[argc] = &as[argc].i;
+	      break;
+	    case 1:
+	      if ( unsig )
+	      { if ( !PL_cvt_i_ulong(arg, &as[argc].ul) )
+		  return FALSE;
+	      } else
+	      { if ( !PL_cvt_i_long(arg, &as[argc].l) )
+		  return FALSE;
+	      }
+	      argv[argc] = &as[argc].l;
+	      break;
+	    case 2:
+	      if ( unsig )
+	      { if ( !PL_cvt_i_uint64(arg, &as[argc].ull) )
+		  return FALSE;
+	      } else
+	      { if ( !PL_cvt_i_int64(arg, &as[argc].ll) )
+		  return FALSE;
+	      }
+	      argv[argc] = &as[argc].ll;
+	      break;
+	    default:
+	      assert(0);
+	  }
 	case 'f':
-	  if ( !PL_cvt_i_single(arg, &as[argc].f) )
-	    return FALSE;
-	  argv[argc] = &as[argc].f;
-	  break;
-	case 'd':
-	  if ( !PL_cvt_i_float(arg, &as[argc].d) )
-	    return FALSE;
-	  argv[argc] = &as[argc].d;
-	  break;
-	case 'p':
+	  switch(size)
+	  { case 0:
+	      if ( !PL_cvt_i_single(arg, &as[argc].f) )
+		return FALSE;
+	      argv[argc] = &as[argc].f;
+	      break;
+	    case 1:
+	      if ( !PL_cvt_i_float(arg, &as[argc].d) )
+		return FALSE;
+	      argv[argc] = &as[argc].d;
+	      break;
+	    default:
+	      assert(0);
+	  }
+	case 'p':				/* pointers */
 	  if ( !get_ptr(arg, &as[argc].p, NULL, 0) )
 	    return FALSE;
 	  argv[argc] = &as[argc].p;
 	  break;
+	default:
+	  assert(0);
+      }
+
+      if ( pfmt[1] )				/* advance args */
+      { unsig = FALSE;
+	size = 0;				/* -2..2 */
+	io = 0;
+	argc++;
+	if ( !PL_get_arg(argc+1, goal, arg) )
+	{ return ( PL_put_integer(arg, argc+1) &&
+		   PL_existence_error("d_arg", arg) );
+	}
       }
     }
 
@@ -341,17 +486,56 @@ ci_function_invoke(term_t prototype, term_t goal)
 			 &rv.p, argv);
 
     if ( ctx->rformat && ctx->rformat[0] )
-    { switch(ctx->rformat[0])
-      { case 'c': return PL_cvt_o_int64(rv.c, arg);
-        case '2':
-        case 's': return PL_cvt_o_int64(rv.s, arg);
-        case '4':
-        case 'i': return PL_cvt_o_int64(rv.i, arg);
-        case 'l': return PL_cvt_o_int64(rv.l, arg);
-        case '8':
-        case 'e': return PL_cvt_o_int64(rv.e, arg);
-        case 'f': return PL_cvt_o_float(rv.f, arg);
-        case 'd': return PL_cvt_o_float(rv.d, arg);
+    { unsig = FALSE;
+      size  = 0;				/* -2..2 */
+      io    = 0;				/* -1: output, +1: input */
+
+      for(pfmt=ctx->rformat; *pfmt; pfmt++)
+      { switch(*pfmt)
+	{ case 'u':				/* modifiers */
+	    unsig = TRUE;
+	    continue;
+	  case 'h':
+	    size--;
+	    continue;
+	  case 'l':
+	    size++;
+	    continue;
+	  case '+':
+	    io = 1;
+	    continue;
+	  case '-':
+	    io = -1;
+	    continue;
+
+	  case 'i':
+	    switch(size)
+	    { case -2:
+		return unsig ? PL_unify_uint64(arg, rv.uc)
+	                     : PL_unify_int64(arg, rv.c);
+	      case -1:
+		return unsig ? PL_unify_uint64(arg, rv.us)
+	                     : PL_unify_int64(arg, rv.s);
+	      case  0:
+		return unsig ? PL_unify_uint64(arg, rv.ui)
+	                     : PL_unify_int64(arg, rv.i);
+	      case  1:
+		return unsig ? PL_unify_uint64(arg, rv.ul)
+	                     : PL_unify_int64(arg, rv.l);
+	      case  2:
+		return unsig ? PL_unify_uint64(arg, rv.ull)
+	                     : PL_unify_int64(arg, rv.ll);
+	    }
+	  case 'f':
+	    switch(size)
+	    { case 0:
+		return PL_cvt_o_float(rv.f, arg);
+	      case 1:
+		return PL_cvt_o_float(rv.d, arg);
+	    }
+	  case 'p':
+	    assert(0);
+	}
       }
     } else
     { return TRUE;			/* void function */
@@ -555,8 +739,8 @@ ci_structure_instance_setvalue(term_t inst, term_t name, term_t value)
       case CINV_T_EXTRALONG:
       { int64_t e;
 	if ( !PL_cvt_i_int64(value, &e) ) return FALSE;
-	store.e = e;
-        vptr = &store.e;
+	store.ll = e;
+        vptr = &store.ll;
 	break;
       }
       case CINV_T_FLOAT:
