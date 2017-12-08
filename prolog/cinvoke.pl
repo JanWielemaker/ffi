@@ -51,6 +51,8 @@
             c_struct_store/3            % +Ptr, +Field, +Value
           ]).
 :- use_module(library(error)).
+:- use_module(library(apply)).
+:- use_module(library(pairs)).
 :- use_module(c99_decls).
 
 /** <module> Bind Prolog predicates to C functions
@@ -61,7 +63,8 @@
 :- multifile
     user:file_search_path/2,
     system:term_expansion/2,
-    user:exception/3.
+    user:exception/3,
+    c_function/3.
 
 
 user:file_search_path(dc, '/lib/x86_64-linux-gnu').
@@ -172,16 +175,24 @@ c_import(Header, Libs, Functions) :-
 system:term_expansion((:- c_import(Header, Libs, Functions)),
                       Clauses) :-
     c99_types(Header, Functions, Types),
-    phrase(compile_types(Types), Clauses, Rest1),
-    phrase(wrap_functions(Functions, Types), Rest1, Rest2),
-    phrase(libs(Libs), Rest2).
+    phrase(c_import(Libs, Functions, Types), Clauses).
 
-compile_types([]) --> [].
-compile_types([struct(Name,Fields)|T]) --> !,
-    struct_compile(Name, Fields),
-    compile_types(T).
-compile_types([_|T]) --> !,
-    compile_types(T).
+c_import(Libs, Functions, Types) -->
+    decls(Types),
+    compile_types(Types, Types),
+    wrap_functions(Functions, Types),
+    libs(Libs).
+
+decls(_) -->
+    [ (:- discontiguous(('$c_struct'/3,
+                         '$c_struct_field'/4))) ].
+
+compile_types([], _) --> [].
+compile_types([struct(Name,Fields)|T], Types) --> !,
+    compile_struct(Name, Fields, Types),
+    compile_types(T, Types).
+compile_types([_|T], Types) --> !,
+    compile_types(T, Types).
 
 wrap_functions([], _) --> [].
 wrap_functions([H|T], Types) -->
@@ -189,27 +200,70 @@ wrap_functions([H|T], Types) -->
 
 wrap_function(Name, Types) -->
     { memberchk(function(Name, Ret, Params), Types),
-      Signature =.. [Name|Params]
+      length(Params, Arity0),
+      (   Ret == void
+      ->  Arity = Arity0
+      ;   Arity is Arity0+1
+      ),
+      functor(Head, Name, Arity),
+      prolog_load_context(module, M)
     },
-    [ '$c_function'(Signature, Ret) ].
+    [ cinvoke:c_function(M:Head, Params, Ret),
+      (:- dynamic(Name/Arity)),
+      (Head :- cinvoke:define(M:Head))
+    ].
 
 libs([]) --> [].
 libs([H|T]) --> [ '$c_lib'(H) ], libs(T).
 
+%!  define(:Signature)
+%
+%   Actually link the C function
 
-%!  user:exception(+Type, +Context, -Action) is semidet.
+:- public
+    define/1.
 
-user:exception(undefined_predicate, PI, retry) :-
-    pi_head(PI, M:Head),
-    '$c_current_predicate'(_, M:'$c_function'(_,_)),
-    M:'$c_function'(Head, _Ret),
-    debug(ctypes, 'Defining ~p', [M:Head]),
-    fail.
+define(Signature) :-
+    Signature = M:_Head,
+    link_clause(Signature, Clause),
+    asserta(M:Clause),
+    call(Signature).
 
-pi_head(Module:Name/Arity, Module:Head) :-
-    functor(Head, Name, Arity).
-pi_head(Name/Arity, user:Head) :-
-    functor(Head, Name, Arity).
+link_clause(M:Goal,
+            (Head :- !, cinvoke:ci_function_invoke(Prototype, Head))) :-
+    c_function(M:Goal, ParamSpec, RetType),
+    pairs_values(ParamSpec, ParamTypes),
+    maplist(type_letter, ParamTypes, ParamChars),
+    atom_chars(Params, ParamChars),
+    type_letter(RetType, Ret),
+    functor(Goal, Name, Arity),
+    functor(Head, Name, Arity),
+    (   M:'$c_lib'(Lib),
+        ci_library(Lib, FH),
+        ci_library_load_entrypoint(FH, Name, FuncPtr)
+    ->  debug(ctypes, 'Binding ~p (Ret=~p, Params=~p)', [Name, Ret, Params]),
+        ci_function_create(FuncPtr, cdecl, Ret, Params, Prototype)
+    ;   existence_error(c_function, Name)
+    ).
+
+
+%!  type_letter(+Type, -Letter)
+%
+%   Get the type letter for cinv_function_create() from our type system.
+
+type_letter(char,      c).
+type_letter(uchar,     c).
+type_letter(short,     s).
+type_letter(ushort,    s).
+type_letter(int,       i).
+type_letter(uint,      i).
+type_letter(long,      l).
+type_letter(ulong,     l).
+type_letter(longlong,  e).
+type_letter(ulonglong, e).
+type_letter(float,     f).
+type_letter(double,    d).
+type_letter(*(_),      p).
 
 
 		 /*******************************
@@ -238,43 +292,45 @@ c_struct(Name, Fields) :-
     throw(error(context_error(nodirective, c_struct(Name, Fields)), _)).
 
 system:term_expansion((:- c_struct(Name, Fields)), Clauses) :-
-    phrase(struct_compile(Name, Fields), Clauses).
+    phrase(compile_structs([struct(Name, Fields)]), Clauses).
 
-struct_compile(Name, Fields) -->
-    field_clauses(Fields, Name, 0, End, 0, Alignment),
+compile_structs(List) -->
+    compile_structs(List, List).
+
+compile_structs([], _) --> [].
+compile_structs([struct(Name,Fields)|T], All) -->
+    compile_struct(Name, Fields, All),
+    compile_structs(T, All).
+
+compile_struct(Name, Fields, All) -->
+    field_clauses(Fields, Name, 0, End, 0, Alignment, All),
     { Size is Alignment*((End+Alignment-1)//Alignment) },
     [ '$c_struct'(Name, Size, Alignment) ].
 
-field_clauses([], _, End, End, Align, Align) --> [].
-field_clauses([f(Name,Type)|T], Struct, Off0, Off, Align0, Align) -->
-    { alignof(Type, Alignment),
+field_clauses([], _, End, End, Align, Align, _) --> [].
+field_clauses([f(Name,Type)|T], Struct, Off0, Off, Align0, Align, All) -->
+    { type_size_align(Type, Alignment, Size, All),
       Align1 is max(Align0, Alignment),
       Off1 is Alignment*((Off0+Alignment-1)//Alignment),
-      sizeof(Type, Size),
       Off2 is Off1 + Size
     },
     [ '$c_struct_field'(Struct, Name, Off1, Type) ],
-    field_clauses(T, Struct, Off2, Off, Align1, Align).
+    field_clauses(T, Struct, Off2, Off, Align1, Align, All).
 
 
-alignof(Type, Alignment) :-
+type_size_align(Type, Alignment, Size, _All) :-
     c_alignof(Type, Alignment),
+    !,
+    c_sizeof(Type, Size).
+type_size_align(struct(Name), Alignment, Size, All) :-
+    memberchk(struct(Name, Fields), All), !,
+    phrase(compile_struct(Name, Fields, All), Clauses),
+    memberchk('$c_struct'(Name, Size, Alignment), Clauses).
+type_size_align(struct(Name), Alignment, Size, _) :-
+    '$c_struct'(Name, Size, Alignment),
     !.
-alignof(struct(Name), Alignment) :-
-    '$c_struct'(Name, _Size, Alignment),
-    !.
-alignof(Type, _Alignment) :-
+type_size_align(Type, _Alignment, _, _) :-
     existence_error(type, Type).
-
-sizeof(Type, Size) :-
-    c_sizeof(Type, Size),
-    !.
-sizeof(struct(Name), Size) :-
-    '$c_struct'(Name, Size, _Alignment),
-    !.
-sizeof(Type, _Alignment) :-
-    existence_error(type, Type).
-
 
 %!  c_struct(?Name, ?Size, ?Align)
 %

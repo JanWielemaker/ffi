@@ -6,8 +6,12 @@
 :- c_import("#include <sys/types.h>
              #include <sys/stat.h>
              #include <unistd.h>",
-            [ 'glibc.so.6' ],
+            [ 'libc.so.6' ],
             [ stat ]).
+
+:- c_import("#include <math.h>",
+            [ 'libm.so.6' ],
+            [ sin ]).
 
 tmath :-
     c99_types("#include <math.h>",
