@@ -3,11 +3,13 @@
 :- use_module('../prolog/c99_phrase').
 :- use_module('../prolog/c99_decls').
 
+/*
 :- c_import("#include <sys/types.h>
              #include <sys/stat.h>
              #include <unistd.h>",
             [ 'libc.so.6' ],
             [ stat(+string,-struct(stat),[-int])]).
+*/
 
 :- c_import("#include <math.h>",
             [ 'libm.so.6' ],

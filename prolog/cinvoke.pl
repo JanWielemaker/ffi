@@ -174,8 +174,12 @@ c_import(Header, Libs, Functions) :-
 
 system:term_expansion((:- c_import(Header, Libs, Functions)),
                       Clauses) :-
-    c99_types(Header, Functions, Types),
+    maplist(functor_name, Functions, FunctionNames),
+    c99_types(Header, FunctionNames, Types),
     phrase(c_import(Libs, Functions, Types), Clauses).
+
+functor_name(Spec, Name) :-
+    functor(Spec, Name, _).
 
 c_import(Libs, Functions, Types) -->
     decls(Types),
@@ -198,8 +202,9 @@ wrap_functions([], _) --> [].
 wrap_functions([H|T], Types) -->
     wrap_function(H, Types), wrap_functions(T, Types).
 
-wrap_function(Name, Types) -->
-    { memberchk(function(Name, Ret, Params), Types),
+wrap_function(Signature, Types) -->
+    { Signature =.. [Name|_SigArgs],
+      memberchk(function(Name, Ret, Params), Types),
       length(Params, Arity0),
       (   Ret == void
       ->  Arity = Arity0
@@ -233,9 +238,10 @@ link_clause(M:Goal,
             (Head :- !, cinvoke:ci_function_invoke(Prototype, Head))) :-
     c_function(M:Goal, ParamSpec, RetType),
     pairs_values(ParamSpec, ParamTypes),
-    maplist(type_letter, ParamTypes, ParamChars),
-    atom_chars(Params, ParamChars),
-    type_letter(RetType, Ret),
+    phrase(signature_string(ParamTypes), ParamChars),
+    atom_codes(Params, ParamChars),
+    phrase(signature_string([RetType]), RetChars),
+    atom_codes(Ret, RetChars),
     functor(Goal, Name, Arity),
     functor(Head, Name, Arity),
     (   M:'$c_lib'(Lib),
@@ -247,23 +253,26 @@ link_clause(M:Goal,
     ).
 
 
-%!  type_letter(+Type, -Letter)
+%!  signature_string(+Types)//
 %
-%   Get the type letter for cinv_function_create() from our type system.
+%   Get string description of the argument for the C layer
 
-type_letter(char,      c).
-type_letter(uchar,     c).
-type_letter(short,     s).
-type_letter(ushort,    s).
-type_letter(int,       i).
-type_letter(uint,      i).
-type_letter(long,      l).
-type_letter(ulong,     l).
-type_letter(longlong,  e).
-type_letter(ulonglong, e).
-type_letter(float,     f).
-type_letter(double,    d).
-type_letter(*(_),      p).
+signature_string([]) --> [].
+signature_string([H|T]) --> signature(H), signature_string(T).
+
+signature(char)      --> "hhi".
+signature(uchar)     --> "uhhi".
+signature(short)     --> "hi".
+signature(ushort)    --> "uhi".
+signature(int)       --> "i".
+signature(uint)      --> "ui".
+signature(long)      --> "li".
+signature(ulong)     --> "uli".
+signature(longlong)  --> "lli".
+signature(ulonglong) --> "ulli".
+signature(float)     --> "f".
+signature(double)    --> "lf".
+signature(*(_))      --> "p".
 
 
 		 /*******************************
