@@ -233,12 +233,14 @@ ci_signature(const char *s, char *buf)
 	  case  2: *o++ = 'e'; break;
 	  default: return PL_syntax_error("invalid signature", NULL);
 	}
+        break;
       case 'f':
 	switch(size)
 	{ case  0: *o++ = 'f'; break;
 	  case  1: *o++ = 'd'; break;
 	  default: return PL_syntax_error("invalid signature", NULL);
 	}
+        break;
       case 'p':
 	*o++ = 'p';
         break;
@@ -271,6 +273,8 @@ ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t fun
        ci_signature(rformat, ci_rformat) &&
        ci_signature(pformat, ci_pformat) )
   { CInvFunction *f;
+
+    DEBUG(Sdprintf("Created function with %s -> %s\n", ci_rformat, ci_pformat));
 
     if ( (f=cinv_function_create(cictx, ccv, ci_rformat, ci_pformat)) )
     { ctx_prototype *p = malloc(sizeof(*p));
