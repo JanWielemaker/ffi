@@ -55,6 +55,8 @@
             c_struct_load/3,            % +Ptr, +Field, -Value
             c_struct_store/3            % +Ptr, +Field, +Value
           ]).
+:- use_module(library(lists)).
+:- use_module(library(debug)).
 :- use_module(library(error)).
 :- use_module(library(apply)).
 :- use_module(library(pairs)).
@@ -219,7 +221,7 @@ wrap_function(Signature, Types) -->
     },
     [ cinvoke:c_function(M:Head, Params, Ret),
       (:- dynamic(Name/Arity)),
-      (Head :- cinvoke:define(M:Head))
+      (Head :- cinvoke:define(M:Head, SigArgs))
     ].
 
 matching_signature(Name, SigArgs, Ret, Params) :-
@@ -240,21 +242,24 @@ matching_signature(Name, SigArgs, Ret, Params) :-
 libs([], _) --> [].
 libs([H|T], Functions) --> [ '$c_lib'(H, Functions) ], libs(T, Functions).
 
-%!  define(:Signature)
+%!  define(:Signature, +Params, +Ret)
 %
 %   Actually link the C function
 
 :- public
-    define/1.
+    define/2.
 
-define(Signature) :-
+define(Signature, SigArgs) :-
     Signature = M:_Head,
-    link_clause(Signature, Clause),
+    link_clause(Signature, SigArgs, Clause),
     asserta(M:Clause),
     call(Signature).
 
-link_clause(M:Goal,
-            (Head :- !, cinvoke:ci_function_invoke(Prototype, Head))) :-
+link_clause(M:Goal, SigArgs,
+            (Head :- !,
+             PreConvert,
+             cinvoke:ci_function_invoke(Prototype, Head1),
+             PostConvert)) :-
     c_function(M:Goal, ParamSpec, RetType),
     pairs_values(ParamSpec, ParamTypes),
     phrase(signature_string(ParamTypes), ParamChars),
@@ -263,6 +268,7 @@ link_clause(M:Goal,
     atom_codes(Ret, RetChars),
     functor(Goal, Name, Arity),
     functor(Head, Name, Arity),
+    functor(Head1, Name, Arity),
     (   M:'$c_lib'(Lib, Funcs),
         memberchk(Name, Funcs),
         ci_library(Lib, FH),
@@ -270,8 +276,37 @@ link_clause(M:Goal,
     ->  debug(ctypes, 'Binding ~p (Ret=~p, Params=~p)', [Name, Ret, Params]),
         ci_function_create(FuncPtr, cdecl, Ret, Params, Prototype)
     ;   existence_error(c_function, Name)
-    ).
+    ),
+    convert_args(SigArgs, 1, Arity, Head, Head1, PreConvert, PostConvert).
 
+convert_args([], _, _, _, _, true, true).
+convert_args([H|T], I, Arity, Head0, Head1, GPre, GPost) :-
+    arg(I, Head0, Arg0),
+    arg(I, Head1, Arg1),
+    (   convert_arg(H, Arg0, Arg1, GPre1, GPost1)
+    ->  true
+    ;   Arg0 = Arg1,
+        GPre1 = true,
+        GPost1 = true
+    ),
+    I2 is I + 1,
+    convert_args(T, I2, Arity, Head0, Head1, GPre2, GPost2),
+    mkconj(GPre1, GPre2, GPre),
+    mkconj(GPost1, GPost2, GPost).
+
+convert_arg(-struct(Name), Ptr, Ptr, c_struct_alloc(Ptr, Name), true).
+convert_arg(+string(Enc),  String, Ptr, c_alloc_string(Ptr, String, Enc), true).
+convert_arg(+string, String, Ptr, Pre, Post) :-
+    convert_arg(+string(text), String, Ptr, Pre, Post).
+
+convert_arg([-string(Enc)], String, Ptr, true, c_load_string(Ptr, String, string, Enc)).
+convert_arg([-string], String, Ptr, Pre, Post) :-
+    convert_arg([-string(text)], String, Ptr, Pre, Post).
+
+
+mkconj(true, G, G) :- !.
+mkconj(G, true, G) :- !.
+mkconj(G1, G2, (G1,G2)).
 
 %!  signature_string(+Types)//
 %
