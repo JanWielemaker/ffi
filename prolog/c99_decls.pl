@@ -120,7 +120,7 @@ repeat_fields([H|T], Type) --> [f(H,Type)], repeat_fields(T, Type).
 
 simplify_types(Type0, Types, Type) :-
     phrase(expand_user_type(Type0, Types), Type1),
-    (   phrase(simplify_type(Type), Type1)
+    (   phrase(simplify_type(Type, Types), Type1)
     ->  true
     ;   print_message(error, ctypes(cannot_simplify(Type0))),
         Type = Type0
@@ -134,6 +134,13 @@ expand_user_type([type(user_type(TypeName))|T], Types) --> !,
 expand_user_type([H|T], Types) -->
     [H],
     expand_user_type(T, Types).
+
+simplify_type(struct(Name,Fields), Types) -->
+    [ type(struct(Name, Fields0)) ],
+    !,
+    { phrase(expand_field(Fields0, Types), Fields) }.
+simplify_type(Type, _Types) -->
+    simplify_type(Type).
 
 simplify_type(ulonglong) --> [type(unsigned),type(long),type(long),type(int)].
 simplify_type(ulong)     --> [type(unsigned),type(long),type(int)].

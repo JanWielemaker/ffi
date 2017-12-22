@@ -349,6 +349,9 @@ type_size_align(struct(Name), Alignment, Size, All) :-
     memberchk(struct(Name, Fields), All), !,
     phrase(compile_struct(Name, Fields, All), Clauses),
     memberchk('$c_struct'(Name, Size, Alignment), Clauses).
+type_size_align(struct(Name, Fields), Alignment, Size, All) :-
+    phrase(compile_struct(Name, Fields, All), Clauses),
+    memberchk('$c_struct'(Name, Size, Alignment), Clauses).
 type_size_align(struct(Name), Alignment, Size, _) :-
     '$c_struct'(Name, Size, Alignment),
     !.
