@@ -32,7 +32,7 @@ sfs(File, Data) :-
 pt(Pt) :-
     c_struct_alloc(Pt, point),
     get_point(Pt, Status),
-    writeln(Status).
+    assertion(Status == 0).
 
 tmath :-
     c99_types("#include <math.h>",
@@ -56,6 +56,9 @@ tpt :-
               [ get_point ], AST),
     pp(AST).
 
+
+tpt_ast(AST) :-
+    c99_header_ast("#include \"test/test.c\"", AST).
 
 tstat_ast(AST) :-
     c99_header_ast("#include <sys/types.h>
