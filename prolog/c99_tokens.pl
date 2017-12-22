@@ -415,16 +415,16 @@ escape_sequence(C) --> octal_escape_sequence(C).
 escape_sequence(C) --> hexadecimal_escape_sequence(C).
 escape_sequence(C) --> universal_character_name(C).
 
-simple_escape_sequence('\'') --> "\\'".
-simple_escape_sequence('\"') --> "\\\"".
-simple_escape_sequence('??') --> "\\?".		% TBD: what is this?
-simple_escape_sequence('\a') --> "\\a".
-simple_escape_sequence('\b') --> "\\b".
-simple_escape_sequence('\f') --> "\\f".
-simple_escape_sequence('\n') --> "\\n".
-simple_escape_sequence('\r') --> "\\r".
-simple_escape_sequence('\t') --> "\\t".
-simple_escape_sequence('\v') --> "\\v".
+simple_escape_sequence(0'\') --> "\\'".
+simple_escape_sequence(0'\") --> "\\\"".
+simple_escape_sequence(0'?)  --> "\\?".
+simple_escape_sequence(0'\a) --> "\\a".
+simple_escape_sequence(0'\b) --> "\\b".
+simple_escape_sequence(0'\f) --> "\\f".
+simple_escape_sequence(0'\n) --> "\\n".
+simple_escape_sequence(0'\r) --> "\\r".
+simple_escape_sequence(0'\t) --> "\\t".
+simple_escape_sequence(0'\v) --> "\\v".
 
 octal_escape_sequence(C) -->
     "\\",
