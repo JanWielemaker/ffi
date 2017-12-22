@@ -50,12 +50,18 @@ static atom_t ATOM_float;
 static atom_t ATOM_double;
 static atom_t ATOM_pointer;
 static atom_t ATOM_void;
+
 static atom_t ATOM_iso_latin_1;
 static atom_t ATOM_utf8;
 static atom_t ATOM_text;
 static atom_t ATOM_wchar_t;
 static atom_t ATOM_wchar_tp;
 static atom_t ATOM_charp;
+
+static atom_t ATOM_atom;
+static atom_t ATOM_string;
+static atom_t ATOM_codes;
+static atom_t ATOM_chars;
 
 #define SZ_UNKNOWN (~(size_t)0)
 
@@ -521,6 +527,51 @@ c_alloc_string(term_t ptr, term_t data, term_t encoding)
 }
 
 
+static foreign_t
+c_load_string(term_t ptr, term_t data, term_t type, term_t encoding)
+{ PL_blob_t *btype;
+  void *bp;
+
+  if ( PL_get_blob(ptr, &bp, NULL, &btype) &&
+       btype == &c_ptr_blob )
+  { c_ptr *ref = bp;
+    atom_t aenc, atype;
+    int flags = 0;
+    char *s;
+    size_t len;
+
+    if ( !PL_get_atom_ex(encoding, &aenc) ||
+	 !PL_get_atom_ex(type, &atype) )
+      return FALSE;
+
+    if ( atype == ATOM_atom )
+      flags |= PL_ATOM;
+    else if ( atype == ATOM_string )
+      flags |= PL_STRING;
+    else if ( atype == ATOM_codes )
+      flags |= PL_CODE_LIST;
+    else if ( atype == ATOM_chars )
+      flags |= PL_CHAR_LIST;
+    else
+      return PL_domain_error("text_type", type);
+
+    if ( aenc == ATOM_iso_latin_1 )
+    { flags |= REP_ISO_LATIN_1;
+    } else if ( aenc == ATOM_utf8 )
+    { flags |= REP_UTF8;
+    } else if ( aenc == ATOM_text )
+    { flags |= REP_MB;
+    } else
+      return PL_domain_error("encoding", encoding);
+
+						/* TBD: wchar_t */
+
+    return PL_unify_chars(data, flags, (size_t)-1, ref->ptr);
+  }
+
+  return FALSE;
+}
+
 
 #define MKATOM(n) \
         ATOM_ ## n = PL_new_atom(#n)
@@ -549,6 +600,10 @@ install_c_memory(void)
   MKATOM(wchar_t);
   ATOM_wchar_tp = PL_new_atom("wchar_t*");
   ATOM_charp = PL_new_atom("char*");
+  MKATOM(atom);
+  MKATOM(string);
+  MKATOM(codes);
+  MKATOM(chars);
 
   PL_register_foreign("c_alloc",	3, c_alloc,	   0);
   PL_register_foreign("c_realloc",	2, c_realloc,	   0);
@@ -559,4 +614,5 @@ install_c_memory(void)
   PL_register_foreign("c_sizeof",	2, c_sizeof,	   0);
   PL_register_foreign("c_alignof",	2, c_alignof,	   0);
   PL_register_foreign("c_alloc_string",	3, c_alloc_string, 0);
+  PL_register_foreign("c_load_string",	4, c_load_string,  0);
 }

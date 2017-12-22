@@ -46,6 +46,7 @@
             c_alignof/2,                % +Type, -Bytes
 
             c_alloc_string/3,           % -Ptr, +Data, +Encoding
+            c_load_string/4,            % +Ptr, -Data, +Type, +Encoding
 
             c_errno/1,                  % -Integer
 

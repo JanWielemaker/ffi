@@ -54,6 +54,8 @@ static atom_t ATOM_cdecl;
 static atom_t ATOM_stdcall;
 static atom_t ATOM_fastcall;
 
+static atom_t ATOM_voidp;			/* void* */
+
 #include "c_memory.c"
 
 
@@ -550,7 +552,7 @@ ci_function_invoke(term_t prototype, term_t goal)
 		return PL_cvt_o_float(rv.d, arg);
 	    }
 	  case 'p':
-	    assert(0);
+	    return unify_ptr(arg, rv.p, NULL, SZ_UNKNOWN, ATOM_voidp, NULL);
 	}
       }
     } else
@@ -887,6 +889,8 @@ install(void)
   MKATOM(cdecl);
   MKATOM(stdcall);
   MKATOM(fastcall);
+
+  ATOM_voidp = PL_new_atom("void*");
 
   install_c_memory();
 

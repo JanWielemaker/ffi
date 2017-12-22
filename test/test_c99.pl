@@ -16,6 +16,10 @@
             [ 'libc.so.6' ],
             [ statfs(+string, -struct(statfs), [-int]) ]).
 
+:- c_import("#include <string.h>",
+            [ 'libc.so.6' ],
+            [ strerror(+int, [-string]) ]).
+
 :- c_import("#include <math.h>",
             [ 'libm.so.6' ],
             [ sin(+double, [-double]) ]).
