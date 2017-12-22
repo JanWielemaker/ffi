@@ -50,6 +50,12 @@ static atom_t ATOM_float;
 static atom_t ATOM_double;
 static atom_t ATOM_pointer;
 static atom_t ATOM_void;
+static atom_t ATOM_iso_latin_1;
+static atom_t ATOM_utf8;
+static atom_t ATOM_text;
+static atom_t ATOM_wchar_t;
+static atom_t ATOM_wchar_tp;
+static atom_t ATOM_charp;
 
 #define SZ_UNKNOWN (~(size_t)0)
 
@@ -473,6 +479,47 @@ c_alignof(term_t type, term_t bytes)
   return FALSE;
 }
 
+
+static foreign_t
+c_alloc_string(term_t ptr, term_t data, term_t encoding)
+{ atom_t aenc;
+  int flags = CVT_EXCEPTION|BUF_MALLOC|CVT_ATOM|CVT_STRING|CVT_LIST|CVT_INTEGER;
+  char *s;
+  size_t len;
+
+  if ( !PL_get_atom_ex(encoding, &aenc) )
+    return FALSE;
+
+  if ( aenc == ATOM_iso_latin_1 )
+  { flags |= REP_ISO_LATIN_1;
+  } else if ( aenc == ATOM_utf8 )
+  { flags |= REP_UTF8;
+  } else if ( aenc == ATOM_text )
+  { flags |= REP_MB;
+  } else
+  { if ( aenc == ATOM_wchar_t )
+    { pl_wchar_t *ws;
+
+      if ( PL_get_wchars(data, &len, &ws, flags) )
+      { if ( unify_ptr(ptr, ws, NULL, (len+1)*sizeof(pl_wchar_t), ATOM_wchar_tp) )
+	  return TRUE;
+	PL_free(s);
+      }
+    } else
+      return PL_domain_error("encoding", encoding);
+  }
+
+  if ( PL_get_nchars(data, &len, &s, flags) )
+  { if ( unify_ptr(ptr, s, NULL, len+1, ATOM_charp) )
+      return TRUE;
+    PL_free(s);
+  }
+
+  return FALSE;
+}
+
+
+
 #define MKATOM(n) \
         ATOM_ ## n = PL_new_atom(#n)
 #define MKFUNCTOR(n,a) \
@@ -494,13 +541,20 @@ install_c_memory(void)
   MKATOM(double);
   MKATOM(pointer);
   MKATOM(void);
+  MKATOM(iso_latin_1);
+  MKATOM(utf8);
+  MKATOM(text);
+  MKATOM(wchar_t);
+  ATOM_wchar_tp = PL_new_atom("wchar_t*");
+  ATOM_charp = PL_new_atom("char*");
 
-  PL_register_foreign("c_alloc",   3, c_alloc,   0);
-  PL_register_foreign("c_realloc", 2, c_realloc, 0);
-  PL_register_foreign("c_free",    1, c_free,    0);
-  PL_register_foreign("c_load",    4, c_load,    0);
-  PL_register_foreign("c_store",   4, c_store,   0);
-  PL_register_foreign("c_typeof",  2, c_typeof,  0);
-  PL_register_foreign("c_sizeof",  2, c_sizeof,  0);
-  PL_register_foreign("c_alignof", 2, c_alignof, 0);
+  PL_register_foreign("c_alloc",	3, c_alloc,	   0);
+  PL_register_foreign("c_realloc",	2, c_realloc,	   0);
+  PL_register_foreign("c_free",		1, c_free,	   0);
+  PL_register_foreign("c_load",		4, c_load,	   0);
+  PL_register_foreign("c_store",	4, c_store,	   0);
+  PL_register_foreign("c_typeof",	2, c_typeof,	   0);
+  PL_register_foreign("c_sizeof",	2, c_sizeof,	   0);
+  PL_register_foreign("c_alignof",	2, c_alignof,	   0);
+  PL_register_foreign("c_alloc_string",	3, c_alloc_string, 0);
 }
