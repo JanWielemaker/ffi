@@ -83,6 +83,7 @@ type(type(_, typedef, Types), AST) -->
 ast_type(struct(Name), AST, type(Name, struct, Fields)) :-
     member(decl(Specifier, _Decl, _Attrs), AST),
     memberchk(type(struct(Name, Fields)), Specifier), !.
+ast_type(struct(Name, Fields), _, type(Name, struct, Fields)).
 ast_type(user_type(Name), AST, type(Name, typedef, Primitive)) :-
     member(decl(Specifier,
                 [ declarator(_, dd(Name, _))], _Attrs), AST),
