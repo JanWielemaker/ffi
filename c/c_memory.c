@@ -59,13 +59,16 @@ static atom_t ATOM_charp;
 
 #define SZ_UNKNOWN (~(size_t)0)
 
+typedef void (*freefunc)(void *ptr);
+
 typedef struct c_ptr
 { void *ptr;				/* the pointer */
   atom_t type;				/* Its type */
   size_t size;				/* Size behind ptr */
   void *ctx;				/* Pointer context */
-  void (*free)(void *ptr);		/* Its free function */
+  freefunc free;			/* Its free function */
 } c_ptr;
+
 
 
 static int
@@ -75,8 +78,6 @@ free_ptr(c_ptr *ref)
   if ( __sync_bool_compare_and_swap(&ref->ptr, p, NULL) )
   { if ( ref->free )
       (*ref->free)(p);
-    else
-      free(p);
 
     return TRUE;
   }
@@ -145,7 +146,7 @@ static PL_blob_t c_ptr_blob =
 
 
 static int
-unify_ptr(term_t t, void *ptr, void *ctx, size_t size, atom_t type)
+unify_ptr(term_t t, void *ptr, void *ctx, size_t size, atom_t type, freefunc free)
 { c_ptr *ref = malloc(sizeof(*ref));
 
   if ( ref )
@@ -153,7 +154,7 @@ unify_ptr(term_t t, void *ptr, void *ctx, size_t size, atom_t type)
     ref->type = type;
     ref->ctx  = ctx;
     ref->size = size;
-    ref->free = NULL;
+    ref->free = free;
   }
 
   return PL_unify_blob(t, ref, sizeof(*ref), &c_ptr_blob);
@@ -201,7 +202,7 @@ c_alloc(term_t ptr, term_t type, term_t size)
 
     if ( p )
     { memset(p, 0, sz);
-      if ( unify_ptr(ptr, p, NULL, sz, ta) )
+      if ( unify_ptr(ptr, p, NULL, sz, ta, free) )
 	return TRUE;
       free(p);
     } else
@@ -334,7 +335,7 @@ c_load(term_t ptr, term_t offset, term_t type, term_t value)
       } else if ( ta == ATOM_pointer )
       { void **p = vp;
 	return VALID(ref, off, void*) &&
-	       unify_ptr(value, *p, NULL, SZ_UNKNOWN, ATOM_void);
+	       unify_ptr(value, *p, NULL, SZ_UNKNOWN, ATOM_void, NULL);
       } else
 	return PL_domain_error("c_type", type);
     } else if ( PL_get_name_arity(type, &ta, &tarity) )
@@ -347,7 +348,7 @@ c_load(term_t ptr, term_t offset, term_t type, term_t value)
 	if ( PL_get_atom_ex(arg, &atype) )
 	{ void **p = vp;
 	  return VALID(ref, off, void*) &&
-		 unify_ptr(value, *p, NULL, SZ_UNKNOWN, atype);
+		 unify_ptr(value, *p, NULL, SZ_UNKNOWN, atype, NULL);
 	}
 	return FALSE;
       }
@@ -501,7 +502,8 @@ c_alloc_string(term_t ptr, term_t data, term_t encoding)
     { pl_wchar_t *ws;
 
       if ( PL_get_wchars(data, &len, &ws, flags) )
-      { if ( unify_ptr(ptr, ws, NULL, (len+1)*sizeof(pl_wchar_t), ATOM_wchar_tp) )
+      { if ( unify_ptr(ptr, ws, NULL, (len+1)*sizeof(pl_wchar_t),
+		       ATOM_wchar_tp, PL_free) )
 	  return TRUE;
 	PL_free(s);
       }
@@ -510,7 +512,7 @@ c_alloc_string(term_t ptr, term_t data, term_t encoding)
   }
 
   if ( PL_get_nchars(data, &len, &s, flags) )
-  { if ( unify_ptr(ptr, s, NULL, len+1, ATOM_charp) )
+  { if ( unify_ptr(ptr, s, NULL, len+1, ATOM_charp, PL_free) )
       return TRUE;
     PL_free(s);
   }
