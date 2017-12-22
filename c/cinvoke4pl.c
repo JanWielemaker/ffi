@@ -39,9 +39,9 @@
 #include <string.h>
 #include <assert.h>
 
-static int debug = 1;
+static unsigned int debug = 0;
 
-#define DEBUG(g) if ( debug ) do { g; } while(0)
+#define DEBUG(l, g) if ( (l) < debug ) do { g; } while(0)
 
 static atom_t ATOM_ci_context;
 static atom_t ATOM_ci_library;
@@ -159,7 +159,7 @@ ci_library_create(term_t ctx, term_t path, term_t lib)
 			PL_FILE_OSPATH|PL_FILE_SEARCH|PL_FILE_READ) )
   { CInvLibrary *h;
 
-    DEBUG(Sdprintf("Opening %s\n", name));
+    DEBUG(1, Sdprintf("Opening %s\n", name));
 
     if ( (h=cinv_library_create(cictx, name)) )
       return unify_ptr(lib, h, cictx, sizeof(*h), ATOM_ci_library);
@@ -196,7 +196,7 @@ ci_library_load_entrypoint(term_t lib, term_t name, term_t func)
        PL_get_chars(name, &fname, CVT_ATOM|CVT_EXCEPTION) )
   { void *f;
 
-    DEBUG(Sdprintf("Find %s in %p\n", fname, libh));
+    DEBUG(1, Sdprintf("Find %s in %p\n", fname, libh));
 
     if ( (f=cinv_library_load_entrypoint(cictx, libh, fname)) )
       return unify_ptr(func, f, cictx, sizeof(*f), ATOM_ci_function);
@@ -274,7 +274,7 @@ ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t fun
        ci_signature(pformat, ci_pformat) )
   { CInvFunction *f;
 
-    DEBUG(Sdprintf("Created function with %s -> %s\n", ci_rformat, ci_pformat));
+    DEBUG(1, Sdprintf("Created function with (%s)%s\n", ci_pformat, ci_rformat));
 
     if ( (f=cinv_function_create(cictx, ccv, ci_rformat, ci_pformat)) )
     { ctx_prototype *p = malloc(sizeof(*p));
@@ -463,6 +463,7 @@ ci_function_invoke(term_t prototype, term_t goal)
 	case 'p':				/* pointers */
 	  if ( !get_ptr(arg, &as[argc].p, NULL, 0) )
 	    return FALSE;
+	  DEBUG(2, Sdprintf("Got ptr %p\n", as[argc].p));
 	  argv[argc] = &as[argc].p;
 	  break;
 	default:
@@ -830,6 +831,17 @@ ci_structure_instance_getvalue(term_t inst, term_t name, term_t value)
 }
 
 
+static foreign_t
+ci_debug(term_t level)
+{ unsigned int i;
+
+  if ( PL_cvt_i_uint(level, &i) )
+  { debug = i;
+    return TRUE;
+  }
+
+  return FALSE;
+}
 
 
 		 /*******************************
@@ -874,4 +886,5 @@ install(void)
 					    3, ci_structure_instance_setvalue, 0);
   PL_register_foreign("ci_structure_instance_getvalue",
 					    3, ci_structure_instance_getvalue, 0);
+  PL_register_foreign("ci_debug",           1, ci_debug, 0);
 }
