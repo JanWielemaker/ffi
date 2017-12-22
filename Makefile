@@ -11,3 +11,6 @@ $(C4PL): c/cinvoke4pl.c c/c_memory.c Makefile
 
 clean:
 	rm -f $(C4PL) *~
+
+tags:
+	etags c/*.[ch]
