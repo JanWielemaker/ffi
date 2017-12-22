@@ -396,6 +396,10 @@ type_size_align(struct(Name, Fields), Alignment, Size, All) :-
 type_size_align(struct(Name), Alignment, Size, _) :-
     '$c_struct'(Name, Size, Alignment),
     !.
+type_size_align(array(Type,Len), Alignment, Size, All) :-
+    !,
+    type_size_align(Type, Alignment, Size0, All),
+    Size is Size0*Len.
 type_size_align(Type, _Alignment, _, _) :-
     existence_error(type, Type).
 
