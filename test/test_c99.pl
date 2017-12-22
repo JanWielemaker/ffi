@@ -1,3 +1,6 @@
+:- use_module(library(apply_macros)).
+:- use_module(library(statistics)).
+
 :- use_module('../prolog/cinvoke').
 :- use_module('../prolog/c99_tokens').
 :- use_module('../prolog/c99_phrase').
@@ -33,6 +36,9 @@ pt(Pt) :-
     c_struct_alloc(Pt, point),
     get_point(Pt, Status),
     assertion(Status == 0).
+
+ptn(N) :-
+    time(forall(between(1, N, _), pt(_))).
 
 tmath :-
     c99_types("#include <math.h>",
