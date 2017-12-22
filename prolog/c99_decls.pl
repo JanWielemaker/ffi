@@ -25,7 +25,7 @@ prototypes([H|T], AST) --> prototype(H, AST), prototypes(T, AST).
 
 prototype(Func, AST) -->
     { skeleton(prototype(Return, RDecl, Params0), Func, FuncDecl),
-      memberchk(FuncDecl, AST),
+      memberchk(FuncDecl, AST), !,
       maplist(param, Params0, Params),
       memberchk(type(BasicType), Return),
       pointers(RDecl, BasicType, RType)
@@ -43,6 +43,11 @@ skeleton(prototype(Return, RDecl, Params), Func,
               [ declarator(RDecl, dd(Func, dds(Params)))
               ],
               _Attributes)).
+skeleton(prototype(Return, RDecl, Params), Func,
+         function(Return,
+                  declarator(RDecl, dd(Func, dds(Params))),
+                  _Attributes,
+                  _Block)).
 
 param(param(Specifiers, declarator(Decl, dd(Name,_))), Name-Type) :-
     memberchk(type(BasicType), Specifiers),
