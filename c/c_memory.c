@@ -82,7 +82,9 @@ free_ptr(c_ptr *ref)
 { void *p = ref->ptr;
 
   if ( __sync_bool_compare_and_swap(&ref->ptr, p, NULL) )
-  { if ( ref->free )
+  { DEBUG(5, Sdprintf("free_ptr(%p)\n", p));
+
+    if ( ref->free )
       (*ref->free)(p);
 
     return TRUE;
@@ -97,7 +99,7 @@ write_c_ptr(IOSTREAM *s, atom_t aref, int flags)
 { c_ptr *ref = PL_blob_data(aref, NULL, NULL);
   (void)flags;
 
-  Sfprintf(s, "<c_ptr>(%s,%p)", PL_atom_chars(ref->type), ref->ptr);
+  DEBUG(4, Sfprintf(s, "<c_ptr>(%s,%p)", PL_atom_chars(ref->type), ref->ptr));
   return TRUE;
 }
 
@@ -113,6 +115,7 @@ static int
 release_c_ptr(atom_t aref)
 { c_ptr *ref = PL_blob_data(aref, NULL, NULL);
 
+  Sdprintf("Release <c_ptr>(%s,%p)\n", PL_atom_chars(ref->type), ref->ptr);
   free_ptr(ref);
   free(ref);
 

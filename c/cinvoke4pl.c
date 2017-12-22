@@ -41,7 +41,7 @@
 
 static unsigned int debug = 0;
 
-#define DEBUG(l, g) if ( (l) < debug ) do { g; } while(0)
+#define DEBUG(l, g) if ( (l) <= debug ) do { g; } while(0)
 
 static atom_t ATOM_ci_context;
 static atom_t ATOM_ci_library;
