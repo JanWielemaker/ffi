@@ -47,6 +47,8 @@
 
             c_alloc_string/3,           % -Ptr, +Data, +Encoding
 
+            c_errno/1,                  % -Integer
+
             c_struct/2,                 % +Name, +Fields
             c_struct_alloc/2,           % -Ptr, +Name
             c_struct_load/3,            % +Ptr, +Field, -Value

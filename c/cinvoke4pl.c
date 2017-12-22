@@ -861,6 +861,11 @@ ci_debug(term_t level)
 }
 
 
+static foreign_t
+c_errno(term_t t)
+{ return PL_unify_integer(t, errno);
+}
+
 		 /*******************************
 		 *	     REGISTER		*
 		 *******************************/
@@ -904,4 +909,5 @@ install(void)
   PL_register_foreign("ci_structure_instance_getvalue",
 					    3, ci_structure_instance_getvalue, 0);
   PL_register_foreign("ci_debug",           1, ci_debug, 0);
+  PL_register_foreign("c_errno",            1, c_errno, 0);
 }
