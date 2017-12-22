@@ -70,6 +70,7 @@
 
 
 user:file_search_path(dc, '/lib/x86_64-linux-gnu').
+user:file_search_path(dc, '.').
 
 
 		 /*******************************
