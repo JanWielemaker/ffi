@@ -29,20 +29,8 @@
             [ get_point(-struct(point), [-int])
             ]).
 
-sfs(File, Data) :-
-    c_alloc_string(S, File, text),
-    c_struct_alloc(Data, statfs),
-    pp(Data),
-    statfs(S, Data, Status),
-    writeln(Status).
-
-pt(Pt) :-
-    c_struct_alloc(Pt, point),
-    get_point(Pt, Status),
-    assertion(Status == 0).
-
 ptn(N) :-
-    time(forall(between(1, N, _), pt(_))).
+    time(forall(between(1, N, _), get_point(_,_))).
 
 tmath :-
     c99_types("#include <math.h>",
@@ -92,8 +80,7 @@ double sin(double x);
 `).
 
 p(2, `
-extern int __fpclassifyf128 (double __value) __attribute__ ((__nothrow__ , __leaf__))
-     __attribute__ ((__const__));
+struct x { int x; int f[4]; };
 `).
 p(3, `
 extern int __fpclassifyf128 (_Float128 __value) __attribute__ ((__nothrow__ , __leaf__))
