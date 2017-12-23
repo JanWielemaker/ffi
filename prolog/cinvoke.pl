@@ -256,10 +256,7 @@ define(Signature, SigArgs) :-
     call(Signature).
 
 link_clause(M:Goal, SigArgs,
-            (Head :- !,
-             PreConvert,
-             cinvoke:ci_function_invoke(Prototype, Head1),
-             PostConvert)) :-
+            (Head :- !, Body)) :-
     c_function(M:Goal, ParamSpec, RetType),
     pairs_values(ParamSpec, ParamTypes),
     phrase(signature_string(ParamTypes), ParamChars),
@@ -277,7 +274,10 @@ link_clause(M:Goal, SigArgs,
         ci_function_create(FuncPtr, cdecl, Ret, Params, Prototype)
     ;   existence_error(c_function, Name)
     ),
-    convert_args(SigArgs, 1, Arity, Head, Head1, PreConvert, PostConvert).
+    convert_args(SigArgs, 1, Arity, Head, Head1, PreConvert, PostConvert),
+    Invoke = cinvoke:ci_function_invoke(Prototype, Head1),
+    mkconj(PreConvert, Invoke, Body0),
+    mkconj(Body0, PostConvert, Body).
 
 convert_args([], _, _, _, _, true, true).
 convert_args([H|T], I, Arity, Head0, Head1, GPre, GPost) :-
