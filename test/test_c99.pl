@@ -6,11 +6,13 @@
 :- use_module('../prolog/c99_phrase').
 :- use_module('../prolog/c99_decls').
 
+cpp_const('_STAT_VER').
+
 :- c_import("#include <sys/types.h>
              #include <sys/stat.h>
              #include <unistd.h>",
             [ 'libc.so.6' ],
-            [ stat(+string,-struct(stat),[-int])]).
+            [ '__xstat'(+int,+string,-struct(stat),[-int])]).
 
 :- c_import("#include <sys/vfs.h>",
             [ 'libc.so.6' ],
@@ -28,6 +30,10 @@
             [ 'test/test.so' ],
             [ get_point(-struct(point), [-int])
             ]).
+
+stat(File, Stat) :-
+    '__xstat'('_STAT_VER', File, Stat, Rc),
+    assertion(Rc == 0).
 
 ptn(N) :-
     time(forall(between(1, N, _), get_point(_,_))).
@@ -49,14 +55,17 @@ tstatfs :-
               [ statfs ], AST),
     pp(AST).
 
-tpt :-
+testpt :-
     c99_types("#include \"test/test.c\"",
               [ get_point ], AST),
     pp(AST).
 
 
-tpt_ast(AST) :-
+testpt_ast(AST) :-
     c99_header_ast("#include \"test/test.c\"", AST).
+
+tpt_ast(AST) :-
+    c99_header_ast("#include \"t.c\"", AST).
 
 tstat_ast(AST) :-
     c99_header_ast("#include <sys/types.h>

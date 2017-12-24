@@ -1,6 +1,7 @@
 :- module(c99_decls,
           [ c99_header_ast/2,                   % +Header, -AST
-            c99_types/3                         % +Header, +Functions, -AST
+            c99_types/3,                        % +Header, +Functions, -AST
+            c99_types/4                         % +Header, +Functions, -AST, -Consts
           ]).
 :- use_module(library(process)).
 :- use_module(library(pure_input)).
@@ -9,16 +10,20 @@
 :- use_module(library(dcg/basics)).
 :- use_module(c99_phrase).
 
-%!  c99_types(+Header, +Functions, -Types)
+%!  c99_types(+Header, +Functions, -Types) is det.
+%!  c99_types(+Header, +Functions, -Types, Consts) is det.
 %
 %   True when Types contains the   necessary declarations for Functions.
 %   Types are expanded to scalar types, structs, unions and enums.
 
 c99_types(Header, Functions, Types) :-
+    c99_types(Header, Functions, Types, -).
+c99_types(Header, Functions, Types, Consts) :-
     c99_header_ast(Header, AST),
     phrase(prototypes(Functions, AST), Types0),
     list_to_set(Types0, Types1),
-    phrase(expand_types(Types1, Types1), Types).
+    phrase(expand_types(Types1, Types1), Types),
+    constants(AST, Consts).
 
 prototypes([], _) --> [].
 prototypes([H|T], AST) --> prototype(H, AST), prototypes(T, AST).
@@ -164,6 +169,38 @@ simplify_type(Type)      --> [type(Type)].
 simplify_type(longlong)  --> [type(long),type(long),type(int)].
 simplify_type(long)      --> [type(long),type(int)].
 simplify_type(short)     --> [type(short),type(int)].
+
+
+		 /*******************************
+		 *            CONSTANTS		*
+		 *******************************/
+
+constants(AST, Constants) :-
+    findall(Name=Value, constant(AST, Name, Value), Constants).
+
+constant(AST, Name, Value) :-
+    member(decl([storage(static),type(int)],
+                [declarator(-,dd(MagicName,-))=init(V0)],
+                _),
+           AST),
+    atom_concat('__swipl_const_', Name, MagicName),
+    (   const_value(V0, Value)
+    ->  true
+    ;   V0 == Name                              % not defined in headers
+    ->  fail
+    ;   type_error(constant, V0)
+    ).
+
+const_value(i(Int), Int).
+const_value(l(Int), Int).
+const_value(ll(Int), Int).
+const_value(u(Int), Int).
+const_value(ul(Int), Int).
+const_value(ull(Int), Int).
+const_value(float(Float), Float).
+const_value(double(Float), Float).
+const_value(char(Codes), Codes).
+const_value(wchar(Codes), Codes).
 
 
 		 /*******************************

@@ -182,9 +182,13 @@ c_import(Header, Libs, Functions) :-
 
 system:term_expansion((:- c_import(Header, Libs, Functions)),
                       Clauses) :-
+    prolog_load_context(module, M),
     maplist(functor_name, Functions, FunctionNames),
-    c99_types(Header, FunctionNames, Types),
-    phrase(c_import(Libs, Functions, FunctionNames, Types), Clauses).
+    add_constants(M, Header, HeaderConst),
+    c99_types(HeaderConst, FunctionNames, Types, Constants),
+    phrase(( c_constants(Constants),
+             c_import(Libs, Functions, FunctionNames, Types)),
+           Clauses).
 
 functor_name(Spec, Name) :-
     functor(Spec, Name, _).
@@ -439,4 +443,55 @@ c_struct_store(Ptr, Field, Value) :-
     c_typeof(Ptr, Name),
     '$c_struct_field'(Name, Field, Offset, Type),
     c_store(Ptr, Offset, Type, Value).
+
+
+		 /*******************************
+		 *        CPP CONSTANTS		*
+		 *******************************/
+
+add_constants(Module, Header0, Header) :-
+    current_predicate(Module:cpp_const/1),
+    findall(Const, Module:cpp_const(Const), Consts),
+    Consts \== [],
+    !,
+    must_be(list(atom), Consts),
+    maplist(const_decl, Consts, Decls),
+    atomics_to_string([Header0|Decls], "\n", Header).
+add_constants(_, Header, Header).
+
+const_decl(Const, Decl) :-
+    format(string(Decl), "static int __swipl_const_~w = ~w;", [Const, Const]).
+
+c_constants([]) --> [].
+c_constants([H|T]) --> c_constant(H), c_constants(T).
+
+c_constant(Name=Value) -->
+    [ cpp_const(Name, Value) ].
+
+
+		 /*******************************
+		 *           EXPANSION		*
+		 *******************************/
+
+cpp_expand(Modules, T0, T) :-
+    atom(T0),
+    member(M, Modules),
+    call(M:cpp_const(T0, T)),
+    !.
+cpp_expand(Modules, T0, T) :-
+    compound(T0),
+    !,
+    compound_name_arguments(T0, Name, Args0),
+    maplist(cpp_expand(Modules), Args0, Args1),
+    compound_name_arguments(T1, Name, Args1),
+    (   T0 == T1
+    ->  T = T0
+    ;   T = T1
+    ).
+cpp_expand(_, T, T).
+
+system:term_expansion(T0, T) :-
+    prolog_load_context(module, M),
+    current_predicate(M:cpp_const/2),
+    cpp_expand([M], T0, T).
 
