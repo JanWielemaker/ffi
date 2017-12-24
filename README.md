@@ -50,3 +50,20 @@ struct_field
 
 c_sizeof(+Type, -Size)
 c_alignof(+Type, -Size)
+
+# Constants
+
+  - Defines you want as cpp_const(+Name).
+  - Program to get all by name from headers based on regex.
+    - Can be combined!
+  - Feed into compiler and extract.
+    - Created cpp_const(Name, Value).
+  - Add term expansion for
+    - c.Name
+    - Plain name
+    - 'c._AST_VER'
+  - How to limit scope?
+    - Ideally take from imported library only
+      - cinvoke.pl registers term_expansion.
+      - module export predicate
+        - cpp_macros(Module)
