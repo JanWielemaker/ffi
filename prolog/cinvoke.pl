@@ -45,6 +45,11 @@
             c_sizeof/2,                 % +Type, -Bytes
             c_alignof/2,                % +Type, -Bytes
 
+            c_struct/2,                 % +Name, +Fields
+            c_struct_alloc/2,           % -Ptr, +Name
+            c_struct_load/3,            % +Ptr, +Field, -Value
+            c_struct_store/3,           % +Ptr, +Field, +Value
+
             c_alloc_string/3,           % -Ptr, +Data, +Encoding
             c_load_string/4,            % +Ptr, -Data, +Type, +Encoding
 
