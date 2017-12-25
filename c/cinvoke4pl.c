@@ -620,6 +620,6 @@ install(void)
   PL_register_foreign("ci_function_create", 5, ci_function_create, 0);
   PL_register_foreign("ci_function_invoke", 2, ci_function_invoke, 0);
 
-  PL_register_foreign("ci_debug",           1, ci_debug, 0);
-  PL_register_foreign("c_errno",            1, c_errno, 0);
+  PL_register_foreign("ci_debug",           1, ci_debug,           0);
+  PL_register_foreign("c_errno",            1, c_errno,            0);
 }
