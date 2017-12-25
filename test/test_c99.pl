@@ -2,6 +2,7 @@
 :- use_module(library(statistics)).
 
 :- use_module('../prolog/cinvoke').
+:- use_module('../prolog/cerror').
 :- use_module('../prolog/c99_tokens').
 :- use_module('../prolog/c99_phrase').
 :- use_module('../prolog/c99_decls').
@@ -33,7 +34,7 @@ cpp_const('_STAT_VER').
 
 stat(File, Stat) :-
     '__xstat'('_STAT_VER', File, Stat, Rc),
-    assertion(Rc == 0).
+    posix_status(Rc).
 
 ptn(N) :-
     time(forall(between(1, N, _), get_point(_,_))).
