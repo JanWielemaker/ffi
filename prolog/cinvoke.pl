@@ -46,6 +46,7 @@
 
             c_struct/2,                 % +Name, +Fields
 
+            c_current_struct/1,         % :Name
             c_current_struct/3,         % :Name, -Size, -Alignment
             c_current_struct_field/4,   % :Name, ?Field, ?Offset, ?Type
 
@@ -56,7 +57,9 @@
             c_alloc_string/3,           % -Ptr, +Data, +Encoding
             c_load_string/4,            % +Ptr, -Data, +Type, +Encoding
 
-            c_errno/1                   % -Integer
+            c_errno/1,                  % -Integer
+
+            op(20, yf, [])
           ]).
 :- use_module(library(lists)).
 :- use_module(library(debug)).
@@ -69,6 +72,7 @@
 */
 
 :- meta_predicate
+    c_current_struct(:),
     c_current_struct(:,?,?),
     c_current_struct_field(:,?,?,?).
 
@@ -363,7 +367,7 @@ compile_struct(Name, Fields, All) -->
 
 field_clauses([], _, End, End, Align, Align, _) --> [].
 field_clauses([f(Name,Type)|T], Struct, Off0, Off, Align0, Align, All) -->
-    { type_size_align(Type, Alignment, Size, All),
+    { type_size_align(Type, Size, Alignment, All),
       Align1 is max(Align0, Alignment),
       Off1 is Alignment*((Off0+Alignment-1)//Alignment),
       Off2 is Off1 + Size
@@ -372,31 +376,41 @@ field_clauses([f(Name,Type)|T], Struct, Off0, Off, Align0, Align, All) -->
     field_clauses(T, Struct, Off2, Off, Align1, Align, All).
 
 
-type_size_align(Type, Alignment, Size, _All) :-
+%!  type_size_align(+Type, -Size, -Alignment) is det.
+%
+%   True when Type must be aligned at Alignment and is of size Size.
+
+type_size_align(Type, Size, Alignment) :-
+    type_size_align(Type, Size, Alignment, []).
+
+type_size_align(Type, Size, Alignment, _All) :-
     c_alignof(Type, Alignment),
     !,
     c_sizeof(Type, Size).
-type_size_align(struct(Name), Alignment, Size, All) :-
+type_size_align(struct(Name), Size, Alignment, All) :-
     memberchk(struct(Name, Fields), All), !,
     phrase(compile_struct(Name, Fields, All), Clauses),
     memberchk('$c_struct'(Name, Size, Alignment), Clauses).
-type_size_align(struct(Name, Fields), Alignment, Size, All) :-
+type_size_align(struct(Name, Fields), Size, Alignment, All) :-
     phrase(compile_struct(Name, Fields, All), Clauses),
     memberchk('$c_struct'(Name, Size, Alignment), Clauses).
-type_size_align(struct(Name), Alignment, Size, _) :-
+type_size_align(struct(Name), Size, Alignment, _) :-
     '$c_struct'(Name, Size, Alignment),
     !.
-type_size_align(array(Type,Len), Alignment, Size, All) :-
+type_size_align(array(Type,Len), Size, Alignment, All) :-
     !,
-    type_size_align(Type, Alignment, Size0, All),
+    type_size_align(Type, Size0, Alignment, All),
     Size is Size0*Len.
-type_size_align(Type, _Alignment, _, _) :-
+type_size_align(Type, _Size, _Alignment, _) :-
     existence_error(type, Type).
 
-%!  c_current_struct(:Name, ?Size, ?Align)
+%!  c_current_struct(:Name) is nondet.
+%!  c_current_struct(:Name, ?Size, ?Align) is nondet.
 %
 %   Total size of the struct in bytes and alignment restrictions.
 
+c_current_struct(Name) :-
+    c_current_struct(Name, _, _).
 c_current_struct(M:Name, Size, Align) :-
     current_predicate(M:'$c_struct'/3),
     M:'$c_struct'(Name, Size, Align).
@@ -425,6 +439,16 @@ c_struct_alloc(_Ptr, Name) :-
 %
 %   Load the value of a field from a C structure.
 
+c_struct_load(Ptr, Field[I], Value) :-
+    !,
+    c_typeof(Ptr, Name),
+    '$c_struct_field'(Name, Field, ArrayOffset, Type),
+    (   Type = array(EType, _Length)
+    ->  type_size_align(EType, ESize, _),
+        Offset is ArrayOffset+ESize*I,
+        c_load(Ptr, Offset, EType, Value)
+    ;   type_error(array, struct_field(Name, Field))
+    ).
 c_struct_load(Ptr, Field, Value) :-
     c_typeof(Ptr, Name),
     '$c_struct_field'(Name, Field, Offset, Type),
@@ -434,6 +458,16 @@ c_struct_load(Ptr, Field, Value) :-
 %
 %   Store Value into Field of a structure
 
+c_struct_store(Ptr, Field[I], Value) :-
+    !,
+    c_typeof(Ptr, Name),
+    '$c_struct_field'(Name, Field, ArrayOffset, Type),
+    (   Type = array(EType, _Length)
+    ->  type_size_align(EType, ESize, _),
+        Offset is ArrayOffset+ESize*I,
+        c_store(Ptr, Offset, EType, Value)
+    ;   type_error(array, struct_field(Name, Field))
+    ).
 c_struct_store(Ptr, Field, Value) :-
     c_typeof(Ptr, Name),
     '$c_struct_field'(Name, Field, Offset, Type),
