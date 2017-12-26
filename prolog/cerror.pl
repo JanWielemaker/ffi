@@ -33,11 +33,18 @@
 */
 
 :- module(c_error,
-          [ posix_status/1
+          [ posix_status/1,                     % +Status
+            posix_status/4                      % +Status, +Op, +Type, +Arg
           ]).
 :- use_module(cinvoke).
 
-:- c_import("#include <string.h>",
+cpp_const('ENOENT').
+cpp_const('EPERM').
+cpp_const('EACCES').
+cpp_const('ENOMEM').
+
+:- c_import("#include <string.h>
+             #include <errno.h>",
             [ 'libc.so.6' ],
             [ strerror(+int, [-string]) ]).
 
@@ -46,4 +53,38 @@ posix_status(0) :-
 posix_status(_) :-
     c_errno(Errno),
     strerror(Errno, String),
-    throw(error(os(Errno, String), _)).
+    throw(error(posix_error(Errno, String), _)).
+
+posix_status(0, _, _, _) :-
+    !.
+posix_status(_, Op, Type, Arg) :-
+    c_errno(Errno),
+    strerror(Errno, String),
+    posix_exception_context(Op, Type, Arg, String, Context),
+    (   posix_exception(Errno, Op, Type, Arg, Context)
+    ->  true
+    ;   throw(error(posix_error(Errno, String), Context))
+    ).
+
+posix_exception_context(Op, Type, Arg, String, Context) :-
+    Context = context(_Stack, posix(Op, Type, Arg, String)).
+
+posix_exception('ENOENT', _Op, Type, Arg, Context) :- !,
+    throw(error(existence_error(Type, Arg), Context)).
+posix_exception('EACCES', Op, Type, Arg, Context) :- !,
+    throw(error(permission_error(Op, Type, Arg), Context)).
+posix_exception('EPERM', Op, Type, Arg, Context) :- !,
+    throw(error(permission_error(Op, Type, Arg), Context)).
+posix_exception('ENOMEM', _Op, _Type, _Arg, Context) :- !,
+    throw(error(resource_error(memory), Context)).
+
+
+		 /*******************************
+		 *            MESSAGES		*
+		 *******************************/
+
+:- multifile prolog:message_context//1.
+
+prolog:message_context(context(_, posix(Op, Type, Arg, String))) -->
+    [ nl, '    OS error in ~w on ~p ~p: ~p'-
+      [Op, Type, Arg, String] ].

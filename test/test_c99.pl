@@ -34,7 +34,7 @@ cpp_const('_STAT_VER').
 
 stat(File, Stat) :-
     '__xstat'('_STAT_VER', File, Stat, Rc),
-    posix_status(Rc).
+    posix_status(Rc, stat, file, File).
 
 ptn(N) :-
     time(forall(between(1, N, _), get_point(_,_))).
