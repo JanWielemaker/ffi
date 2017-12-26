@@ -13,15 +13,18 @@ cpp_const('_STAT_VER').
              #include <sys/stat.h>
              #include <unistd.h>",
             [ 'libc.so.6' ],
-            [ '__xstat'(+int,+string,-struct(stat),[-int])]).
+            [ '__xstat'(+int,+string,-struct(stat),[-int])
+            ]).
 
 :- c_import("#include <sys/vfs.h>",
             [ 'libc.so.6' ],
-            [ statfs(+string, -struct(statfs), [-int]) ]).
+            [ statfs(+string, -struct(statfs), [-int])
+            ]).
 
 :- c_import("#include <math.h>",
             [ 'libm.so.6' ],
-            [ sin(+double, [-double]) ]).
+            [ sin(+double, [-double])
+            ]).
 
 :- c_import("#include \"test/test.c\"",
             [ 'test/test.so' ],
@@ -29,8 +32,12 @@ cpp_const('_STAT_VER').
             ]).
 
 stat(File, Stat) :-
-    '__xstat'('_STAT_VER', File, Stat, Rc),
-    posix_status(Rc, stat, file, File).
+    '__xstat'('_STAT_VER', File, Stat, Status),
+    posix_status(Status, stat, file, File).
+
+statfs(File, FsStat) :-
+    statfs(File, FsStat, Status),
+    posix_status(Status, statfs, file, File).
 
 ptn(N) :-
     time(forall(between(1, N, _), get_point(_,_))).
