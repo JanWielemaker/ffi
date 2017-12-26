@@ -442,13 +442,9 @@ c_struct_alloc(_Ptr, Name) :-
 c_struct_load(Ptr, Field[I], Value) :-
     !,
     c_typeof(Ptr, Name),
-    '$c_struct_field'(Name, Field, ArrayOffset, Type),
-    (   Type = array(EType, _Length)
-    ->  type_size_align(EType, ESize, _),
-        Offset is ArrayOffset+ESize*I,
-        c_load(Ptr, Offset, EType, Value)
-    ;   type_error(array, struct_field(Name, Field))
-    ).
+    '$c_struct_field'(Name, Field, BaseOffset, Type),
+    member_offset_type(Type, I, Ptr, BaseOffset, EPtr, EOffset, EType),
+    c_load(EPtr, EOffset, EType, Value).
 c_struct_load(Ptr, Field, Value) :-
     c_typeof(Ptr, Name),
     '$c_struct_field'(Name, Field, Offset, Type),
@@ -472,6 +468,10 @@ c_struct_store(Ptr, Field, Value) :-
     c_typeof(Ptr, Name),
     '$c_struct_field'(Name, Field, Offset, Type),
     c_store(Ptr, Offset, Type, Value).
+
+member_offset_type(array(EType,_), I, Ptr, BaseOffset, Ptr, EOffset, EType) :-
+    type_size_align(EType, ESize, _),
+    EOffset is BaseOffset+ESize*I.
 
 
 		 /*******************************
