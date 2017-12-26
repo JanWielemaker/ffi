@@ -33,8 +33,7 @@
 */
 
 :- module(cinvoke,
-          [ dc_bind/4,                  % :Goal, +Signature, +File, +Func
-            c_import/3,                 % +Header, +Libs, +Functions
+          [ c_import/3,                 % +Header, +Libs, +Functions
 
                                         % Memory access predicates
             c_alloc/3,                  % -Ptr, +Type, +Size
@@ -46,6 +45,10 @@
             c_alignof/2,                % +Type, -Bytes
 
             c_struct/2,                 % +Name, +Fields
+
+            c_current_struct/3,         % :Name, -Size, -Alignment
+            c_current_struct_field/4,   % :Name, ?Field, ?Offset, ?Type
+
             c_struct_alloc/2,           % -Ptr, +Name
             c_struct_load/3,            % +Ptr, +Field, -Value
             c_struct_store/3,           % +Ptr, +Field, +Value
@@ -64,6 +67,11 @@
 
 /** <module> Bind Prolog predicates to C functions
 */
+
+:- meta_predicate
+    c_current_struct(:,?,?),
+    c_current_struct_field(:,?,?,?).
+
 
 :- use_foreign_library('lib/x86_64-linux/cinvoke4pl').
 
@@ -143,28 +151,6 @@ ci_library_sync(Base, FHandle) :-
     ci_context(Ctx),
     ci_library_create(Ctx, Path, FHandle),
     assertz(ci_library_cache(Base, FHandle)).
-
-
-		 /*******************************
-		 *            BIND		*
-		 *******************************/
-
-%!  dc_bind(:Goal, +Signature, +File, +Func)
-
-dc_bind(Goal, Signature, File, Func) :-
-    throw(error(context_error(nodirective,
-                              dc_bind(Goal, Signature, File, Func)), _)).
-
-system:term_expansion((:- dc_bind(Goal, Signature, File, Func)),
-                      Clause) :-
-    dc_expand(Goal, Signature, File, Func, Clause).
-
-dc_expand(Goal, Signature, File, Func,
-          (Goal :- cinvoke:ci_function_invoke(Prototype, Goal))) :-
-    split_string(Signature, ")", "", [Params, Ret]),
-    ci_library(File, FH),
-    ci_library_load_entrypoint(FH, Func, FuncPtr),
-    ci_function_create(FuncPtr, cdecl, Ret, Params, Prototype).
 
 
 		 /*******************************
@@ -407,13 +393,22 @@ type_size_align(array(Type,Len), Alignment, Size, All) :-
 type_size_align(Type, _Alignment, _, _) :-
     existence_error(type, Type).
 
-%!  c_struct(?Name, ?Size, ?Align)
+%!  c_current_struct(:Name, ?Size, ?Align)
 %
 %   Total size of the struct in bytes and alignment restrictions.
 
-%!  c_struct_field(?Name, ?Field, ?Offset, ?Type)
+c_current_struct(M:Name, Size, Align) :-
+    current_predicate(M:'$c_struct'/3),
+    M:'$c_struct'(Name, Size, Align).
+
+%!  c_current_struct_field(:Name, ?Field, ?Offset, ?Type)
 %
 %   Fact to provide efficient access to fields
+
+c_current_struct_field(M:Name, Field, Offset, Type) :-
+    current_predicate(M:'$c_struct_field'/4),
+    M:'$c_struct_field'(Name, Field, Offset, Type).
+
 
 %!  c_struct_alloc(-Ptr, +Name) is det.
 %
