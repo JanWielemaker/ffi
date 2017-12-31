@@ -36,7 +36,7 @@
           [ c_import/3,                 % +Header, +Libs, +Functions
 
                                         % Memory access predicates
-            c_alloc/3,                  % -Ptr, +Type, +Size
+            c_malloc/3,                 % -Ptr, +Type, +Size
             c_free/1,                   % +Ptr
             c_typeof/2,                 % +Ptr, -Type
             c_load/4,                   % +Ptr, +Offset, +Type, -Value
