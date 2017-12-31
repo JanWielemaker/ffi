@@ -194,7 +194,7 @@ write_c_ptr(IOSTREAM *s, atom_t aref, int flags)
 { c_ptr *ref = PL_blob_data(aref, NULL, NULL);
   (void)flags;
 
-  Sfprintf(s, "<c>(%s%s,%p)",
+  Sfprintf(s, "<C %s%s*>(%p)",
 	   qname(ref->qual), PL_atom_chars(ref->type), ref->ptr);
   return TRUE;
 }
