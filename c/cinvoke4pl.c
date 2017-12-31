@@ -80,6 +80,7 @@ get_cc(term_t cc, cinv_callconv_t *v)
 }
 
 
+/*
 static int
 get_type(term_t type, cinv_type_t *v)
 { atom_t a;
@@ -100,7 +101,7 @@ get_type(term_t type, cinv_type_t *v)
 
   return FALSE;
 }
-
+*/
 
 
 		 /*******************************
@@ -398,6 +399,8 @@ ci_function_invoke(term_t prototype, term_t goal)
 	  io = -1;
 	  continue;
       }
+
+      (void)io;					/* what to do? */
 
       if ( !PL_get_arg(argc+1, goal, arg) )
       { return ( PL_put_integer(arg, argc+1) &&
