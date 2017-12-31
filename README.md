@@ -60,10 +60,36 @@ c_alignof(+Type, -Size)
     - Created cpp_const(Name, Value).
   - Add term expansion for
     - c.Name
-    - Plain name
+    - Plain name					[FOR NOW]
     - 'c._AST_VER'
   - How to limit scope?
     - Ideally take from imported library only
       - cinvoke.pl registers term_expansion.
       - module export predicate
         - cpp_macros(Module)
+
+# Load store
+
+  - c_load(Ptr[Elem], Value)
+  - c_load(Ptr, Value) == c_load(Ptr[0], Value)
+
+# Dependent pointers
+
+  - Get pointer inside another one
+    - stat('incl.h', S), c_load(S[st_atim], Ptr)
+  - Alloc pointer insize another one
+    - e.g., struct with char*
+    - c_alloc_struct(Ptr, mystruct),
+      c_alloc_string(Name, "Hello world"),
+      c_store(Ptr[name], Name).
+  - Pointer dependency?
+      c_add_dependency(Ptr1, Ptr2)
+      c_del_dependency(Ptr1, Ptr2)
+  - Automatic?
+    - Keep map offset+Ptr2, managed by c_store/4?
+
+# Uniqueness on true pointer?
+
+  - Also needed for JPL improvement
+    - Using comparison function?
+      - Second does not yet exist
