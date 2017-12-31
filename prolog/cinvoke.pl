@@ -221,7 +221,7 @@ wrap_function(Signature, Types) -->
     ].
 
 matching_signature(Name, SigArgs, Ret, Params) :-
-    append(RealArgs, [_], SigArgs),
+    append(RealArgs, [[_]], SigArgs),
     !,
     (   same_length(RealArgs, Params)
     ->  true
@@ -233,7 +233,17 @@ matching_signature(Name, SigArgs, Ret, Params) :-
         fail
     ;   true
     ).
-
+matching_signature(Name, SigArgs, Ret, Params) :-
+    !,
+    (   same_length(SigArgs, Params)
+    ->  true
+    ;   print_message(error, cinvoke(nonmatching_params(SigArgs, Params))),
+        fail
+    ),
+    (   Ret == void
+    ->  true
+    ;   print_message(warning, cinvoke(nonvoid_function(Name, Ret)))
+    ).
 
 libs([], _) --> [].
 libs([H|T], Functions) --> [ '$c_lib'(H, Functions) ], libs(T, Functions).
@@ -257,8 +267,11 @@ link_clause(M:Goal, SigArgs,
     pairs_values(ParamSpec, ParamTypes),
     phrase(signature_string(ParamTypes), ParamChars),
     atom_codes(Params, ParamChars),
-    phrase(signature_string([RetType]), RetChars),
-    atom_codes(Ret, RetChars),
+    (   RetType == void
+    ->  Ret = ''
+    ;   phrase(signature_string([RetType]), RetChars),
+        atom_codes(Ret, RetChars)
+    ),
     functor(Goal, Name, Arity),
     functor(Head, Name, Arity),
     functor(Head1, Name, Arity),
@@ -451,19 +464,22 @@ c_alloc(Ptr, Type, Count) :-
 %
 %   Load a C value indirect over Ptr. Ptr   may be of the form Ptr[I] to
 %   access the nth element of the array or.
+%
+%   @tbd: enum
 
 c_load(Spec, Value) :-
     c_address(Spec, Ptr, Offset, Type),
     (   atom(Type)
     ->  c_load(Ptr, Offset, Type, Value)
-    ;   c_load_(Type, Ptr, Offset, Value)
+    ;   compound_type(Type)
+    ->  type_size(Type, Size),
+        c_offset(Ptr, Offset, Type, Size, Value)
     ->  true
     ;   domain_error(type, Type)
     ).
 
-c_load_(struct(Name), Ptr, Offset, Value) :-
-    type_size(struct(Name), Size),
-    c_offset(Ptr, Offset, Name, Size, Value).
+compound_type(struct(_)).
+compound_type(union(_)).
 
 c_store(Spec, Value) :-
     c_address(Spec, Ptr, Offset, Type),
