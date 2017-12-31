@@ -55,8 +55,7 @@ static atom_t ATOM_iso_latin_1;
 static atom_t ATOM_utf8;
 static atom_t ATOM_text;
 static atom_t ATOM_wchar_t;
-static atom_t ATOM_wchar_tp;
-static atom_t ATOM_charp;
+static atom_t ATOM_char;
 
 static atom_t ATOM_atom;
 static atom_t ATOM_string;
@@ -513,7 +512,7 @@ c_alloc_string(term_t ptr, term_t data, term_t encoding)
 
       if ( PL_get_wchars(data, &len, &ws, flags) )
       { if ( unify_ptr(ptr, ws, NULL, (len+1)*sizeof(pl_wchar_t),
-		       ATOM_wchar_tp, PL_free) )
+		       ATOM_wchar_t, PL_free) )
 	  return TRUE;
 	PL_free(s);
       }
@@ -522,7 +521,7 @@ c_alloc_string(term_t ptr, term_t data, term_t encoding)
   }
 
   if ( PL_get_nchars(data, &len, &s, flags) )
-  { if ( unify_ptr(ptr, s, NULL, len+1, ATOM_charp, PL_free) )
+  { if ( unify_ptr(ptr, s, NULL, len+1, ATOM_char, PL_free) )
       return TRUE;
     PL_free(s);
   }
@@ -602,8 +601,7 @@ install_c_memory(void)
   MKATOM(utf8);
   MKATOM(text);
   MKATOM(wchar_t);
-  ATOM_wchar_tp = PL_new_atom("wchar_t*");
-  ATOM_charp = PL_new_atom("char*");
+  MKATOM(char);
   MKATOM(atom);
   MKATOM(string);
   MKATOM(codes);
