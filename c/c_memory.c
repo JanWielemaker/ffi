@@ -35,6 +35,7 @@
 #define PL_ARITY_AS_SIZE 1
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
+#include <pthread.h>
 
 static atom_t ATOM_char;
 static atom_t ATOM_short;
@@ -62,9 +63,18 @@ static atom_t ATOM_string;
 static atom_t ATOM_codes;
 static atom_t ATOM_chars;
 
+static pthread_mutex_t dep_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 #define SZ_UNKNOWN (~(size_t)0)
 
 typedef void (*freefunc)(void *ptr);
+
+typedef struct c_dep
+{ atom_t ptr;
+  size_t offset;
+  struct c_dep *next;
+} c_dep;
+
 
 typedef struct c_ptr
 { void *ptr;				/* the pointer */
@@ -72,24 +82,80 @@ typedef struct c_ptr
   size_t size;				/* Size behind ptr */
   void *ctx;				/* Pointer context */
   freefunc free;			/* Its free function */
+  c_dep *deps;				/* Dependency */
 } c_ptr;
 
 
-
 static int
-free_ptr(c_ptr *ref)
-{ void *p = ref->ptr;
+add_dependency(c_ptr *ref, atom_t adep, size_t offset)
+{ c_dep *dep = malloc(sizeof(*dep));
 
-  if ( __sync_bool_compare_and_swap(&ref->ptr, p, NULL) )
-  { DEBUG(5, Sdprintf("free_ptr(%p)\n", p));
+  if ( dep )
+  { c_dep *deps;
 
-    if ( ref->free )
-      (*ref->free)(p);
+    dep->ptr = adep;
+    PL_register_atom(adep);
+    deps = ref->deps;
+    pthread_mutex_lock(&dep_mutex);
+    dep->next = deps;
+    ref->deps = dep;
+    pthread_mutex_unlock(&dep_mutex);
 
     return TRUE;
   }
 
   return FALSE;
+}
+
+
+static void
+del_dependency(c_ptr *ref, atom_t adep, size_t offset)
+{ c_dep **loc;
+
+  pthread_mutex_lock(&dep_mutex);
+  for(loc = &ref->deps; *loc; loc = &(*loc)->next)
+  { c_dep *dep = *loc;
+
+    if ( dep->ptr == adep && dep->offset == offset )
+    { *loc = dep->next;
+      PL_unregister_atom(dep->ptr);
+      free(dep);
+      break;
+    }
+  }
+  pthread_mutex_unlock(&dep_mutex);
+}
+
+
+static void
+free_ptr(c_ptr *ref)
+{ c_dep *dep = ref->deps;
+
+  if ( dep )
+  { pthread_mutex_lock(&dep_mutex);
+    if ( (dep=ref->deps) )
+    { c_dep *next;
+
+      for(; dep; dep=next)
+      { next = dep->next;
+	PL_unregister_atom(dep->ptr);
+	free(dep);
+      }
+    }
+    pthread_mutex_unlock(&dep_mutex);
+  }
+
+  if ( ref->free )
+  { void *p = ref->ptr;
+
+    if ( __sync_bool_compare_and_swap(&ref->ptr, p, NULL) )
+    { DEBUG(5, Sdprintf("free_ptr(%p)\n", p));
+
+      (*ref->free)(p);
+    }
+  }
+
+  PL_unregister_atom(ref->type);
 }
 
 
@@ -164,10 +230,35 @@ unify_ptr(term_t t, void *ptr, void *ctx, size_t size, atom_t type, freefunc fre
     ref->ctx  = ctx;
     ref->size = size;
     ref->free = free;
+    ref->deps = NULL;
+
+    PL_register_atom(ref->type);
+    return PL_unify_blob(t, ref, sizeof(*ref), &c_ptr_blob);
   }
 
-  return PL_unify_blob(t, ref, sizeof(*ref), &c_ptr_blob);
+  return PL_resource_error("memmory");
 }
+
+
+static c_ptr *
+get_ptr_ref(term_t t, atom_t *a)
+{ atom_t ra;
+  c_ptr *p;
+  PL_blob_t *btype;
+
+  if ( PL_get_atom(t, &ra) &&
+       (p=PL_blob_data(ra, NULL, &btype)) &&
+       btype == &c_ptr_blob )
+  { if ( a )
+      *a = ra;
+
+    return p;
+  }
+
+  PL_type_error("c_ptr", t);
+  return NULL;
+}
+
 
 
 static int
@@ -287,7 +378,6 @@ static foreign_t
 c_load(term_t ptr, term_t offset, term_t type, term_t value)
 { PL_blob_t *btype;
   void *bp;
-  atom_t ta;
   size_t off;
 
   if ( PL_get_blob(ptr, &bp, NULL, &btype) &&
@@ -394,7 +484,6 @@ c_store(term_t ptr, term_t offset, term_t type, term_t value)
        btype == &c_ptr_blob &&
        PL_get_size_ex(offset, &off) )
   { atom_t ta;
-    size_t tarity;
     c_ptr *ref = bp;
     void *vp = (void*)((char *)ref->ptr + off);
 
@@ -435,21 +524,22 @@ c_store(term_t ptr, term_t offset, term_t type, term_t value)
 
 static foreign_t
 c_offset(term_t ptr0, term_t offset, term_t type, term_t size, term_t ptr)
-{ PL_blob_t *btype;
-  void *bp;
-  atom_t ta;
+{ c_ptr *ref;
+  atom_t ptra;
   size_t off;
   size_t sz;
+  atom_t ta;
 
-  if ( PL_get_blob(ptr0, &bp, NULL, &btype) &&
-       btype == &c_ptr_blob &&			/* TBD: error */
+  if ( (ref=get_ptr_ref(ptr0, &ptra)) &&
        PL_get_size_ex(offset, &off) &&
        PL_get_size_ex(size, &sz) &&
        PL_get_atom_ex(type, &ta) )
-  { c_ptr *ref = bp;
-    void *vp = (void*)((char *)ref->ptr + off);
+  { void *vp = (void*)((char *)ref->ptr + off);
 
-    return unify_ptr(ptr, vp, NULL, sz, ta, NULL);
+    if ( unify_ptr(ptr, vp, NULL, sz, ta, NULL) )
+    { c_ptr *ref2 = get_ptr_ref(ptr, NULL);
+      return add_dependency(ref2, ptra, (size_t)-1);
+    }
   }
 
   return FALSE;
@@ -562,8 +652,6 @@ c_load_string(term_t ptr, term_t data, term_t type, term_t encoding)
   { c_ptr *ref = bp;
     atom_t aenc, atype;
     int flags = 0;
-    char *s;
-    size_t len;
 
     if ( !PL_get_atom_ex(encoding, &aenc) ||
 	 !PL_get_atom_ex(type, &atype) )
