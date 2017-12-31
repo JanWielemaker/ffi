@@ -521,5 +521,6 @@ cpp_expand(_, T, T).
 system:term_expansion(T0, T) :-
     prolog_load_context(module, M),
     current_predicate(M:cpp_const/2),
-    cpp_expand([M], T0, T).
+    cpp_expand([M], T0, T),
+    T0 \== T.
 
