@@ -44,6 +44,9 @@
             c_sizeof/2,                 % +Type, -Bytes
             c_alignof/2,                % +Type, -Bytes
 
+            c_load/2,                   % +Location, -Value
+            c_store/2,                  % +Location, +Value
+
             c_struct/2,                 % +Name, +Fields
 
             c_current_struct/1,         % :Name
@@ -51,8 +54,6 @@
             c_current_struct_field/4,   % :Name, ?Field, ?Offset, ?Type
 
             c_struct_alloc/2,           % -Ptr, +Name
-            c_struct_load/3,            % +Ptr, +Field, -Value
-            c_struct_store/3,           % +Ptr, +Field, +Value
 
             c_alloc_string/3,           % -Ptr, +Data, +Encoding
             c_load_string/4,            % +Ptr, -Data, +Type, +Encoding
@@ -376,6 +377,13 @@ field_clauses([f(Name,Type)|T], Struct, Off0, Off, Align0, Align, All) -->
     field_clauses(T, Struct, Off2, Off, Align1, Align, All).
 
 
+%!  type_size(+Type, -Size)
+%
+%   Size is the size of an object of Type.
+
+type_size(Type, Size) :-
+    type_size_align(Type, Size, _).
+
 %!  type_size_align(+Type, -Size, -Alignment) is det.
 %
 %   True when Type must be aligned at Alignment and is of size Size.
@@ -435,42 +443,47 @@ c_struct_alloc(Ptr, Name) :-
 c_struct_alloc(_Ptr, Name) :-
     existence_error(struct, Name).
 
-%!  c_struct_load(+Ptr, +Field, -Value) is det.
+%!  c_load(+Ptr, -Value) is det.
 %
-%   Load the value of a field from a C structure.
+%   Load a C value indirect over Ptr. Ptr   may be of the form Ptr[I] to
+%   access the nth element of the array or.
 
-c_struct_load(Ptr, Field[I], Value) :-
-    !,
-    c_typeof(Ptr, Name),
-    '$c_struct_field'(Name, Field, BaseOffset, Type),
-    member_offset_type(Type, I, Ptr, BaseOffset, EPtr, EOffset, EType),
-    c_load(EPtr, EOffset, EType, Value).
-c_struct_load(Ptr, Field, Value) :-
-    c_typeof(Ptr, Name),
-    '$c_struct_field'(Name, Field, Offset, Type),
+c_load(Spec, Value) :-
+    c_address(Spec, Ptr, Offset, Type),
     c_load(Ptr, Offset, Type, Value).
 
-%!  c_struct_store(+Ptr, +Field, +Value) is det.
-%
-%   Store Value into Field of a structure
-
-c_struct_store(Ptr, Field[I], Value) :-
-    !,
-    c_typeof(Ptr, Name),
-    '$c_struct_field'(Name, Field, BaseOffset, Type),
-    member_offset_type(Type, I, Ptr, BaseOffset, EPtr, EOffset, EType),
-    c_store(EPtr, EOffset, EType, Value).
-c_struct_store(Ptr, Field, Value) :-
-    c_typeof(Ptr, Name),
-    '$c_struct_field'(Name, Field, Offset, Type),
+c_store(Spec, Value) :-
+    c_address(Spec, Ptr, Offset, Type),
     c_store(Ptr, Offset, Type, Value).
 
-member_offset_type(array(EType,_), I, Ptr, BaseOffset, Ptr, EOffset, EType) :-
-    type_size_align(EType, ESize, _),
-    EOffset is BaseOffset+ESize*I.
-member_offset_type(struct(Struct), Field, Ptr, BaseOffset, Ptr, EOffset, EType) :-
+
+%!  c_address(+Spec, -Ptr, -Offset, -Type)
+%
+%   Translate a specification into a pointer, offset and type.
+
+c_address(Spec[E], Ptr, Offset, Type) :-
+    !,
+    c_address(Spec, Ptr0, Offset0, Type0),
+    (   atom(E)
+    ->  c_member(Type0, E, Ptr0, Offset0, Ptr, Offset, Type)
+    ;   integer(E)
+    ->  c_array_element(Type0, E, Ptr0, Offset0, Ptr, Offset, Type)
+    ;   type_error(member_selector, E)
+    ).
+c_address(Ptr, Ptr, 0, Type) :-
+    c_typeof(Ptr, Type).
+
+c_array_element(Type, E, Ptr, Offset0, Ptr, Offset, Type) :-
+    type_size(Type, ESize),
+    Offset is Offset0+E*ESize.
+
+c_member(struct(Struct), Field, Ptr, Offset0, Ptr, Offset, EType) :-
+    !,                                          % should always be this
     '$c_struct_field'(Struct, Field, FOffset, EType),
-    EOffset is BaseOffset+FOffset.
+    Offset is Offset0+FOffset.
+c_member(Struct, Field, Ptr, Offset0, Ptr, Offset, EType) :-
+    '$c_struct_field'(Struct, Field, FOffset, EType),
+    Offset is Offset0+FOffset.
 
 
 		 /*******************************
