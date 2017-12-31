@@ -54,7 +54,7 @@ static atom_t ATOM_cdecl;
 static atom_t ATOM_stdcall;
 static atom_t ATOM_fastcall;
 
-static atom_t ATOM_voidp;			/* void* */
+static atom_t ATOM_void;			/* void */
 
 #include "c_memory.c"
 
@@ -152,7 +152,7 @@ ci_context_create(term_t ctx)
 
   if ( (cictx=cinv_context_create()) )
     return unify_ptr(ctx, cictx, NULL, sizeof(*cictx),
-		     ATOM_ci_context, ci_context_free);
+		     ATOM_ci_context, Q_STRUCT, ci_context_free);
 
   return FALSE;
 }
@@ -178,7 +178,7 @@ ci_library_create(term_t ctx, term_t path, term_t lib)
 
     if ( (h=cinv_library_create(cictx, name)) )
       return unify_ptr(lib, h, cictx, sizeof(*h),
-		       ATOM_ci_library, ci_library_free);
+		       ATOM_ci_library, Q_STRUCT, ci_library_free);
 
     return ci_error(cictx);
   }
@@ -216,7 +216,7 @@ ci_library_load_entrypoint(term_t lib, term_t name, term_t func)
 
     if ( (f=cinv_library_load_entrypoint(cictx, libh, fname)) )
       return unify_ptr(func, f, cictx, sizeof(*f),
-		       ATOM_ci_function, NULL);
+		       ATOM_ci_function, Q_STRUCT, NULL);
   }
 
   return FALSE;
@@ -304,7 +304,7 @@ ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t fun
 	p->pformat    = strdup(pformat);
 
 	return unify_ptr(func, f, p, sizeof(*p),
-			 ATOM_ci_prototype, NULL);
+			 ATOM_ci_prototype, Q_STRUCT, NULL);
       } else
       { return PL_resource_error("memory");
       }
@@ -555,7 +555,7 @@ ci_function_invoke(term_t prototype, term_t goal)
 		return PL_cvt_o_float(rv.d, arg);
 	    }
 	  case 'p':
-	    return unify_ptr(arg, rv.p, NULL, SZ_UNKNOWN, ATOM_voidp, NULL);
+	    return unify_ptr(arg, rv.p, NULL, SZ_UNKNOWN, ATOM_void, Q_PLAIN, NULL);
 	}
       }
     } else
@@ -611,7 +611,7 @@ install(void)
   MKATOM(stdcall);
   MKATOM(fastcall);
 
-  ATOM_voidp = PL_new_atom("void*");
+  MKATOM(void);
 
   install_c_memory();
 

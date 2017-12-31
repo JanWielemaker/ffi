@@ -97,5 +97,8 @@ c_alignof(+Type, -Size)
 
 # TBD
 
-  - register type atoms
-  - error if pointer is invalid in c_store and c_offset
+  - C type qualifier
+    - plain
+    - struct
+    - union
+    - enum

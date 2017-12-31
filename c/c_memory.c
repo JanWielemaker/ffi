@@ -52,6 +52,10 @@ static atom_t ATOM_double;
 static atom_t ATOM_pointer;
 static atom_t ATOM_void;
 
+static atom_t ATOM_struct;
+static atom_t ATOM_union;
+static atom_t ATOM_enum;
+
 static atom_t ATOM_iso_latin_1;
 static atom_t ATOM_utf8;
 static atom_t ATOM_text;
@@ -62,6 +66,10 @@ static atom_t ATOM_atom;
 static atom_t ATOM_string;
 static atom_t ATOM_codes;
 static atom_t ATOM_chars;
+
+static functor_t FUNCTOR_struct1;
+static functor_t FUNCTOR_union1;
+static functor_t FUNCTOR_enum1;
 
 static pthread_mutex_t dep_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -76,9 +84,18 @@ typedef struct c_dep
 } c_dep;
 
 
+typedef enum
+{ Q_PLAIN = 0,
+  Q_STRUCT,
+  Q_UNION,
+  Q_ENUM
+} type_qualifier;
+
+
 typedef struct c_ptr
 { void *ptr;				/* the pointer */
   atom_t type;				/* Its type */
+  type_qualifier qual;			/* Type qualifier */
   size_t size;				/* Size behind ptr */
   void *ctx;				/* Pointer context */
   freefunc free;			/* Its free function */
@@ -160,12 +177,25 @@ free_ptr(c_ptr *ref)
 }
 
 
+static char *
+qname(type_qualifier q)
+{ switch(q)
+  { case Q_PLAIN:  return "";
+    case Q_STRUCT: return "struct ";
+    case Q_UNION:  return "union ";
+    case Q_ENUM:   return "enum ";
+    default:	   return "?";
+  }
+}
+
+
 static int
 write_c_ptr(IOSTREAM *s, atom_t aref, int flags)
 { c_ptr *ref = PL_blob_data(aref, NULL, NULL);
   (void)flags;
 
-  Sfprintf(s, "<c>(%s,%p)", PL_atom_chars(ref->type), ref->ptr);
+  Sfprintf(s, "<c>(%s%s,%p)",
+	   qname(ref->qual), PL_atom_chars(ref->type), ref->ptr);
   return TRUE;
 }
 
@@ -222,12 +252,15 @@ static PL_blob_t c_ptr_blob =
 
 
 static int
-unify_ptr(term_t t, void *ptr, void *ctx, size_t size, atom_t type, freefunc free)
+unify_ptr(term_t t, void *ptr, void *ctx, size_t size,
+	  atom_t type, type_qualifier qual,
+	  freefunc free)
 { c_ptr *ref = malloc(sizeof(*ref));
 
   if ( ref )
   { ref->ptr  = ptr;
     ref->type = type;
+    ref->qual = qual;
     ref->ctx  = ctx;
     ref->size = size;
     ref->free = free;
@@ -292,18 +325,67 @@ get_ptr(term_t t, void *ptrp, void *ctxp, atom_t ptrtype)
 		 *	  PROLOG BINDING	*
 		 *******************************/
 
+static int
+get_type(term_t t, atom_t *tname, type_qualifier *tq)
+{ atom_t qn;
+  size_t arity;
+
+  if ( PL_get_atom(t, tname) )
+  { *tq = Q_PLAIN;
+    return TRUE;
+  } else if ( PL_get_name_arity(t, &qn, &arity) && arity == 1 )
+  { term_t a = PL_new_term_ref();
+
+    _PL_get_arg(1, t, a);
+    if ( PL_get_atom_ex(a, tname) )
+    { if ( qn == ATOM_struct )
+	*tq = Q_STRUCT;
+      else if ( qn == ATOM_union )
+	*tq = Q_UNION;
+      else if ( qn == ATOM_enum )
+	*tq = Q_ENUM;
+      else
+	return PL_type_error("c_type", t);
+    }
+
+    return TRUE;
+  } else
+    return PL_type_error("c_type", t);
+
+  return FALSE;
+}
+
+
+static int
+unify_type(term_t t, atom_t tname, type_qualifier q)
+{ if ( q == Q_PLAIN )
+  { return PL_unify_atom(t, tname);
+  } else
+  { functor_t f;
+
+    if      ( q == Q_STRUCT )  f = FUNCTOR_struct1;
+    else if ( q == Q_UNION  )  f = FUNCTOR_union1;
+    else /*if ( q == Q_ENUM )*/f = FUNCTOR_enum1;
+
+    return PL_unify_term(t, PL_FUNCTOR, f, PL_ATOM, tname);
+  }
+}
+
+
+
 static foreign_t
-c_alloc(term_t ptr, term_t type, term_t size)
+c_malloc(term_t ptr, term_t type, term_t size)
 { size_t sz;
   atom_t ta;
+  type_qualifier q;
 
-  if ( PL_get_atom_ex(type, &ta) &&
+  if ( get_type(type, &ta, &q) &&
        PL_get_size_ex(size, &sz) )
   { void *p = malloc(sz);
 
     if ( p )
     { memset(p, 0, sz);
-      if ( unify_ptr(ptr, p, NULL, sz, ta, free) )
+      if ( unify_ptr(ptr, p, NULL, sz, ta, q, free) )
 	return TRUE;
       free(p);
     } else
@@ -357,17 +439,12 @@ c_free(term_t ptr)
 
 static foreign_t
 c_typeof(term_t ptr, term_t type)
-{ PL_blob_t *btype;
-  void *bp;
+{ c_ptr *ref;
 
-  if ( PL_get_blob(ptr, &bp, NULL, &btype) &&
-       btype == &c_ptr_blob )
-  { c_ptr *ref = bp;
+  if ( (ref=get_ptr_ref(ptr, NULL)) )
+    return unify_type(type, ref->type, ref->qual);
 
-    return PL_unify_atom(type, ref->type);
-  }
-
-  return PL_type_error("c_ptr", ptr);
+  return FALSE;
 }
 
 
@@ -435,7 +512,7 @@ c_load(term_t ptr, term_t offset, term_t type, term_t value)
       } else if ( ta == ATOM_pointer )
       { void **p = vp;
 	return VALID(ref, off, void*) &&
-	       unify_ptr(value, *p, NULL, SZ_UNKNOWN, ATOM_void, NULL);
+	       unify_ptr(value, *p, NULL, SZ_UNKNOWN, ATOM_void, Q_PLAIN, NULL);
       } else
 	return PL_domain_error("c_type", type);
     } else if ( PL_get_name_arity(type, &ta, &tarity) )
@@ -443,12 +520,13 @@ c_load(term_t ptr, term_t offset, term_t type, term_t value)
 
       if ( ta == ATOM_pointer && tarity == 1 )
       { atom_t atype;
+	type_qualifier q;
 
 	_PL_get_arg(1, type, arg);
-	if ( PL_get_atom_ex(arg, &atype) )
+	if ( get_type(arg, &atype, &q) )
 	{ void **p = vp;
 	  return VALID(ref, off, void*) &&
-		 unify_ptr(value, *p, NULL, SZ_UNKNOWN, atype, NULL);
+		 unify_ptr(value, *p, NULL, SZ_UNKNOWN, atype, q, NULL);
 	}
 	return FALSE;
       }
@@ -528,14 +606,15 @@ c_offset(term_t ptr0, term_t offset, term_t type, term_t size, term_t ptr)
   size_t off;
   size_t sz;
   atom_t ta;
+  type_qualifier q;
 
   if ( (ref=get_ptr_ref(ptr0, &ptra)) &&
        PL_get_size_ex(offset, &off) &&
        PL_get_size_ex(size, &sz) &&
-       PL_get_atom_ex(type, &ta) )
+       get_type(type, &ta, &q) )
   { void *vp = (void*)((char *)ref->ptr + off);
 
-    if ( unify_ptr(ptr, vp, NULL, sz, ta, NULL) )
+    if ( unify_ptr(ptr, vp, NULL, sz, ta, q, NULL) )
     { c_ptr *ref2 = get_ptr_ref(ptr, NULL);
       return add_dependency(ref2, ptra, (size_t)-1);
     }
@@ -623,7 +702,7 @@ c_alloc_string(term_t ptr, term_t data, term_t encoding)
 
       if ( PL_get_wchars(data, &len, &ws, flags) )
       { if ( unify_ptr(ptr, ws, NULL, (len+1)*sizeof(pl_wchar_t),
-		       ATOM_wchar_t, PL_free) )
+		       ATOM_wchar_t, Q_PLAIN, PL_free) )
 	  return TRUE;
 	PL_free(s);
       }
@@ -632,7 +711,7 @@ c_alloc_string(term_t ptr, term_t data, term_t encoding)
   }
 
   if ( PL_get_nchars(data, &len, &s, flags) )
-  { if ( unify_ptr(ptr, s, NULL, len+1, ATOM_char, PL_free) )
+  { if ( unify_ptr(ptr, s, NULL, len+1, ATOM_char, Q_PLAIN, PL_free) )
       return TRUE;
     PL_free(s);
   }
@@ -715,8 +794,15 @@ install_c_memory(void)
   MKATOM(string);
   MKATOM(codes);
   MKATOM(chars);
+  MKATOM(struct);
+  MKATOM(union);
+  MKATOM(enum);
 
-  PL_register_foreign("c_alloc",	3, c_alloc,	   0);
+  MKFUNCTOR(struct, 1);
+  MKFUNCTOR(union, 1);
+  MKFUNCTOR(enum, 1);
+
+  PL_register_foreign("c_malloc",	3, c_malloc,	   0);
   PL_register_foreign("c_realloc",	2, c_realloc,	   0);
   PL_register_foreign("c_free",		1, c_free,	   0);
   PL_register_foreign("c_load",		4, c_load,	   0);

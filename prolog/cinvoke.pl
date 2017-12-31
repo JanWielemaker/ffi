@@ -45,6 +45,8 @@
             c_sizeof/2,                 % +Type, -Bytes
             c_alignof/2,                % +Type, -Bytes
 
+            c_alloc/2,			% -Ptr, +Type
+            c_alloc/3,			% -Ptr, +Type, +Count
             c_load/2,                   % +Location, -Value
             c_store/2,                  % +Location, +Value
 
@@ -53,8 +55,6 @@
             c_current_struct/1,         % :Name
             c_current_struct/3,         % :Name, -Size, -Alignment
             c_current_struct_field/4,   % :Name, ?Field, ?Offset, ?Type
-
-            c_struct_alloc/2,           % -Ptr, +Name
 
             c_alloc_string/3,           % -Ptr, +Data, +Encoding
             c_load_string/4,            % +Ptr, -Data, +Type, +Encoding
@@ -290,7 +290,7 @@ convert_args([H|T], I, Arity, Head0, Head1, GPre, GPost) :-
     mkconj(GPre1, GPre2, GPre),
     mkconj(GPost1, GPost2, GPost).
 
-convert_arg(-struct(Name), Ptr, Ptr, c_struct_alloc(Ptr, Name), true).
+convert_arg(-struct(Name), Ptr, Ptr, c_alloc(Ptr, struct(Name)), true).
 convert_arg(+string(Enc),  String, Ptr, c_alloc_string(Ptr, String, Enc), true).
 convert_arg(+string, String, Ptr, Pre, Post) :-
     convert_arg(+string(text), String, Ptr, Pre, Post).
@@ -433,16 +433,19 @@ c_current_struct_field(M:Name, Field, Offset, Type) :-
     M:'$c_struct_field'(Name, Field, Offset, Type).
 
 
-%!  c_struct_alloc(-Ptr, +Name) is det.
+%!  c_alloc(-Ptr, +Type) is det.
+%!  c_alloc(-Ptr, +Type, +Count) is det.
 %
-%   Allocate a C structure
+%   Allocate memory for a C object.
 
-c_struct_alloc(Ptr, Name) :-
-    '$c_struct'(Name, Size, _Align),
-    !,
-    c_alloc(Ptr, Name, Size).
-c_struct_alloc(_Ptr, Name) :-
-    existence_error(struct, Name).
+c_alloc(Ptr, Type) :-
+    c_alloc(Ptr, Type, 1).
+
+c_alloc(Ptr, Type, Count) :-
+    type_size(Type, Size),
+    Alloc is Size*Count,
+    c_malloc(Ptr, Type, Alloc).
+
 
 %!  c_load(+Ptr, -Value) is det.
 %
