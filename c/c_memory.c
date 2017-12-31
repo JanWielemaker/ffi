@@ -98,7 +98,7 @@ write_c_ptr(IOSTREAM *s, atom_t aref, int flags)
 { c_ptr *ref = PL_blob_data(aref, NULL, NULL);
   (void)flags;
 
-  Sfprintf(s, "<c_ptr>(%s,%p)", PL_atom_chars(ref->type), ref->ptr);
+  Sfprintf(s, "<c>(%s,%p)", PL_atom_chars(ref->type), ref->ptr);
   return TRUE;
 }
 
@@ -114,7 +114,7 @@ static int
 release_c_ptr(atom_t aref)
 { c_ptr *ref = PL_blob_data(aref, NULL, NULL);
 
-  DEBUG(4, Sdprintf("Release <c_ptr>(%s,%p)\n",
+  DEBUG(4, Sdprintf("Release <c>(%s,%p)\n",
 		    PL_atom_chars(ref->type), ref->ptr));
   free_ptr(ref);
   free(ref);
@@ -128,7 +128,7 @@ save_c_ptr(atom_t aref, IOSTREAM *fd)
 { c_ptr *ref = PL_blob_data(aref, NULL, NULL);
   (void)fd;
 
-  return PL_warning("Cannot save reference to <c_ptr>(%s,%p)",
+  return PL_warning("Cannot save reference to <c>(%s,%p)",
 		    PL_atom_chars(ref->type), ref->ptr);
 }
 
@@ -137,7 +137,7 @@ static atom_t
 load_c_ptr(IOSTREAM *fd)
 { (void)fd;
 
-  return PL_new_atom("<c_ptr>");
+  return PL_new_atom("<c>");
 }
 
 

@@ -94,3 +94,8 @@ c_alignof(+Type, -Size)
   - Also needed for JPL improvement
     - Using comparison function?
       - Second does not yet exist
+
+# TBD
+
+  - register type atoms
+  - error if pointer is invalid in c_store and c_offset
