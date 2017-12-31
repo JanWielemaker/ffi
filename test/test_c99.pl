@@ -28,7 +28,8 @@ cpp_const('_STAT_VER').
 
 :- c_import("#include \"test/test.c\"",
             [ 'test/test.so' ],
-            [ get_point(-struct(point), [-int])
+            [ get_point(-struct(point), [-int]),
+              set_point(+struct(point), +int, +int)
             ]).
 
 stat(File, Stat) :-
