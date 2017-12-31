@@ -4,7 +4,8 @@ C4PL=lib/$(ARCH)/cinvoke4pl.so
 CIFLAGS=-Icinvoke-1.0/lib
 LIBS=-Lcinvoke-1.0/lib -lcinvoke
 
-all: $(C4PL)
+all: $(C4PL) test/test.so
+
 $(C4PL): c/cinvoke4pl.c c/c_memory.c Makefile
 	mkdir -p lib/$(ARCH)
 	swipl-ld -Wall -g -shared $(CIFLAGS) -o $@ $< $(LIBS)
