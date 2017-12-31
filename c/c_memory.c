@@ -108,6 +108,7 @@ add_dependency(c_ptr *ref, atom_t adep, size_t offset)
 }
 
 
+/*
 static void
 del_dependency(c_ptr *ref, atom_t adep, size_t offset)
 { c_dep **loc;
@@ -125,7 +126,7 @@ del_dependency(c_ptr *ref, atom_t adep, size_t offset)
   }
   pthread_mutex_unlock(&dep_mutex);
 }
-
+*/
 
 static void
 free_ptr(c_ptr *ref)
@@ -462,12 +463,13 @@ c_load(term_t ptr, term_t offset, term_t type, term_t value)
 
 
 static int
-i_ptr(term_t value, void **vp)
-{ void *p;
+i_ptr(c_ptr *whole, term_t value, void **vp)
+{ c_ptr *part;
+  atom_t pa;
 
-  if ( get_ptr(value, &p, NULL, 0) )
-  { *vp = p;
-    return TRUE;
+  if ( (part=get_ptr_ref(value, &pa)) )
+  { *vp = part->ptr;
+    return add_dependency(whole, pa, (char*)vp - (char*)whole->ptr);
   }
 
   return FALSE;
@@ -476,15 +478,12 @@ i_ptr(term_t value, void **vp)
 
 static foreign_t
 c_store(term_t ptr, term_t offset, term_t type, term_t value)
-{ PL_blob_t *btype;
-  void *bp;
+{ c_ptr *ref;
   size_t off;
 
-  if ( PL_get_blob(ptr, &bp, NULL, &btype) &&
-       btype == &c_ptr_blob &&
+  if ( (ref=get_ptr_ref(ptr, NULL)) &&
        PL_get_size_ex(offset, &off) )
   { atom_t ta;
-    c_ptr *ref = bp;
     void *vp = (void*)((char *)ref->ptr + off);
 
     if ( PL_get_atom(type, &ta) )
@@ -513,7 +512,7 @@ c_store(term_t ptr, term_t offset, term_t type, term_t value)
       else if ( ta == ATOM_double )
 	return VALID(ref, off, double) && PL_cvt_i_float(value, vp);
       else if ( ta == ATOM_pointer )
-	return VALID(ref, off, void*) && i_ptr(value, vp);
+	return VALID(ref, off, void*) && i_ptr(ref, value, vp);
       else return PL_domain_error("c_type", type);
     }
   }
