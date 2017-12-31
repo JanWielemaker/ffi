@@ -388,7 +388,6 @@ static foreign_t
 c_store(term_t ptr, term_t offset, term_t type, term_t value)
 { PL_blob_t *btype;
   void *bp;
-  atom_t ta;
   size_t off;
 
   if ( PL_get_blob(ptr, &bp, NULL, &btype) &&
@@ -428,6 +427,29 @@ c_store(term_t ptr, term_t offset, term_t type, term_t value)
 	return VALID(ref, off, void*) && i_ptr(value, vp);
       else return PL_domain_error("c_type", type);
     }
+  }
+
+  return FALSE;
+}
+
+
+static foreign_t
+c_offset(term_t ptr0, term_t offset, term_t type, term_t size, term_t ptr)
+{ PL_blob_t *btype;
+  void *bp;
+  atom_t ta;
+  size_t off;
+  size_t sz;
+
+  if ( PL_get_blob(ptr0, &bp, NULL, &btype) &&
+       btype == &c_ptr_blob &&			/* TBD: error */
+       PL_get_size_ex(offset, &off) &&
+       PL_get_size_ex(size, &sz) &&
+       PL_get_atom_ex(type, &ta) )
+  { c_ptr *ref = bp;
+    void *vp = (void*)((char *)ref->ptr + off);
+
+    return unify_ptr(ptr, vp, NULL, sz, ta, NULL);
   }
 
   return FALSE;
@@ -612,6 +634,7 @@ install_c_memory(void)
   PL_register_foreign("c_free",		1, c_free,	   0);
   PL_register_foreign("c_load",		4, c_load,	   0);
   PL_register_foreign("c_store",	4, c_store,	   0);
+  PL_register_foreign("c_offset",	5, c_offset,	   0);
   PL_register_foreign("c_typeof",	2, c_typeof,	   0);
   PL_register_foreign("c_sizeof",	2, c_sizeof,	   0);
   PL_register_foreign("c_alignof",	2, c_alignof,	   0);

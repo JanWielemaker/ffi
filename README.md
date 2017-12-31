@@ -77,6 +77,7 @@ c_alignof(+Type, -Size)
 
   - Get pointer inside another one
     - stat('incl.h', S), c_load(S[st_atim], Ptr)
+    - c_offset(+Ptr, +Offset, +Type, -Ptr2)
   - Alloc pointer insize another one
     - e.g., struct with char*
     - c_alloc_struct(Ptr, mystruct),

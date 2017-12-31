@@ -41,6 +41,7 @@
             c_typeof/2,                 % +Ptr, -Type
             c_load/4,                   % +Ptr, +Offset, +Type, -Value
             c_store/4,                  % +Ptr, +Offset, +Type, +Value
+            c_offset/5,                 % +Ptr0, +Offset, +Type, +Size, -Ptr
             c_sizeof/2,                 % +Type, -Bytes
             c_alignof/2,                % +Type, -Bytes
 
@@ -450,7 +451,16 @@ c_struct_alloc(_Ptr, Name) :-
 
 c_load(Spec, Value) :-
     c_address(Spec, Ptr, Offset, Type),
-    c_load(Ptr, Offset, Type, Value).
+    (   atom(Type)
+    ->  c_load(Ptr, Offset, Type, Value)
+    ;   c_load_(Type, Ptr, Offset, Value)
+    ->  true
+    ;   domain_error(type, Type)
+    ).
+
+c_load_(struct(Name), Ptr, Offset, Value) :-
+    type_size(struct(Name), Size),
+    c_offset(Ptr, Offset, Name, Size, Value).
 
 c_store(Spec, Value) :-
     c_address(Spec, Ptr, Offset, Type),

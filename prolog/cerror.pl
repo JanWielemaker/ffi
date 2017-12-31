@@ -86,5 +86,6 @@ posix_exception('ENOMEM', _Op, _Type, _Arg, Context) :- !,
 :- multifile prolog:message_context//1.
 
 prolog:message_context(context(_, posix(Op, Type, Arg, String))) -->
+    { nonvar(Op) },
     [ nl, '    OS error in ~w on ~p ~p: ~p'-
       [Op, Type, Arg, String] ].
