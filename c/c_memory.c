@@ -35,6 +35,7 @@
 #define PL_ARITY_AS_SIZE 1
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
+#include <stdio.h>
 #include <pthread.h>
 
 static atom_t ATOM_char;
@@ -96,7 +97,8 @@ typedef struct c_ptr
 { void *ptr;				/* the pointer */
   atom_t type;				/* Its type */
   type_qualifier qual;			/* Type qualifier */
-  size_t size;				/* Size behind ptr */
+  size_t size;				/* Element size behind ptr */
+  size_t count;				/* Element count behind ptr */
   void *ctx;				/* Pointer context */
   freefunc free;			/* Its free function */
   c_dep *deps;				/* Dependency */
@@ -189,13 +191,25 @@ qname(type_qualifier q)
 }
 
 
+static char *
+pname(const c_ptr *ref, char *buf)
+{ if ( ref->count == SZ_UNKNOWN )
+  { return "*";
+  } else
+  { sprintf(buf, "[%zd]", ref->count);
+    return buf;
+  }
+}
+
+
 static int
 write_c_ptr(IOSTREAM *s, atom_t aref, int flags)
 { c_ptr *ref = PL_blob_data(aref, NULL, NULL);
+  char pbuf[64];
   (void)flags;
 
-  Sfprintf(s, "<C %s%s*>(%p)",
-	   qname(ref->qual), PL_atom_chars(ref->type), ref->ptr);
+  Sfprintf(s, "<C %s%s%s>(%p)",
+	   qname(ref->qual), PL_atom_chars(ref->type), pname(ref, pbuf), ref->ptr);
   return TRUE;
 }
 
@@ -252,19 +266,21 @@ static PL_blob_t c_ptr_blob =
 
 
 static int
-unify_ptr(term_t t, void *ptr, void *ctx, size_t size,
+unify_ptr(term_t t, void *ptr, void *ctx,
+	  size_t count, size_t size,
 	  atom_t type, type_qualifier qual,
 	  freefunc free)
 { c_ptr *ref = malloc(sizeof(*ref));
 
   if ( ref )
-  { ref->ptr  = ptr;
-    ref->type = type;
-    ref->qual = qual;
-    ref->ctx  = ctx;
-    ref->size = size;
-    ref->free = free;
-    ref->deps = NULL;
+  { ref->ptr   = ptr;
+    ref->type  = type;
+    ref->qual  = qual;
+    ref->ctx   = ctx;
+    ref->count = count;
+    ref->size  = size;
+    ref->free  = free;
+    ref->deps  = NULL;
 
     PL_register_atom(ref->type);
     return PL_unify_blob(t, ref, sizeof(*ref), &c_ptr_blob);
@@ -385,7 +401,7 @@ c_malloc(term_t ptr, term_t type, term_t size)
 
     if ( p )
     { memset(p, 0, sz);
-      if ( unify_ptr(ptr, p, NULL, sz, ta, q, free) )
+      if ( unify_ptr(ptr, p, NULL, sz, 1, ta, q, free) )
 	return TRUE;
       free(p);
     } else
@@ -394,6 +410,34 @@ c_malloc(term_t ptr, term_t type, term_t size)
 
   return FALSE;
 }
+
+
+static foreign_t
+c_calloc(term_t ptr, term_t type, term_t esize, term_t count)
+{ size_t esz;
+  size_t cnt;
+  atom_t ta;
+  type_qualifier q;
+
+  if ( get_type(type, &ta,   &q) &&
+       PL_get_size_ex(esize, &esz) &&
+       PL_get_size_ex(count, &cnt) )
+  { size_t bytes = esz*cnt;
+    void *p = malloc(bytes);
+
+    if ( p )
+    { memset(p, 0, bytes);
+      if ( unify_ptr(ptr, p, NULL, cnt, esz, ta, q, free) )
+	return TRUE;
+      free(p);
+    } else
+      PL_resource_error("memory");
+  }
+
+  return FALSE;
+}
+
+
 
 
 static foreign_t
@@ -449,7 +493,7 @@ c_typeof(term_t ptr, term_t type)
 
 
 #define VALID(ref, off, type) \
-	(((off)+sizeof(type) <= ref->size) ? TRUE : \
+	(((off)+sizeof(type) <= ref->count*ref->size) ? TRUE : \
 	PL_domain_error("offset", offset))
 
 static foreign_t
@@ -512,7 +556,8 @@ c_load(term_t ptr, term_t offset, term_t type, term_t value)
       } else if ( ta == ATOM_pointer )
       { void **p = vp;
 	return VALID(ref, off, void*) &&
-	       unify_ptr(value, *p, NULL, SZ_UNKNOWN, ATOM_void, Q_PLAIN, NULL);
+	       unify_ptr(value, *p, NULL, SZ_UNKNOWN, 1,
+			 ATOM_void, Q_PLAIN, NULL);
       } else
 	return PL_domain_error("c_type", type);
     } else if ( PL_get_name_arity(type, &ta, &tarity) )
@@ -526,7 +571,7 @@ c_load(term_t ptr, term_t offset, term_t type, term_t value)
 	if ( get_type(arg, &atype, &q) )
 	{ void **p = vp;
 	  return VALID(ref, off, void*) &&
-		 unify_ptr(value, *p, NULL, SZ_UNKNOWN, atype, q, NULL);
+		 unify_ptr(value, *p, NULL, SZ_UNKNOWN, 1, atype, q, NULL);
 	}
 	return FALSE;
       }
@@ -614,7 +659,7 @@ c_offset(term_t ptr0, term_t offset, term_t type, term_t size, term_t ptr)
        get_type(type, &ta, &q) )
   { void *vp = (void*)((char *)ref->ptr + off);
 
-    if ( unify_ptr(ptr, vp, NULL, sz, ta, q, NULL) )
+    if ( unify_ptr(ptr, vp, NULL, sz, 1, ta, q, NULL) )
     { c_ptr *ref2 = get_ptr_ref(ptr, NULL);
       return add_dependency(ref2, ptra, (size_t)-1);
     }
@@ -701,7 +746,7 @@ c_alloc_string(term_t ptr, term_t data, term_t encoding)
     { pl_wchar_t *ws;
 
       if ( PL_get_wchars(data, &len, &ws, flags) )
-      { if ( unify_ptr(ptr, ws, NULL, (len+1)*sizeof(pl_wchar_t),
+      { if ( unify_ptr(ptr, ws, NULL, (len+1), sizeof(pl_wchar_t),
 		       ATOM_wchar_t, Q_PLAIN, PL_free) )
 	  return TRUE;
 	PL_free(s);
@@ -711,7 +756,7 @@ c_alloc_string(term_t ptr, term_t data, term_t encoding)
   }
 
   if ( PL_get_nchars(data, &len, &s, flags) )
-  { if ( unify_ptr(ptr, s, NULL, len+1, ATOM_char, Q_PLAIN, PL_free) )
+  { if ( unify_ptr(ptr, s, NULL, len+1, 1, ATOM_char, Q_PLAIN, PL_free) )
       return TRUE;
     PL_free(s);
   }
@@ -803,6 +848,7 @@ install_c_memory(void)
   MKFUNCTOR(enum, 1);
 
   PL_register_foreign("c_malloc",	3, c_malloc,	   0);
+  PL_register_foreign("c_calloc",	4, c_calloc,	   0);
   PL_register_foreign("c_realloc",	2, c_realloc,	   0);
   PL_register_foreign("c_free",		1, c_free,	   0);
   PL_register_foreign("c_load",		4, c_load,	   0);

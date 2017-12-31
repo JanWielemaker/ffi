@@ -36,6 +36,7 @@
           [ c_import/3,                 % +Header, +Libs, +Functions
 
                                         % Memory access predicates
+            c_calloc/4,                 % -Ptr, +Type, +Count, +Size
             c_malloc/3,                 % -Ptr, +Type, +Size
             c_free/1,                   % +Ptr
             c_typeof/2,                 % +Ptr, -Type
@@ -456,8 +457,7 @@ c_alloc(Ptr, Type) :-
 
 c_alloc(Ptr, Type, Count) :-
     type_size(Type, Size),
-    Alloc is Size*Count,
-    c_malloc(Ptr, Type, Alloc).
+    c_calloc(Ptr, Type, Size, Count).
 
 
 %!  c_load(+Ptr, -Value) is det.

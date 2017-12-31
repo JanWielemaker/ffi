@@ -151,7 +151,7 @@ ci_context_create(term_t ctx)
 { CInvContext *cictx;
 
   if ( (cictx=cinv_context_create()) )
-    return unify_ptr(ctx, cictx, NULL, sizeof(*cictx),
+    return unify_ptr(ctx, cictx, NULL, 1, sizeof(*cictx),
 		     ATOM_ci_context, Q_STRUCT, ci_context_free);
 
   return FALSE;
@@ -177,7 +177,7 @@ ci_library_create(term_t ctx, term_t path, term_t lib)
     DEBUG(1, Sdprintf("Opening %s\n", name));
 
     if ( (h=cinv_library_create(cictx, name)) )
-      return unify_ptr(lib, h, cictx, sizeof(*h),
+      return unify_ptr(lib, h, cictx, 1, sizeof(*h),
 		       ATOM_ci_library, Q_STRUCT, ci_library_free);
 
     return ci_error(cictx);
@@ -215,7 +215,7 @@ ci_library_load_entrypoint(term_t lib, term_t name, term_t func)
     DEBUG(1, Sdprintf("Find %s in %p\n", fname, libh));
 
     if ( (f=cinv_library_load_entrypoint(cictx, libh, fname)) )
-      return unify_ptr(func, f, cictx, sizeof(*f),
+      return unify_ptr(func, f, cictx, 1, sizeof(*f),
 		       ATOM_ci_function, Q_STRUCT, NULL);
   }
 
@@ -303,7 +303,7 @@ ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t fun
 	p->rformat    = strdup(rformat);
 	p->pformat    = strdup(pformat);
 
-	return unify_ptr(func, f, p, sizeof(*p),
+	return unify_ptr(func, f, p, 1, sizeof(*p),
 			 ATOM_ci_prototype, Q_STRUCT, NULL);
       } else
       { return PL_resource_error("memory");
@@ -555,7 +555,8 @@ ci_function_invoke(term_t prototype, term_t goal)
 		return PL_cvt_o_float(rv.d, arg);
 	    }
 	  case 'p':
-	    return unify_ptr(arg, rv.p, NULL, SZ_UNKNOWN, ATOM_void, Q_PLAIN, NULL);
+	    return unify_ptr(arg, rv.p, NULL, SZ_UNKNOWN, 1,
+			     ATOM_void, Q_PLAIN, NULL);
 	}
       }
     } else
