@@ -378,6 +378,7 @@ ci_function_free(void *ptr)
 { ctx_prototype *p = ptr;
 
   cinv_function_delete(p->cictx->cictx, p->func);
+  PL_unregister_atom(p->cictx->symbol);
 
   free(p);
 }
