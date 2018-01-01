@@ -97,8 +97,6 @@ c_alignof(+Type, -Size)
 
 # TBD
 
-  - C type qualifier
-    - plain
-    - struct
-    - union
-    - enum
+  - Get rid of the context pointer notion in c_memory.c
+    - Adjust cinvoke.c
+  - Allow for p[x] to be pointer at offset x

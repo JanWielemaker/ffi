@@ -71,6 +71,7 @@ static atom_t ATOM_chars;
 static functor_t FUNCTOR_struct1;
 static functor_t FUNCTOR_union1;
 static functor_t FUNCTOR_enum1;
+static functor_t FUNCTOR_array2;
 
 static pthread_mutex_t dep_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -305,24 +306,33 @@ get_ptr_ref(term_t t, atom_t *a)
     return p;
   }
 
+  return NULL;
+}
+
+
+static c_ptr *
+get_ptr_ref_ex(term_t t, atom_t *a)
+{ c_ptr *ref;
+
+  if ( (ref=get_ptr_ref(t, a)) )
+    return ref;
+
   PL_type_error("c_ptr", t);
   return NULL;
 }
 
 
-
 static int
-get_ptr(term_t t, void *ptrp, void *ctxp, atom_t ptrtype)
-{ PL_blob_t *type;
-  void *bp;
+get_ptr_direct(term_t t, void *ptrp, void *ctxp, atom_t ptrtype)
+{ c_ptr *ref;
 
-  if ( PL_get_blob(t, &bp, NULL, &type) &&
-       type == &c_ptr_blob )
-  { c_ptr *ref = bp;
-    void **ptrpp = ptrp;
+  if ( (ref=get_ptr_ref(t, NULL)) )
+  { void **ptrpp = ptrp;
 
     if ( ptrtype && ptrtype != ref->type )
-      return PL_type_error(PL_atom_chars(ref->type), t);
+    { PL_type_error(PL_atom_chars(ref->type), t);
+      return -1;
+    }
 
     *ptrpp = ref->ptr;
     if ( ctxp )
@@ -331,6 +341,43 @@ get_ptr(term_t t, void *ptrp, void *ctxp, atom_t ptrtype)
     }
 
     return TRUE;
+  }
+
+  return FALSE;
+}
+
+
+static int
+get_ptr(term_t t, void *ptrp, void *ctxp, atom_t ptrtype)
+{ int rc;
+
+  if ( (rc=get_ptr_direct(t, ptrp, ctxp, ptrtype)) == TRUE )
+    return TRUE;
+  else if ( rc < 0 )
+    return FALSE;
+  else if ( PL_is_functor(t, FUNCTOR_array2) )
+  { c_ptr *ref;
+    term_t arg = PL_new_term_ref();
+
+    _PL_get_arg(2, t, arg);
+    if ( (ref=get_ptr_ref(arg, NULL)) )
+    { term_t list = PL_new_term_ref();
+      void **ptrpp = ptrp;
+      size_t offset;
+
+      _PL_get_arg(1, t, list);
+      if ( PL_get_list(list, arg, list) &&
+	   PL_get_nil(list) &&
+	   PL_get_size_ex(arg, &offset) )
+      { *ptrpp = (char *)ref->ptr + offset*ref->size;
+	return TRUE;
+      }
+
+      _PL_get_arg(1, t, list);
+      return PL_type_error("c_offset", list);
+    }
+
+    return FALSE;
   }
 
   return PL_type_error("c_ptr", t);
@@ -485,7 +532,7 @@ static foreign_t
 c_typeof(term_t ptr, term_t type)
 { c_ptr *ref;
 
-  if ( (ref=get_ptr_ref(ptr, NULL)) )
+  if ( (ref=get_ptr_ref_ex(ptr, NULL)) )
     return unify_type(type, ref->type, ref->qual);
 
   return FALSE;
@@ -590,7 +637,7 @@ i_ptr(c_ptr *whole, term_t value, void **vp)
 { c_ptr *part;
   atom_t pa;
 
-  if ( (part=get_ptr_ref(value, &pa)) )
+  if ( (part=get_ptr_ref_ex(value, &pa)) )
   { *vp = part->ptr;
     return add_dependency(whole, pa, (char*)vp - (char*)whole->ptr);
   }
@@ -604,7 +651,7 @@ c_store(term_t ptr, term_t offset, term_t type, term_t value)
 { c_ptr *ref;
   size_t off;
 
-  if ( (ref=get_ptr_ref(ptr, NULL)) &&
+  if ( (ref=get_ptr_ref_ex(ptr, NULL)) &&
        PL_get_size_ex(offset, &off) )
   { atom_t ta;
     void *vp = (void*)((char *)ref->ptr + off);
@@ -653,14 +700,14 @@ c_offset(term_t ptr0, term_t offset, term_t type, term_t size, term_t ptr)
   atom_t ta;
   type_qualifier q;
 
-  if ( (ref=get_ptr_ref(ptr0, &ptra)) &&
+  if ( (ref=get_ptr_ref_ex(ptr0, &ptra)) &&
        PL_get_size_ex(offset, &off) &&
        PL_get_size_ex(size, &sz) &&
        get_type(type, &ta, &q) )
   { void *vp = (void*)((char *)ref->ptr + off);
 
-    if ( unify_ptr(ptr, vp, NULL, sz, 1, ta, q, NULL) )
-    { c_ptr *ref2 = get_ptr_ref(ptr, NULL);
+    if ( unify_ptr(ptr, vp, NULL, 1, sz, ta, q, NULL) )
+    { c_ptr *ref2 = get_ptr_ref_ex(ptr, NULL);
       return add_dependency(ref2, ptra, (size_t)-1);
     }
   }
@@ -846,6 +893,7 @@ install_c_memory(void)
   MKFUNCTOR(struct, 1);
   MKFUNCTOR(union, 1);
   MKFUNCTOR(enum, 1);
+  FUNCTOR_array2 = PL_new_functor(ATOM_nil, 2);
 
   PL_register_foreign("c_malloc",	3, c_malloc,	   0);
   PL_register_foreign("c_calloc",	4, c_calloc,	   0);
