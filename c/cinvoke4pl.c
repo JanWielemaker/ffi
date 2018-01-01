@@ -145,6 +145,7 @@ typedef struct ctx_prototype
 { ctx_context  *cictx;
   CInvFunction *func;
   void         *entrypoint;
+  int		argc;
   const char   *rformat;
   const char   *pformat;
 } ctx_prototype;
@@ -409,6 +410,7 @@ ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t fun
 	p->cictx      = ep->cictx;
 	p->entrypoint = ep->func;
 	p->func	      = f;
+	p->argc	      = strlen(ci_pformat);
 	p->rformat    = strdup(rformat);
 	p->pformat    = strdup(pformat);
 
@@ -432,8 +434,6 @@ ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t fun
   return FALSE;
 }
 
-
-#define MAXARGC 10
 
 typedef union argstore
 { char c;
@@ -483,8 +483,8 @@ ci_function_invoke(term_t prototype, term_t goal)
 { ctx_prototype *ctx;
 
   if ( get_ptr(prototype, &ctx, ATOM_ci_function) )
-  { void *argv[MAXARGC];
-    argstore as[MAXARGC];
+  { void *argv[ctx->argc];
+    argstore as[ctx->argc];
     argstore rv;
     int argc = 0;
     term_t arg = PL_new_term_ref();
