@@ -129,15 +129,21 @@ ci_status(cinv_status_t status, CInvContext *cictx)
 		 *******************************/
 
 typedef struct ctx_library
-{ CInvContext *cictx;
-  CInvLibrary *lib;
+{ CInvContext  *cictx;
+  CInvLibrary  *lib;
 } ctx_library;
 
+typedef struct ctx_entrypoint
+{ CInvContext  *cictx;
+  void         *func;
+} ctx_entrypoint;
+
 typedef struct ctx_prototype
-{ CInvContext *cictx;
-  void *entrypoint;
-  const char *rformat;
-  const char *pformat;
+{ CInvContext  *cictx;
+  CInvFunction *func;
+  void         *entrypoint;
+  const char   *rformat;
+  const char   *pformat;
 } ctx_prototype;
 
 
@@ -151,7 +157,10 @@ unify_part_ptr(term_t t, atom_t whole,
 	       freefunc free)
 { if ( unify_ptr(t, ptr, NULL, 1, size, type, Q_STRUCT, free) )
   { c_ptr *ref = get_ptr_ref_ex(t, NULL);
-    return add_dependency(ref, whole, (size_t)-1);
+    if ( whole )
+      return add_dependency(ref, whole, (size_t)-1);
+    else
+      return TRUE;
   }
 
   return FALSE;
@@ -263,8 +272,23 @@ ci_library_load_entrypoint(term_t lib, term_t name, term_t func)
     DEBUG(1, Sdprintf("Find %s in %p\n", fname, libh));
 
     if ( (f=cinv_library_load_entrypoint(libh->cictx, libh->lib, fname)) )
-      return unify_ptr(func, f, libh->cictx, 1, sizeof(*f),
-		       ATOM_ci_function, Q_STRUCT, NULL);
+    { ctx_entrypoint *ep = malloc(sizeof(*ep));
+
+      if ( ep )
+      { ep->cictx = libh->cictx;
+	ep->func  = f;
+
+	if ( unify_part_ptr(func, 0,		/* TBD */
+			    ep, sizeof(*ep), ATOM_ci_function,
+			    free) )
+	  return TRUE;
+
+	free(ep);
+	return FALSE;
+      }
+
+      return PL_resource_error("memory");
+    }
   }
 
   return FALSE;
@@ -323,15 +347,14 @@ ci_signature(const char *s, char *buf)
 
 static foreign_t
 ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t func)
-{ void *entrypoint;
-  CInvContext *cictx;
+{ ctx_entrypoint *ep;
   cinv_callconv_t ccv;
   char *rformat;
   char *pformat;
   char ci_rformat[16];
   char ci_pformat[100];
 
-  if ( get_ptr(entry, &entrypoint, &cictx, ATOM_ci_function) &&
+  if ( get_ptr(entry, &ep, NULL, ATOM_ci_function) &&
        get_cc(cc, &ccv) &&
        PL_get_chars(ret, &rformat, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) &&
        PL_get_chars(parms, &pformat, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) &&
@@ -341,23 +364,29 @@ ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t fun
 
     DEBUG(1, Sdprintf("Created function with (%s)%s\n", ci_pformat, ci_rformat));
 
-    if ( (f=cinv_function_create(cictx, ccv, ci_rformat, ci_pformat)) )
+    if ( (f=cinv_function_create(ep->cictx, ccv, ci_rformat, ci_pformat)) )
     { ctx_prototype *p = malloc(sizeof(*p));
 
       if ( p )
       { memset(p, 0, sizeof(*p));
-	p->cictx = cictx;
-	p->entrypoint = entrypoint;
+	p->cictx      = ep->cictx;
+	p->entrypoint = ep->func;
+	p->func	      = f;
 	p->rformat    = strdup(rformat);
 	p->pformat    = strdup(pformat);
 
-	return unify_ptr(func, f, p, 1, sizeof(*p),
-			 ATOM_ci_prototype, Q_STRUCT, NULL);
+	if ( unify_part_ptr(func, 0,		/* TBD: deal with whole */
+			    p, sizeof(*p), ATOM_ci_prototype,
+			    free) )		/* TBD: remove entrypoint */
+	  return TRUE;
+
+	free(p);
+	return FALSE;
       } else
       { return PL_resource_error("memory");
       }
     }
-    return ci_error(cictx);
+    return ci_error(ep->cictx);
   }
 
   return FALSE;
@@ -416,9 +445,8 @@ Encoding:
 static foreign_t
 ci_function_invoke(term_t prototype, term_t goal)
 { ctx_prototype *ctx;
-  CInvFunction *f;
 
-  if ( get_ptr(prototype, &f, &ctx, ATOM_ci_prototype) )
+  if ( get_ptr(prototype, &ctx, NULL, ATOM_ci_prototype) )
   { void *argv[MAXARGC];
     argstore as[MAXARGC];
     argstore rv;
@@ -551,7 +579,7 @@ ci_function_invoke(term_t prototype, term_t goal)
       }
     }
 
-    cinv_function_invoke(ctx->cictx, f, ctx->entrypoint,
+    cinv_function_invoke(ctx->cictx, ctx->func, ctx->entrypoint,
 			 &rv.p, argv);
 
     if ( ctx->rformat && ctx->rformat[0] )
