@@ -45,10 +45,8 @@ static unsigned int debug = 0;
 
 static atom_t ATOM_ci_context;
 static atom_t ATOM_ci_library;
+static atom_t ATOM_ci_entrypoint;
 static atom_t ATOM_ci_function;
-static atom_t ATOM_ci_prototype;
-static atom_t ATOM_ci_struct;
-static atom_t ATOM_ci_struct_decl;
 
 static atom_t ATOM_cdecl;
 static atom_t ATOM_stdcall;
@@ -128,18 +126,23 @@ ci_status(cinv_status_t status, CInvContext *cictx)
 		 *	   CONTEXT TYPES	*
 		 *******************************/
 
-typedef struct ctx_library
+typedef struct ctx_context
 { CInvContext  *cictx;
+  atom_t	symbol;
+} ctx_context;
+
+typedef struct ctx_library
+{ ctx_context  *cictx;
   CInvLibrary  *lib;
 } ctx_library;
 
 typedef struct ctx_entrypoint
-{ CInvContext  *cictx;
+{ ctx_context  *cictx;
   void         *func;
 } ctx_entrypoint;
 
 typedef struct ctx_prototype
-{ CInvContext  *cictx;
+{ ctx_context  *cictx;
   CInvFunction *func;
   void         *entrypoint;
   const char   *rformat;
@@ -152,15 +155,12 @@ typedef struct ctx_prototype
 		 *******************************/
 
 static int
-unify_part_ptr(term_t t, atom_t whole,
+unify_part_ptr(term_t t, ctx_context *ctx,
 	       void *ptr, size_t size, atom_t type,
 	       freefunc free)
 { if ( unify_ptr(t, ptr, 1, size, type, Q_STRUCT, free) )
-  { c_ptr *ref = get_ptr_ref_ex(t, NULL);
-    if ( whole )
-      return add_dependency(ref, whole, (size_t)-1);
-    else
-      return TRUE;
+  { PL_register_atom(ctx->symbol);
+    return TRUE;
   }
 
   return FALSE;
@@ -174,17 +174,33 @@ unify_part_ptr(term_t t, atom_t whole,
 
 static void
 ci_context_free(void *ptr)
-{ cinv_context_delete(ptr);
+{ ctx_context *ctx = ptr;
+
+  cinv_context_delete(ctx->cictx);
+  free(ctx);
 }
 
 
 static foreign_t
-ci_context_create(term_t ctx)
+ci_context_create(term_t context)
 { CInvContext *cictx;
 
   if ( (cictx=cinv_context_create()) )
-    return unify_ptr(ctx, cictx, 1, sizeof(*cictx),
-		     ATOM_ci_context, Q_STRUCT, ci_context_free);
+  { ctx_context *ctx = malloc(sizeof(*ctx));
+
+    if ( ctx )
+    { ctx->cictx = cictx;
+
+      if ( unify_ptr(context, ctx, 1, sizeof(*ctx),
+		     ATOM_ci_context, Q_STRUCT, ci_context_free) )
+	return PL_get_atom(context, &ctx->symbol);
+
+      free(ctx);
+    }
+    cinv_context_delete(cictx);
+    if ( !PL_exception(0) )
+      PL_resource_error("memory");
+  }
 
   return FALSE;
 }
@@ -195,45 +211,47 @@ ci_library_free(void *ptr)
 { ctx_library *libh = ptr;
 
   if ( libh->lib )
-    cinv_library_delete(libh->cictx, libh->lib);
+    cinv_library_delete(libh->cictx->cictx, libh->lib);
+  PL_unregister_atom(libh->cictx->symbol);
+
   free(ptr);
 }
 
 
 static foreign_t
-ci_library_create(term_t ctx, term_t path, term_t lib)
+ci_library_create(term_t context, term_t path, term_t lib)
 { char *name;
-  c_ptr *cref;
-  atom_t ctxa;
+  ctx_context *ctx;
 
-  if ( (cref=get_ptr_ref(ctx, &ctxa/*, ATOM_ci_context*/)) &&
+  if ( get_ptr(context, &ctx, ATOM_ci_context) &&
        PL_get_file_name(path, &name,
 			PL_FILE_OSPATH|PL_FILE_SEARCH|PL_FILE_READ) )
-  { CInvContext *cictx = cref->ptr;
-    CInvLibrary *h;
+  { CInvLibrary *h;
 
     DEBUG(1, Sdprintf("Opening %s\n", name));
 
-    if ( (h=cinv_library_create(cictx, name)) )
+    if ( (h=cinv_library_create(ctx->cictx, name)) )
     { ctx_library *libh = malloc(sizeof(*libh));
 
       if ( libh )
-      { libh->cictx = cictx;
+      { libh->cictx = ctx;
 	libh->lib   = h;
 
-	if ( unify_part_ptr(lib, ctxa,
+	if ( unify_part_ptr(lib, ctx,
 			    libh, sizeof(*libh), ATOM_ci_library,
 			    ci_library_free) )
 	  return TRUE;
 
-	cinv_library_delete(cictx, h);
 	free(libh);
-	return FALSE;
-      } else
-	return PL_resource_error("memory");
+      }
+
+      cinv_library_delete(ctx->cictx, h);
+      if ( !PL_exception(0) )
+	PL_resource_error("memory");
+      return FALSE;
     }
 
-    return ci_error(cictx);
+    return ci_error(ctx->cictx);
   }
 
   return FALSE;
@@ -249,14 +267,23 @@ ci_free_library(term_t lib)
     CInvLibrary *h = libh->lib;
 
     if ( h &&__sync_bool_compare_and_swap(&libh->lib, h, NULL) )
-    { rc = cinv_library_delete(libh->cictx, h);
-      return ci_status(rc, libh->cictx);
+    { rc = cinv_library_delete(libh->cictx->cictx, h);
+      return ci_status(rc, libh->cictx->cictx);
     }
 
     return TRUE;
   }
 
   return FALSE;
+}
+
+
+static void
+ci_entrypoint_free(void *ptr)
+{ ctx_entrypoint *ep = ptr;
+
+  PL_unregister_atom(ep->cictx->symbol);
+  free(ptr);
 }
 
 
@@ -271,16 +298,16 @@ ci_library_load_entrypoint(term_t lib, term_t name, term_t func)
 
     DEBUG(1, Sdprintf("Find %s in %p\n", fname, libh));
 
-    if ( (f=cinv_library_load_entrypoint(libh->cictx, libh->lib, fname)) )
+    if ( (f=cinv_library_load_entrypoint(libh->cictx->cictx, libh->lib, fname)) )
     { ctx_entrypoint *ep = malloc(sizeof(*ep));
 
       if ( ep )
       { ep->cictx = libh->cictx;
 	ep->func  = f;
 
-	if ( unify_part_ptr(func, 0,		/* TBD */
-			    ep, sizeof(*ep), ATOM_ci_function,
-			    free) )
+	if ( unify_part_ptr(func, libh->cictx,
+			    ep, sizeof(*ep), ATOM_ci_entrypoint,
+			    ci_entrypoint_free) )
 	  return TRUE;
 
 	free(ep);
@@ -345,6 +372,16 @@ ci_signature(const char *s, char *buf)
 }
 
 
+static void
+ci_function_free(void *ptr)
+{ ctx_prototype *p = ptr;
+
+  cinv_function_delete(p->cictx->cictx, p->func);
+
+  free(p);
+}
+
+
 static foreign_t
 ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t func)
 { ctx_entrypoint *ep;
@@ -354,7 +391,7 @@ ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t fun
   char ci_rformat[16];
   char ci_pformat[100];
 
-  if ( get_ptr(entry, &ep, ATOM_ci_function) &&
+  if ( get_ptr(entry, &ep, ATOM_ci_entrypoint) &&
        get_cc(cc, &ccv) &&
        PL_get_chars(ret, &rformat, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) &&
        PL_get_chars(parms, &pformat, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) &&
@@ -364,7 +401,7 @@ ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t fun
 
     DEBUG(1, Sdprintf("Created function with (%s)%s\n", ci_pformat, ci_rformat));
 
-    if ( (f=cinv_function_create(ep->cictx, ccv, ci_rformat, ci_pformat)) )
+    if ( (f=cinv_function_create(ep->cictx->cictx, ccv, ci_rformat, ci_pformat)) )
     { ctx_prototype *p = malloc(sizeof(*p));
 
       if ( p )
@@ -375,18 +412,21 @@ ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t fun
 	p->rformat    = strdup(rformat);
 	p->pformat    = strdup(pformat);
 
-	if ( unify_part_ptr(func, 0,		/* TBD: deal with whole */
-			    p, sizeof(*p), ATOM_ci_prototype,
-			    free) )		/* TBD: remove entrypoint */
+	if ( unify_part_ptr(func, ep->cictx,
+			    p, sizeof(*p), ATOM_ci_function,
+			    ci_function_free) )
 	  return TRUE;
 
 	free(p);
-	return FALSE;
-      } else
-      { return PL_resource_error("memory");
       }
+
+      cinv_function_delete(ep->cictx->cictx, f);
+      if ( !PL_exception(0) )
+	PL_resource_error("memory");
+
+      return FALSE;
     }
-    return ci_error(ep->cictx);
+    return ci_error(ep->cictx->cictx);
   }
 
   return FALSE;
@@ -435,18 +475,14 @@ Encoding:
   - Pointer:
     - +,-: input/output
     - s (string), w (wide string)
-
-
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-
-
 
 
 static foreign_t
 ci_function_invoke(term_t prototype, term_t goal)
 { ctx_prototype *ctx;
 
-  if ( get_ptr(prototype, &ctx, ATOM_ci_prototype) )
+  if ( get_ptr(prototype, &ctx, ATOM_ci_function) )
   { void *argv[MAXARGC];
     argstore as[MAXARGC];
     argstore rv;
@@ -579,7 +615,7 @@ ci_function_invoke(term_t prototype, term_t goal)
       }
     }
 
-    cinv_function_invoke(ctx->cictx, ctx->func, ctx->entrypoint,
+    cinv_function_invoke(ctx->cictx->cictx, ctx->func, ctx->entrypoint,
 			 &rv.p, argv);
 
     if ( ctx->rformat && ctx->rformat[0] )
@@ -679,10 +715,8 @@ install_t
 install(void)
 { MKATOM(ci_context);
   MKATOM(ci_library);
+  MKATOM(ci_entrypoint);
   MKATOM(ci_function);
-  MKATOM(ci_prototype);
-  MKATOM(ci_struct);
-  MKATOM(ci_struct_decl);
 
   MKATOM(cdecl);
   MKATOM(stdcall);
