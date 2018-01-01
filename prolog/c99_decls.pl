@@ -85,6 +85,10 @@ type(type(Type), AST) -->
     type(Type, AST).
 type(type(_, struct, Fields), AST) -->
     types(Fields, AST).
+type(type(_, union, Fields), AST) -->
+    types(Fields, AST).
+type(type(_, enum, _Members), _AST) -->
+    [].
 type(f(Types, _Declarator, _Attrs), AST) -->
     types(Types, AST).
 type(type(_, typedef, Types), AST) -->
@@ -93,7 +97,12 @@ type(type(_, typedef, Types), AST) -->
 ast_type(struct(Name), AST, type(Name, struct, Fields)) :-
     member(decl(Specifier, _Decl, _Attrs), AST),
     memberchk(type(struct(Name, Fields)), Specifier), !.
+ast_type(union(Name), AST, type(Name, union, Fields)) :-
+    member(decl(Specifier, _Decl, _Attrs), AST),
+    memberchk(type(union(Name, Fields)), Specifier), !.
+ast_type(union(Name, Fields), _, type(Name, union, Fields)).
 ast_type(struct(Name, Fields), _, type(Name, struct, Fields)).
+ast_type(type(enum(Name, Members)), _, type(Name, enum, Members)).
 ast_type(user_type(Name), AST, type(Name, typedef, Primitive)) :-
     member(decl(Specifier,
                 [ declarator(_, dd(Name, _))], _Attrs), AST),
@@ -114,6 +123,11 @@ expand_type(function(Name, Return, Params), _Types) --> !,
 expand_type(type(Name, struct, Fields0), Types) --> !,
     [ struct(Name, Fields) ],
     { phrase(expand_field(Fields0, Types), Fields) }.
+expand_type(type(Name, union, Fields0), Types) --> !,
+    [ union(Name, Fields) ],
+    { phrase(expand_field(Fields0, Types), Fields) }.
+expand_type(type(Name, enum, Members), _Types) --> !,
+    [ enum(Name, Members) ].
 expand_type(_, _) --> [].
 
 expand_field([], _) --> [].
@@ -175,6 +189,8 @@ simplify_type(short)     --> [type(short),type(int)].
 		 *            CONSTANTS		*
 		 *******************************/
 
+constants(_AST, -) :-                           % constants are not demanded
+    !.
 constants(AST, Constants) :-
     findall(Name=Value, constant(AST, Name, Value), Constants).
 
