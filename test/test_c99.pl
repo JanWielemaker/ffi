@@ -26,6 +26,11 @@ cpp_const('_STAT_VER').
             [ sin(+double, [-double])
             ]).
 
+:- c_import("#include <ctype.h>",
+            [ 'libm.so.6' ],
+            [ toupper(+int, [-int])
+            ]).
+
 :- c_import("#include \"test/test.c\"",
             [ 'test/test.so' ],
             [ get_point(-struct(point), [-int]),
@@ -39,6 +44,18 @@ stat(File, Stat) :-
 statfs(File, FsStat) :-
     statfs(File, FsStat, Status),
     posix_status(Status, statfs, file, File).
+
+strupr(In, Out) :-
+    c_alloc_string(Ptr, In, text),
+    between(0, infinite, I),
+        c_load(Ptr[I], C),
+        (   C == 0
+        ->  !,
+            c_load_string(Ptr, Out, string, text)
+        ;   toupper(C, U),
+            c_store(Ptr[I], U),
+            fail
+        ).
 
 ptn(N) :-
     time(forall(between(1, N, _), get_point(_,_))).
