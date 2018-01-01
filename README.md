@@ -96,7 +96,3 @@ c_alignof(+Type, -Size)
       - Second does not yet exist
 
 # TBD
-
-  - Get rid of the context pointer notion in c_memory.c
-    - Adjust cinvoke.c
-  - Allow for p[x] to be pointer at offset x

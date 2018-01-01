@@ -42,7 +42,7 @@
             c_typeof/2,                 % +Ptr, -Type
             c_load/4,                   % +Ptr, +Offset, +Type, -Value
             c_store/4,                  % +Ptr, +Offset, +Type, +Value
-            c_offset/5,                 % +Ptr0, +Offset, +Type, +Size, -Ptr
+            c_offset/6,                 % +Ptr0, +Off, +Type, +Count, +Size, -Ptr
             c_sizeof/2,                 % +Type, -Bytes
             c_alignof/2,                % +Type, -Bytes
 
@@ -56,6 +56,8 @@
             c_current_struct/1,         % :Name
             c_current_struct/3,         % :Name, -Size, -Alignment
             c_current_struct_field/4,   % :Name, ?Field, ?Offset, ?Type
+
+            c_struct_dict/2,            % ?Ptr,  ?Dict
 
             c_alloc_string/3,           % -Ptr, +Data, +Encoding
             c_load_string/4,            % +Ptr, -Data, +Type, +Encoding
@@ -77,7 +79,8 @@
 :- meta_predicate
     c_current_struct(:),
     c_current_struct(:,?,?),
-    c_current_struct_field(:,?,?,?).
+    c_current_struct_field(:,?,?,?),
+    c_struct_dict(:,?).
 
 
 :- use_foreign_library('lib/x86_64-linux/cinvoke4pl').
@@ -469,12 +472,17 @@ c_alloc(Ptr, Type, Count) :-
 
 c_load(Spec, Value) :-
     c_address(Spec, Ptr, Offset, Type),
+    c_load_(Ptr, Offset, Type, Value).
+
+c_load_(Ptr, Offset, Type, Value) :-
     (   atom(Type)
     ->  c_load(Ptr, Offset, Type, Value)
     ;   compound_type(Type)
     ->  type_size(Type, Size),
-        c_offset(Ptr, Offset, Type, Size, Value)
-    ->  true
+        c_offset(Ptr, Offset, Type, 1, Size, Value)
+    ;   Type = array(EType, Len)
+    ->  type_size(Type, ESize),
+        c_offset(Ptr, Offset, EType, Len, ESize, Value)
     ;   domain_error(type, Type)
     ).
 
@@ -513,6 +521,31 @@ c_member(struct(Struct), Field, Ptr, Offset0, Ptr, Offset, EType) :-
 c_member(Struct, Field, Ptr, Offset0, Ptr, Offset, EType) :-
     '$c_struct_field'(Struct, Field, FOffset, EType),
     Offset is Offset0+FOffset.
+
+
+		 /*******************************
+		 *             DICT		*
+		 *******************************/
+
+%!  c_struct_dict(:Struct, ?Dict)
+%
+%   Translate between a struct and a dict
+
+c_struct_dict(M:Ptr, Dict) :-
+    nonvar(Ptr),
+    !,
+    c_typeof(Ptr, Type),
+    (   Type = struct(Name)
+    ->  findall(f(Field, Offset, FType),
+                c_current_struct_field(M:Name, Field, Offset, FType),
+                Fields),
+        maplist(get_field(Ptr), Fields, Pairs),
+        dict_pairs(Dict, Name, Pairs)
+    ;   domain_error(c_struct_pointer, Ptr)
+    ).
+
+get_field(Ptr, f(Name, Offset, Type), Name-Value) :-
+    c_load_(Ptr, Offset, Type, Value).
 
 
 		 /*******************************

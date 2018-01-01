@@ -686,21 +686,25 @@ c_store(term_t ptr, term_t offset, term_t type, term_t value)
 
 
 static foreign_t
-c_offset(term_t ptr0, term_t offset, term_t type, term_t size, term_t ptr)
+c_offset(term_t ptr0, term_t offset,
+	 term_t type, term_t count, term_t size,
+	 term_t ptr)
 { c_ptr *ref;
   atom_t ptra;
   size_t off;
   size_t sz;
+  size_t cnt;
   atom_t ta;
   type_qualifier q;
 
   if ( (ref=get_ptr_ref_ex(ptr0, &ptra)) &&
        PL_get_size_ex(offset, &off) &&
        PL_get_size_ex(size, &sz) &&
+       PL_get_size_ex(count, &cnt) &&
        get_type(type, &ta, &q) )
   { void *vp = (void*)((char *)ref->ptr + off);
 
-    if ( unify_ptr(ptr, vp, 1, sz, ta, q, NULL) )
+    if ( unify_ptr(ptr, vp, cnt, sz, ta, q, NULL) )
     { c_ptr *ref2 = get_ptr_ref_ex(ptr, NULL);
       return add_dependency(ref2, ptra, (size_t)-1);
     }
@@ -895,7 +899,7 @@ install_c_memory(void)
   PL_register_foreign("c_free",		1, c_free,	   0);
   PL_register_foreign("c_load",		4, c_load,	   0);
   PL_register_foreign("c_store",	4, c_store,	   0);
-  PL_register_foreign("c_offset",	5, c_offset,	   0);
+  PL_register_foreign("c_offset",	6, c_offset,	   0);
   PL_register_foreign("c_typeof",	2, c_typeof,	   0);
   PL_register_foreign("c_sizeof",	2, c_sizeof,	   0);
   PL_register_foreign("c_alignof",	2, c_alignof,	   0);
