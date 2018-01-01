@@ -128,12 +128,35 @@ ci_status(cinv_status_t status, CInvContext *cictx)
 		 *	   CONTEXT TYPES	*
 		 *******************************/
 
+typedef struct ctx_library
+{ CInvContext *cictx;
+  CInvLibrary *lib;
+} ctx_library;
+
 typedef struct ctx_prototype
 { CInvContext *cictx;
   void *entrypoint;
   const char *rformat;
   const char *pformat;
 } ctx_prototype;
+
+
+		 /*******************************
+		 *	 LINK DEPENDENCIES	*
+		 *******************************/
+
+static int
+unify_part_ptr(term_t t, atom_t whole,
+	       void *ptr, size_t size, atom_t type,
+	       freefunc free)
+{ if ( unify_ptr(t, ptr, NULL, 1, size, type, Q_STRUCT, free) )
+  { c_ptr *ref = get_ptr_ref_ex(t, NULL);
+    return add_dependency(ref, whole, (size_t)-1);
+  }
+
+  return FALSE;
+}
+
 
 
 		 /*******************************
@@ -160,25 +183,46 @@ ci_context_create(term_t ctx)
 
 static void
 ci_library_free(void *ptr)
-{ // cinv_library_delete(ctx, ptr);		/* TBD: get ctx */
+{ ctx_library *libh = ptr;
+
+  if ( libh->lib )
+    cinv_library_delete(libh->cictx, libh->lib);
+  free(ptr);
 }
 
 
 static foreign_t
 ci_library_create(term_t ctx, term_t path, term_t lib)
 { char *name;
-  CInvContext *cictx;
+  c_ptr *cref;
+  atom_t ctxa;
 
-  if ( get_ptr(ctx, &cictx, NULL, ATOM_ci_context) &&
+  if ( (cref=get_ptr_ref(ctx, &ctxa/*, ATOM_ci_context*/)) &&
        PL_get_file_name(path, &name,
 			PL_FILE_OSPATH|PL_FILE_SEARCH|PL_FILE_READ) )
-  { CInvLibrary *h;
+  { CInvContext *cictx = cref->ptr;
+    CInvLibrary *h;
 
     DEBUG(1, Sdprintf("Opening %s\n", name));
 
     if ( (h=cinv_library_create(cictx, name)) )
-      return unify_ptr(lib, h, cictx, 1, sizeof(*h),
-		       ATOM_ci_library, Q_STRUCT, ci_library_free);
+    { ctx_library *libh = malloc(sizeof(*libh));
+
+      if ( libh )
+      { libh->cictx = cictx;
+	libh->lib   = h;
+
+	if ( unify_part_ptr(lib, ctxa,
+			    libh, sizeof(*libh), ATOM_ci_library,
+			    ci_library_free) )
+	  return TRUE;
+
+	cinv_library_delete(cictx, h);
+	free(libh);
+	return FALSE;
+      } else
+	return PL_resource_error("memory");
+    }
 
     return ci_error(cictx);
   }
@@ -189,13 +233,18 @@ ci_library_create(term_t ctx, term_t path, term_t lib)
 
 static foreign_t
 ci_free_library(term_t lib)
-{ CInvContext *cictx;
-  CInvLibrary *libh;
+{ ctx_library *libh;
 
-  if ( get_ptr(lib, &libh, &cictx, ATOM_ci_library) )
-  { cinv_status_t rc = cinv_library_delete(cictx, libh);
+  if ( get_ptr(lib, &libh, NULL, ATOM_ci_library) )
+  { cinv_status_t rc;
+    CInvLibrary *h = libh->lib;
 
-    return ci_status(rc, cictx);
+    if ( h &&__sync_bool_compare_and_swap(&libh->lib, h, NULL) )
+    { rc = cinv_library_delete(libh->cictx, h);
+      return ci_status(rc, libh->cictx);
+    }
+
+    return TRUE;
   }
 
   return FALSE;
@@ -204,18 +253,17 @@ ci_free_library(term_t lib)
 
 static foreign_t
 ci_library_load_entrypoint(term_t lib, term_t name, term_t func)
-{ CInvContext *cictx;
-  CInvLibrary *libh;
+{ ctx_library *libh;
   char *fname;
 
-  if ( get_ptr(lib, &libh, &cictx, ATOM_ci_library) &&
+  if ( get_ptr(lib, &libh, NULL, ATOM_ci_library) &&
        PL_get_chars(name, &fname, CVT_ATOM|CVT_EXCEPTION) )
   { void *f;
 
     DEBUG(1, Sdprintf("Find %s in %p\n", fname, libh));
 
-    if ( (f=cinv_library_load_entrypoint(cictx, libh, fname)) )
-      return unify_ptr(func, f, cictx, 1, sizeof(*f),
+    if ( (f=cinv_library_load_entrypoint(libh->cictx, libh->lib, fname)) )
+      return unify_ptr(func, f, libh->cictx, 1, sizeof(*f),
 		       ATOM_ci_function, Q_STRUCT, NULL);
   }
 
