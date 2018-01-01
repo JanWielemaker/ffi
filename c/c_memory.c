@@ -100,7 +100,6 @@ typedef struct c_ptr
   type_qualifier qual;			/* Type qualifier */
   size_t size;				/* Element size behind ptr */
   size_t count;				/* Element count behind ptr */
-  void *ctx;				/* Pointer context */
   freefunc free;			/* Its free function */
   c_dep *deps;				/* Dependency */
 } c_ptr;
@@ -267,7 +266,7 @@ static PL_blob_t c_ptr_blob =
 
 
 static int
-unify_ptr(term_t t, void *ptr, void *ctx,
+unify_ptr(term_t t, void *ptr,
 	  size_t count, size_t size,
 	  atom_t type, type_qualifier qual,
 	  freefunc free)
@@ -277,7 +276,6 @@ unify_ptr(term_t t, void *ptr, void *ctx,
   { ref->ptr   = ptr;
     ref->type  = type;
     ref->qual  = qual;
-    ref->ctx   = ctx;
     ref->count = count;
     ref->size  = size;
     ref->free  = free;
@@ -323,7 +321,7 @@ get_ptr_ref_ex(term_t t, atom_t *a)
 
 
 static int
-get_ptr_direct(term_t t, void *ptrp, void *ctxp, atom_t ptrtype)
+get_ptr_direct(term_t t, void *ptrp, atom_t ptrtype)
 { c_ptr *ref;
 
   if ( (ref=get_ptr_ref(t, NULL)) )
@@ -335,10 +333,6 @@ get_ptr_direct(term_t t, void *ptrp, void *ctxp, atom_t ptrtype)
     }
 
     *ptrpp = ref->ptr;
-    if ( ctxp )
-    { void **ctxpp = ctxp;
-      *ctxpp = ref->ctx;
-    }
 
     return TRUE;
   }
@@ -348,10 +342,10 @@ get_ptr_direct(term_t t, void *ptrp, void *ctxp, atom_t ptrtype)
 
 
 static int
-get_ptr(term_t t, void *ptrp, void *ctxp, atom_t ptrtype)
+get_ptr(term_t t, void *ptrp, atom_t ptrtype)
 { int rc;
 
-  if ( (rc=get_ptr_direct(t, ptrp, ctxp, ptrtype)) == TRUE )
+  if ( (rc=get_ptr_direct(t, ptrp, ptrtype)) == TRUE )
     return TRUE;
   else if ( rc < 0 )
     return FALSE;
@@ -448,7 +442,7 @@ c_malloc(term_t ptr, term_t type, term_t size)
 
     if ( p )
     { memset(p, 0, sz);
-      if ( unify_ptr(ptr, p, NULL, sz, 1, ta, q, free) )
+      if ( unify_ptr(ptr, p, sz, 1, ta, q, free) )
 	return TRUE;
       free(p);
     } else
@@ -474,7 +468,7 @@ c_calloc(term_t ptr, term_t type, term_t esize, term_t count)
 
     if ( p )
     { memset(p, 0, bytes);
-      if ( unify_ptr(ptr, p, NULL, cnt, esz, ta, q, free) )
+      if ( unify_ptr(ptr, p, cnt, esz, ta, q, free) )
 	return TRUE;
       free(p);
     } else
@@ -603,7 +597,7 @@ c_load(term_t ptr, term_t offset, term_t type, term_t value)
       } else if ( ta == ATOM_pointer )
       { void **p = vp;
 	return VALID(ref, off, void*) &&
-	       unify_ptr(value, *p, NULL, SZ_UNKNOWN, 1,
+	       unify_ptr(value, *p, SZ_UNKNOWN, 1,
 			 ATOM_void, Q_PLAIN, NULL);
       } else
 	return PL_domain_error("c_type", type);
@@ -618,7 +612,7 @@ c_load(term_t ptr, term_t offset, term_t type, term_t value)
 	if ( get_type(arg, &atype, &q) )
 	{ void **p = vp;
 	  return VALID(ref, off, void*) &&
-		 unify_ptr(value, *p, NULL, SZ_UNKNOWN, 1, atype, q, NULL);
+		 unify_ptr(value, *p, SZ_UNKNOWN, 1, atype, q, NULL);
 	}
 	return FALSE;
       }
@@ -706,7 +700,7 @@ c_offset(term_t ptr0, term_t offset, term_t type, term_t size, term_t ptr)
        get_type(type, &ta, &q) )
   { void *vp = (void*)((char *)ref->ptr + off);
 
-    if ( unify_ptr(ptr, vp, NULL, 1, sz, ta, q, NULL) )
+    if ( unify_ptr(ptr, vp, 1, sz, ta, q, NULL) )
     { c_ptr *ref2 = get_ptr_ref_ex(ptr, NULL);
       return add_dependency(ref2, ptra, (size_t)-1);
     }
@@ -793,7 +787,7 @@ c_alloc_string(term_t ptr, term_t data, term_t encoding)
     { pl_wchar_t *ws;
 
       if ( PL_get_wchars(data, &len, &ws, flags) )
-      { if ( unify_ptr(ptr, ws, NULL, (len+1), sizeof(pl_wchar_t),
+      { if ( unify_ptr(ptr, ws, (len+1), sizeof(pl_wchar_t),
 		       ATOM_wchar_t, Q_PLAIN, PL_free) )
 	  return TRUE;
 	PL_free(s);
@@ -803,7 +797,7 @@ c_alloc_string(term_t ptr, term_t data, term_t encoding)
   }
 
   if ( PL_get_nchars(data, &len, &s, flags) )
-  { if ( unify_ptr(ptr, s, NULL, len+1, 1, ATOM_char, Q_PLAIN, PL_free) )
+  { if ( unify_ptr(ptr, s, len+1, 1, ATOM_char, Q_PLAIN, PL_free) )
       return TRUE;
     PL_free(s);
   }

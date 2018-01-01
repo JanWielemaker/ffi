@@ -155,7 +155,7 @@ static int
 unify_part_ptr(term_t t, atom_t whole,
 	       void *ptr, size_t size, atom_t type,
 	       freefunc free)
-{ if ( unify_ptr(t, ptr, NULL, 1, size, type, Q_STRUCT, free) )
+{ if ( unify_ptr(t, ptr, 1, size, type, Q_STRUCT, free) )
   { c_ptr *ref = get_ptr_ref_ex(t, NULL);
     if ( whole )
       return add_dependency(ref, whole, (size_t)-1);
@@ -183,7 +183,7 @@ ci_context_create(term_t ctx)
 { CInvContext *cictx;
 
   if ( (cictx=cinv_context_create()) )
-    return unify_ptr(ctx, cictx, NULL, 1, sizeof(*cictx),
+    return unify_ptr(ctx, cictx, 1, sizeof(*cictx),
 		     ATOM_ci_context, Q_STRUCT, ci_context_free);
 
   return FALSE;
@@ -244,7 +244,7 @@ static foreign_t
 ci_free_library(term_t lib)
 { ctx_library *libh;
 
-  if ( get_ptr(lib, &libh, NULL, ATOM_ci_library) )
+  if ( get_ptr(lib, &libh, ATOM_ci_library) )
   { cinv_status_t rc;
     CInvLibrary *h = libh->lib;
 
@@ -265,7 +265,7 @@ ci_library_load_entrypoint(term_t lib, term_t name, term_t func)
 { ctx_library *libh;
   char *fname;
 
-  if ( get_ptr(lib, &libh, NULL, ATOM_ci_library) &&
+  if ( get_ptr(lib, &libh, ATOM_ci_library) &&
        PL_get_chars(name, &fname, CVT_ATOM|CVT_EXCEPTION) )
   { void *f;
 
@@ -354,7 +354,7 @@ ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t fun
   char ci_rformat[16];
   char ci_pformat[100];
 
-  if ( get_ptr(entry, &ep, NULL, ATOM_ci_function) &&
+  if ( get_ptr(entry, &ep, ATOM_ci_function) &&
        get_cc(cc, &ccv) &&
        PL_get_chars(ret, &rformat, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) &&
        PL_get_chars(parms, &pformat, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) &&
@@ -446,7 +446,7 @@ static foreign_t
 ci_function_invoke(term_t prototype, term_t goal)
 { ctx_prototype *ctx;
 
-  if ( get_ptr(prototype, &ctx, NULL, ATOM_ci_prototype) )
+  if ( get_ptr(prototype, &ctx, ATOM_ci_prototype) )
   { void *argv[MAXARGC];
     argstore as[MAXARGC];
     argstore rv;
@@ -557,7 +557,7 @@ ci_function_invoke(term_t prototype, term_t goal)
 	  }
 	  break;
 	case 'p':				/* pointers */
-	  if ( !get_ptr(arg, &as[argc].p, NULL, 0) )
+	  if ( !get_ptr(arg, &as[argc].p, 0) )
 	    return FALSE;
 	  DEBUG(2, Sdprintf("Got ptr %p\n", as[argc].p));
 	  argv[argc] = &as[argc].p;
@@ -631,7 +631,7 @@ ci_function_invoke(term_t prototype, term_t goal)
 		return PL_cvt_o_float(rv.d, arg);
 	    }
 	  case 'p':
-	    return unify_ptr(arg, rv.p, NULL, SZ_UNKNOWN, 1,
+	    return unify_ptr(arg, rv.p, SZ_UNKNOWN, 1,
 			     ATOM_void, Q_PLAIN, NULL);
 	}
       }
