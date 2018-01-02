@@ -189,7 +189,8 @@ simplify_type(short)     --> [type(short),type(int)].
 		 *            CONSTANTS		*
 		 *******************************/
 
-constants(_AST, -) :-                           % constants are not demanded
+constants(_AST, Constants) :-
+    Constants == (-),                           % constants are not demanded
     !.
 constants(AST, Constants) :-
     findall(Name=Value, constant(AST, Name, Value), Constants).
