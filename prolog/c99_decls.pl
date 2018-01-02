@@ -189,6 +189,11 @@ simplify_type(short)     --> [type(short),type(int)].
 		 *            CONSTANTS		*
 		 *******************************/
 
+%!  constants(+AST, -Constants) is det.
+%
+%   Constants is a list Name=SubAST that  provides the value for defined
+%   constants.
+
 constants(_AST, Constants) :-
     Constants == (-),                           % constants are not demanded
     !.
@@ -197,27 +202,11 @@ constants(AST, Constants) :-
 
 constant(AST, Name, Value) :-
     member(decl([storage(static),type(int)],
-                [declarator(-,dd(MagicName,-))=init(V0)],
+                [declarator(-,dd(MagicName,-))=init(Value)],
                 _),
            AST),
     atom_concat('__swipl_const_', Name, MagicName),
-    (   const_value(V0, Value)
-    ->  true
-    ;   V0 == Name                              % not defined in headers
-    ->  fail
-    ;   type_error(constant, V0)
-    ).
-
-const_value(i(Int), Int).
-const_value(l(Int), Int).
-const_value(ll(Int), Int).
-const_value(u(Int), Int).
-const_value(ul(Int), Int).
-const_value(ull(Int), Int).
-const_value(float(Float), Float).
-const_value(double(Float), Float).
-const_value(char(Codes), Codes).
-const_value(wchar(Codes), Codes).
+    Value \== Name.
 
 
 		 /*******************************
