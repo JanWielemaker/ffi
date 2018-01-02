@@ -579,8 +579,8 @@ c_current_enum(M:Id, Enum, Value) :-
 c_enum_in(Id, Enum, Value) :-
     c_current_enum(Id, Enum, Value),
     !.
-c_enum_in(Id, _Enum, _Value) :-
-    existence_error(enum_id, Id).
+c_enum_in(Id, Enum, _Value) :-
+    existence_error(enum_id, Id, Enum).
 
 %!  c_enum_in(:Id, +Enum, +Value) is det.
 %
@@ -589,8 +589,8 @@ c_enum_in(Id, _Enum, _Value) :-
 c_enum_out(Id, Enum, Value) :-
     c_current_enum(Id, Enum, Value),
     !.
-c_enum_out(_Id, _Enum, Value) :-
-    existence_error(enum_value, Value).
+c_enum_out(_Id, Enum, Value) :-
+    existence_error(enum_value, Value, Enum).
 
 %!  compile_enum(+Name, +Values)// is det.
 %
