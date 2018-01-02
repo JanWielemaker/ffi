@@ -341,6 +341,7 @@ signature(ulonglong) --> "ulli".
 signature(float)     --> "f".
 signature(double)    --> "lf".
 signature(*(_))      --> "p".
+signature(enum(_))   --> "i".
 
 
 		 /*******************************
