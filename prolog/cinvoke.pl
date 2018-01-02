@@ -204,6 +204,9 @@ compile_types([], _) --> [].
 compile_types([struct(Name,Fields)|T], Types) --> !,
     compile_struct(Name, Fields, Types),
     compile_types(T, Types).
+compile_types([enum(Name, Values)|T], Types) --> !,
+    compile_enum(Name, Values),
+    compile_types(T, Types).
 compile_types([_|T], Types) --> !,
     compile_types(T, Types).
 
@@ -550,6 +553,92 @@ get_field(Ptr, f(Name, Offset, Type), Name-Value) :-
 
 
 		 /*******************************
+		 *            ENUM		*
+		 *******************************/
+
+compile_enum(Name, Values) -->
+    { pp(Values) },
+    enum_clauses(Values, 0, Name).
+
+enum_clauses([], _, _) --> [].
+enum_clauses([enum_value(Id, -)|T], I, Name) -->
+    !,
+    [ '$enum'(Id, Name, I) ],
+    { I2 is I + 1 },
+    enum_clauses(T, I2, Name).
+enum_clauses([enum_value(Id, C)|T], _, Name) -->
+    { ast_constant(C, I) },
+    [ '$enum'(Id, Name, I) ],
+    { I2 is I + 1 },
+    enum_clauses(T, I2, Name).
+
+
+		 /*******************************
+		 *              EVAL		*
+		 *******************************/
+
+%!  ast_constant(+AST, -Constant) is det.
+%
+%   Evaluate an AST expression to a constant.
+
+ast_constant(i(V), V).
+ast_constant(l(Int), Int).
+ast_constant(ll(Int), Int).
+ast_constant(u(Int), Int).
+ast_constant(ul(Int), Int).
+ast_constant(ull(Int), Int).
+ast_constant(float(Float), Float).
+ast_constant(double(Float), Float).
+ast_constant(char(Codes), Codes).
+ast_constant(wchar(Codes), Codes).
+ast_constant(o(Op, L), C) :-
+    ast_constant(L, LC),
+    c_op(Op, LC, C).
+ast_constant(o(Op, L, R), C) :-
+    ast_constant(L, LC),
+    ast_constant(R, RC),
+    c_op(Op, LC, RC, C).
+
+c_op(+, A, A).
+c_op(-, A, V) :- V is -A.
+c_op(~, A, V) :- V is \A.
+c_op(!, A, V) :- ebool(A, B), neg(B, V).
+
+c_op(*,    L, R, V) :- V is L*R.
+c_op(/,    L, R, V) :- V is L/R.
+c_op('%',  L, R, V) :- V is L mod R.
+c_op(+,    L, R, V) :- V is L + R.
+c_op(-,    L, R, V) :- V is L - R.
+c_op(<<,   L, R, V) :- V is L << R.
+c_op(>>,   L, R, V) :- V is L >> R.
+c_op(<,    L, R, V) :- (L < R -> V = 1 ; V = 0).
+c_op(>,    L, R, V) :- (L > R -> V = 1 ; V = 0).
+c_op(>=,   L, R, V) :- (L >= R -> V = 1 ; V = 0).
+c_op(<=,   L, R, V) :- (L =< R -> V = 1 ; V = 0).
+c_op(==,   L, R, V) :- (L =:= R -> V = 1 ; V = 0).
+c_op('!=', L, R, V) :- (L =\= R -> V = 1 ; V = 0).
+c_op(&,    L, R, V) :- V is L /\ R.
+c_op('|',  L, R, V) :- V is L \/ R.
+c_op(^,    L, R, V) :- V is L xor R.
+c_op(&&,   L, R, V) :- ebool(L, LB), ebool(R, RB), and(LB, RB, V).
+c_op('||', L, R, V) :- ebool(L, LB), ebool(R, RB), or(LB, RB, V).
+
+ebool(V, 0) :- V =:= 0, !.
+ebool(_, 1).
+
+neg(0, 1).
+neg(1, 0).
+
+and(1, 1, 1) :- !.
+and(_, _, 0).
+
+or(1, 1, 1) :- !.
+or(0, 1, 1) :- !.
+or(1, 0, 1) :- !.
+or(0, 0, 0) :- !.
+
+
+		 /*******************************
 		 *        CPP CONSTANTS		*
 		 *******************************/
 
@@ -569,8 +658,12 @@ const_decl(Const, Decl) :-
 c_constants([]) --> [].
 c_constants([H|T]) --> c_constant(H), c_constants(T).
 
-c_constant(Name=Value) -->
+c_constant(Name=AST) -->
+    { ast_constant(AST, Value) },
+    !,
     [ cpp_const(Name, Value) ].
+c_constant(Name=AST) -->
+    { print_message(warning, c(not_a_constant(Name, AST))) }.
 
 
 		 /*******************************
