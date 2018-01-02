@@ -53,11 +53,15 @@
 
             c_struct/2,                 % +Name, +Fields
 
+            c_current_enum/3,           % :Id, ?Enum, ?Value
             c_current_struct/1,         % :Name
             c_current_struct/3,         % :Name, -Size, -Alignment
             c_current_struct_field/4,   % :Name, ?Field, ?Offset, ?Type
 
             c_struct_dict/2,            % ?Ptr,  ?Dict
+
+            c_enum_in/3,                % :Id, +Enum, -Int
+            c_enum_out/3,               % :Id, +Enum, +Int
 
             c_alloc_string/3,           % -Ptr, +Data, +Encoding
             c_load_string/4,            % +Ptr, -Data, +Type, +Encoding
@@ -77,6 +81,9 @@
 */
 
 :- meta_predicate
+    c_current_enum(:,?,?),
+    c_enum_in(:,+,-),
+    c_enum_out(:,+,+),
     c_current_struct(:),
     c_current_struct(:,?,?),
     c_current_struct_field(:,?,?,?),
@@ -314,11 +321,12 @@ convert_arg(-struct(Name), Ptr, Ptr, c_alloc(Ptr, struct(Name)), true).
 convert_arg(+string(Enc),  String, Ptr, c_alloc_string(Ptr, String, Enc), true).
 convert_arg(+string, String, Ptr, Pre, Post) :-
     convert_arg(+string(text), String, Ptr, Pre, Post).
+convert_arg(+enum(Enum), Id, Int, c_enum_in(Id, Enum, Int), true).
 
 convert_arg([-string(Enc)], String, Ptr, true, c_load_string(Ptr, String, string, Enc)).
 convert_arg([-string], String, Ptr, Pre, Post) :-
     convert_arg([-string(text)], String, Ptr, Pre, Post).
-
+convert_arg([-enum(Enum)], Id, Int, true, c_enum_out(Id, Enum, Int)).
 
 mkconj(true, G, G) :- !.
 mkconj(G, true, G) :- !.
@@ -556,8 +564,39 @@ get_field(Ptr, f(Name, Offset, Type), Name-Value) :-
 		 *            ENUM		*
 		 *******************************/
 
+%!  c_current_enum(:Id, ?Enum, ?Value)
+%
+%   True when Id is a member of Enum with Value.
+
+c_current_enum(M:Id, Enum, Value) :-
+    current_predicate(M:'$c_struct'/3),
+    M:'$enum'(Id, Enum, Value).
+
+%!  c_enum_in(:Id, +Enum, -Value) is det.
+%
+%   Convert an input element for an enum to a value.
+
+c_enum_in(Id, Enum, Value) :-
+    c_current_enum(Id, Enum, Value),
+    !.
+c_enum_in(Id, _Enum, _Value) :-
+    existence_error(enum_id, Id).
+
+%!  c_enum_in(:Id, +Enum, +Value) is det.
+%
+%   Convert an input element for an enum to a value.
+
+c_enum_out(Id, Enum, Value) :-
+    c_current_enum(Id, Enum, Value),
+    !.
+c_enum_out(_Id, _Enum, Value) :-
+    existence_error(enum_value, Value).
+
+%!  compile_enum(+Name, +Values)// is det.
+%
+%   Compile an enum declaration into clauses for '$enum'/3.
+
 compile_enum(Name, Values) -->
-    { pp(Values) },
     enum_clauses(Values, 0, Name).
 
 enum_clauses([], _, _) --> [].
@@ -580,6 +619,9 @@ enum_clauses([enum_value(Id, C)|T], _, Name) -->
 %!  ast_constant(+AST, -Constant) is det.
 %
 %   Evaluate an AST expression to a constant.
+%
+%   @tbd: complete operators. Clarify what  to   do  with  limited range
+%   integers and overflows.
 
 ast_constant(i(V), V).
 ast_constant(l(Int), Int).
