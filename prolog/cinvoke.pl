@@ -317,16 +317,31 @@ convert_args([H|T], I, Arity, Head0, Head1, GPre, GPost) :-
     mkconj(GPre1, GPre2, GPre),
     mkconj(GPost1, GPost2, GPost).
 
-convert_arg(-struct(Name), Ptr, Ptr, c_alloc(Ptr, struct(Name)), true).
-convert_arg(+string(Enc),  String, Ptr, c_alloc_string(Ptr, String, Enc), true).
+% parameter values
+convert_arg(-struct(Name), Ptr, Ptr,
+            c_alloc(Ptr, struct(Name)),
+            true).
+convert_arg(+string(Enc),  String, Ptr,
+            c_alloc_string(Ptr, String, Enc),
+            true).
 convert_arg(+string, String, Ptr, Pre, Post) :-
     convert_arg(+string(text), String, Ptr, Pre, Post).
-convert_arg(+enum(Enum), Id, Int, c_enum_in(Id, Enum, Int), true).
+convert_arg(+enum(Enum), Id, Int,
+            c_enum_in(Id, Enum, Int),
+            true).
+convert_arg(-enum(Enum), Id, Ptr,
+            c_alloc(Ptr, enum(Enum)),
+            c_load(Ptr, Id)).
 
-convert_arg([-string(Enc)], String, Ptr, true, c_load_string(Ptr, String, string, Enc)).
+% return value
+convert_arg([-string(Enc)], String, Ptr,
+            true,
+            c_load_string(Ptr, String, string, Enc)).
 convert_arg([-string], String, Ptr, Pre, Post) :-
     convert_arg([-string(text)], String, Ptr, Pre, Post).
-convert_arg([-enum(Enum)], Id, Int, true, c_enum_out(Id, Enum, Int)).
+convert_arg([-enum(Enum)], Id, Int,
+            true,
+            c_enum_out(Id, Enum, Int)).
 
 mkconj(true, G, G) :- !.
 mkconj(G, true, G) :- !.
@@ -439,6 +454,10 @@ type_size_align(array(Type,Len), Size, Alignment, All) :-
     !,
     type_size_align(Type, Size0, Alignment, All),
     Size is Size0*Len.
+type_size_align(enum(_Enum), Size, Alignment, _) :-
+    !,
+    c_alignof(int, Alignment),
+    c_sizeof(int, Size).
 type_size_align(Type, _Size, _Alignment, _) :-
     existence_error(type, Type).
 
@@ -495,15 +514,28 @@ c_load_(Ptr, Offset, Type, Value) :-
     ;   Type = array(EType, Len)
     ->  type_size(Type, ESize),
         c_offset(Ptr, Offset, EType, Len, ESize, Value)
+    ;   Type = enum(Enum)
+    ->  c_load(Ptr, Offset, int, IntValue),
+        c_enum_out(Value, Enum, IntValue)
     ;   domain_error(type, Type)
     ).
 
 compound_type(struct(_)).
 compound_type(union(_)).
 
+%!  c_store(:Location, +Value)
+
 c_store(Spec, Value) :-
     c_address(Spec, Ptr, Offset, Type),
-    c_store(Ptr, Offset, Type, Value).
+    c_store_(Ptr, Offset, Type, Value).
+
+c_store_(Ptr, Offset, Type, Value) :-
+    (   atom(Type)
+    ->  c_store(Ptr, Offset, Type, Value)
+    ;   Type = enum(Set)
+    ->  c_enum_in(Value, Set, IntValue),
+        c_store_(Ptr, Offset, int, IntValue)
+    ).
 
 
 %!  c_address(+Spec, -Ptr, -Offset, -Type)
