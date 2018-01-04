@@ -36,13 +36,12 @@
           [ c_import/3,                 % +Header, +Libs, +Functions
 
                                         % Memory access predicates
-            c_calloc/4,                 % -Ptr, +Type, +Count, +Size
-            c_malloc/3,                 % -Ptr, +Type, +Size
+            c_calloc/4,                 % -Ptr, +Type, +Size, +Count
             c_free/1,                   % +Ptr
             c_typeof/2,                 % +Ptr, -Type
             c_load/4,                   % +Ptr, +Offset, +Type, -Value
             c_store/4,                  % +Ptr, +Offset, +Type, +Value
-            c_offset/6,                 % +Ptr0, +Off, +Type, +Count, +Size, -Ptr
+            c_offset/6,                 % +Ptr0, +Off, +Type, +Size, +Count, -Ptr
             c_sizeof/2,                 % +Type, -Bytes
             c_alignof/2,                % +Type, -Bytes
 
@@ -510,10 +509,10 @@ c_load_(Ptr, Offset, Type, Value) :-
     ->  c_load(Ptr, Offset, Type, Value)
     ;   compound_type(Type)
     ->  type_size(Type, Size),
-        c_offset(Ptr, Offset, Type, 1, Size, Value)
+        c_offset(Ptr, Offset, Type, Size, 1, Value)
     ;   Type = array(EType, Len)
     ->  type_size(Type, ESize),
-        c_offset(Ptr, Offset, EType, Len, ESize, Value)
+        c_offset(Ptr, Offset, EType, ESize, Len, Value)
     ;   Type = enum(Enum)
     ->  c_load(Ptr, Offset, int, IntValue),
         c_enum_out(Value, Enum, IntValue)
@@ -767,3 +766,50 @@ system:term_expansion(T0, T) :-
     cpp_expand([M], T0, T),
     T0 \== T.
 
+		 /*******************************
+		 *        LOW LEVEL DOCS	*
+		 *******************************/
+
+%!  c_calloc(-Ptr, +Type, +Size, +Count) is det.
+%
+%   Allocate a chunk of memory similar to   the C calloc() function. The
+%   chunk is associated with the created Ptr,   a _blob_ of type `c_ptr`
+%   (see blob/2). The content of the chunk   is  filled with 0-bytes. If
+%   the blob is garbage collected  by   the  atom  garbage collector the
+%   allocated chunk is freed.
+%
+%   @arg Type is the represented C type.  It is either an atom or a term
+%   of the shape struct(Name), union(Name) or enum(Name).  The atomic
+%   type name is not interpreted.  See also c_typeof/2.
+%   @arg Size is the size of a single element in bytes, i.e., should be
+%   set to sizeof(Type).  As this low level function doesn't know how
+%   large a structure or union is, this figure must be supplied by the
+%   high level predicates.
+%   @arg Count is the number of elements in the array.
+
+%!  c_free(+Ptr) is det.
+%
+%   Free the chunk associated with Ptr. This   may be used to reduce the
+%   memory foodprint without waiting for the atom garbage collector. The
+%   blob itself can only be reclaimed by the atom garbage collector.
+
+%!  c_load(+Ptr, +Offset, +Type, -Value) is det.
+%
+%   Fetch a C arithmetic value of Type at Offset from the pointer. Value
+%   is unified with an integer or floating  point number. If the size of
+%   the chunk behind the pointer is  known,   Offset  is validated to be
+%   inside the chunk represented by Ptr.  Pointers may
+
+%!  c_offset(+Ptr0, +Off, +Type, +Size, +Count, -Ptr) is det.
+%
+%   Get a pointer to some location inside the chunk Ptr0.
+
+
+%!  c_store(+Ptr, +Offset, +Type, +Value) is det.
+
+
+%!  c_typeof(+Ptr, -Type) is det.
+
+%!  c_sizeof(+Type, -Bytes) is semidet.
+
+%!  c_alignof(+Type, -Bytes) is semidet.

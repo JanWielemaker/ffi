@@ -664,7 +664,7 @@ c_store(term_t ptr, term_t offset, term_t type, term_t value)
 
 static foreign_t
 c_offset(term_t ptr0, term_t offset,
-	 term_t type, term_t count, term_t size,
+	 term_t type, term_t size, term_t count,
 	 term_t ptr)
 { c_ptr *ref;
   atom_t ptra;
