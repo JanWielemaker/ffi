@@ -46,7 +46,6 @@
             c_alignof/2,                % +Type, -Bytes
 
             c_alloc/2,			% -Ptr, +Type
-            c_alloc/3,			% -Ptr, +Type, +Count
             c_load/2,                   % +Location, -Value
             c_store/2,                  % +Location, +Value
 
@@ -480,17 +479,85 @@ c_current_struct_field(M:Name, Field, Offset, Type) :-
     M:'$c_struct_field'(Name, Field, Offset, Type).
 
 
-%!  c_alloc(-Ptr, +Type) is det.
-%!  c_alloc(-Ptr, +Type, +Count) is det.
+%!  c_alloc(-Ptr, +TypeAndInit) is det.
 %
-%   Allocate memory for a C object.
+%   Allocate memory for a C object of  Type and optionally initialse the
+%   data. TypeAndInit can take several forms:
+%
+%     $ A plain type :
+%     Allocate an array to hold a single object of the given type.
+%
+%     $ Type[Count] :
+%     Allocate an array to hold _Count_ objects of _Type_.
+%
+%     $ Type[] = Init :
+%     If Init is data that can be used to initialize an array of
+%     objects of Type, allocate an array of sufficient size and
+%     initialize each element with data from Init.  The following
+%     combinations of Type and Init are supported:
+%
+%       $ char[] = Text :
+%       Where Text is a valid Prolog representation for text: an
+%       atom, string, list of character codes or list of characters.
+%       The Prolog Unicode data is encoded using the native multibyte
+%       encoding of the OS.
+%
+%       $ char(Encoding)[] = Text :
+%       Same as above, using a specific encoding.  Encoding is one of
+%       `text` (as above), `utf8` or `iso_latin_1`.
+%
+%       $ Scalar[] = List :
+%       If the type is a basic C scalar type and the data is a list,
+%       allocate an array of the length of the list and store each
+%       element in the corresponding location of the array.
+%
+%       $ Type = Value :
+%       Same as =|Type[] = [Value]|=.
+%
+%   @tbd: error generation
+%   @tbd: support enum and struct initialization from atoms and
+%   dicts.
 
-c_alloc(Ptr, Type) :-
-    c_alloc(Ptr, Type, 1).
-
-c_alloc(Ptr, Type, Count) :-
+c_alloc(Ptr, Type = Data) :-
+    !,
+    c_init(Type, Data, Ptr).
+c_alloc(Ptr, Type[Count]) :-
+    !,
     type_size(Type, Size),
     c_calloc(Ptr, Type, Size, Count).
+c_alloc(Ptr, Type) :-
+    type_size(Type, Size),
+    c_calloc(Ptr, Type, Size, 1).
+
+c_init(Type[], Data, Ptr) :-
+    !,
+    c_init_array(Type, Data, Ptr).
+c_init(Type, Data, Ptr) :-
+    atom(Type),
+    !,
+    type_size(Type, Size),
+    c_calloc(Ptr, Type, Size, 1),
+    c_store(Ptr, 0, Type, Data).
+
+c_init_array(char, Data, Ptr) :-
+    !,
+    c_alloc_string(Ptr, Data, text).
+c_init_array(char(Encoding), Data, Ptr) :-
+    !,
+    c_alloc_string(Ptr, Data, Encoding).
+c_init_array(Type, List, Ptr) :-
+    atom(Type),                                 % primitive type
+    is_list(List),
+    length(List, Len),
+    type_size(Type, Size),
+    c_calloc(Ptr, Type, Size, Len),
+    fill_array(List, 0, Ptr, Size, Type).
+
+fill_array([], _, _, _, _).
+fill_array([H|T], Offset, Ptr, Size, Type) :-
+    c_store(Ptr, Offset, Type, H),
+    Offset2 is Offset+Size,
+    fill_array(T, Offset2, Ptr, Size, Type).
 
 
 %!  c_load(+Ptr, -Value) is det.
