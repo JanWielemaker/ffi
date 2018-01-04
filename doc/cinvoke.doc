@@ -1,0 +1,277 @@
+\documentclass[11pt]{article}
+\usepackage{times}
+\usepackage{pl}
+\usepackage{plpage}
+\usepackage{html}
+\sloppy
+\makeindex
+
+\onefile
+\htmloutput{.}				% Output directory
+\htmlmainfile{clib}			% Main document file
+\bodycolor{white}			% Page colour
+
+\renewcommand{\runningtitle}{cinvoke -- call C functions dynamically}
+
+\begin{document}
+
+\title{SWI-Prolog dynamic C function calling}
+\author{Jan Wielemaker \\
+	VU University of Amsterdam \\
+	The Netherlands \\
+	E-mail: \email{J.Wielemaker@vu.nl}}
+
+\maketitle
+
+\begin{abstract}
+This document describes library(cinvoke), a library to wrap calls to C
+functions in shared objects (DLLs) dynamically. The library uses an
+external C~preprocessor and the C header files to create the calling
+template, register types such as structures and enums and make the
+values for \verb$#define$ constants available from Prolog. Finally, the
+library provides predicates to allocate, write and read native C
+data structures.
+\end{abstract}
+
+\vfill
+
+\pagebreak
+\tableofcontents
+
+\vfill
+\vfill
+
+\newpage
+
+\section{Introduction}
+\label{sec:cinvoke-intro}
+
+One of the oldest foreign interfaces for Prolog was provided by Quintus
+Prolog. In this interface the C~functions that are to be made available
+from Prolog are, together with their parameter types, declared in
+Prolog. A subsequent call to \nopredref{load_foreign_files/1-3} attaches
+the C library, making the functions available as predicates. This
+interface is also available from SICStus Prolog, Ciao and SWI-Prolog by
+means of library(qpforeign). There are several ways to realise the
+interface. The SWI-Prolog library generates C wrapper code, compiles
+this to a shared object and loads this. Other implementations may use a
+library for dynamically calling C functions similar to what is
+underlying the library that is the subject of this document. The Quintus
+interface only provides support for a limited set of C~types:
+\ctype{long}, \ctype{double}, \ctype{single}, \ctype{char*} and the
+Prolog specific types for atom handles and term references
+(\ctype{atom_t} and \ctype{term_t} in SWI-Prolog).
+
+Most native C library APIs rely on a much richer type system than what
+is supported by the Quintus interface. Realising a Prolog wrapper for
+such an API typically consists of two parts: a C part that wraps the
+original interface into one which simple types and operations and a
+Prolog part that recreates a high-level interface that handles complex
+data structures, translating them to the multiple calls on the C~layer.
+
+With SWI-Prolog we took a different approach: a foreign predicate is a
+C~function that takes an array of \ctype{term_t} Prolog terms and can
+control Prolog success, failure, exceptions and non-determinism. There
+is a rich set of C~functions to examine \ctype{term_t} handles and make
+results available using \jargon{unification}. This approach has several
+advantages and disadvantages:
+
+\begin{description}
+    \item[Flexible]
+The interface allows for writing high-level Prolog predicates
+entirely in C.
+
+    \item[Portable]
+Making the functions avaible as Prolog predicates is controlled from C
+using PL_register_foreign().  As a result the dynamic loader only has
+to load the shared object can call a \ctype{void} function that takes
+no argumens.  This functionality is easily provided on any modern OS.
+
+    \item[Fast]
+As the entire translation from complex Prolog data to C~data and back
+is done in C based on efficient C low-level primitives, the result
+performs optimal.
+
+    \item[Verbose]
+Although not particularly hard, analysing and building Prolog terms from
+C is a rather verbose activity and requires C programming skills that
+are not widespread amoung Prolog programmers.
+
+    \item[Error prone]
+Error handling and disposing partly created C data structures after
+an error is encountered often results in complicated control flow.
+To some extend this can be avoided by using the C++ wrapper.
+\end{description}
+
+We promote SWI-Prolog as a \jargon{glue language}. Other languages in
+this area, such as Lua or Python, provide a dynamic calling interface
+using the same spirit as the above described Quintus interface, but with
+a wider coverage of supported types. This is in part facilitated because
+these languages have a closer resemblance to C, making the mapping more
+straight forward.
+
+One of the issues is access to user-defined C types, \jargon{struct},
+\jargon{union} and \jargon{union} and \jargon{enum}, as well as access
+to C \jargon{preprocessor} symbols (\verb$#define$). The Python
+\const{ctypes} package fixes some of these issues by extracting
+information from the library debug information. Its package
+\href{https://github.com/yuce/pyswip}{pyswip} provides an interface to
+SWI-Prolog based on the \const{ctypes} package. Studying this package
+provided inspiration for the library described here.
+
+Modern C APIs typically abstract from concrete C data types such as
+\ctype{int} or \ctype{long}. By defining their own type system and
+binding that centrally to the base types using \texttt{typedef}
+declarations the system is easily ported to different OSes and
+C~compilers. For similar reasons they use a lot of preprocessor macros.
+From \file{pyswip/core.py} we learn that these definitions from the
+SWI-Prolog header \file{SWI-Prolog.h} are repeated in Python syntax and,
+as \file{pyswip} is a bit outdated, several of the definitions are now
+incorrect of do not deal with e.g., portability to 64-bit machines
+correctly.  We need some way to extract up-to-date information from
+the library automatically.
+
+All required information is available from e.g., the \program{gcc} debug
+information when compiled using \exam{-gdwarf-2 -g3}. However, most
+libraries are not compiled this way and, if another C~compiler is used,
+cannot be compiled this way. Often debug information is stripped from
+release binaries.
+
+This library opts for a fairly portable route, but requires access to
+a C~preprocessor and the header files that come with the library.  This
+results in code as below to get access to the Linux statfs() function,
+providing information about the file system on which a file resides:
+
+\begin{code}
+cpp_const('ST_MANDLOCK').
+cpp_const('ST_NOATIME').
+...
+
+:- c_import("#include <sys/vfs.h>",
+            [ 'libc.so.6' ],
+            [ statfs(+string, -struct(statfs), [-int])
+            ]).
+\end{code}
+
+The c_import/3 directive is compiled into Prolog statements that
+represent the involved types, requested macros (see cpp_const/1) and a
+\jargon{lazy} binding definition. The first call to statfs/3 actually
+loads the library and creates the wrapper predicate. The type
+information is obtained by processing the first (string) argument using
+the C~preprocessor and parsing the result into a Prolog AST. For this
+reason the library contains a full parser of the C99 standard including
+GCC extensions.  Given the AST and the above declaration we can
+
+\begin{itemize}
+    \item Find the prototype for statfs()
+    \item Find all involved types by expanding the parameter types and
+    return type until we reach to core C~types.
+    \item Find the constants represented by \texttt{ST_MANDLOCK}, etc.
+    by adding variable declarations to the provided header and examining
+    the AST that represents these variable declarations.
+    \item The Prolog parameter declaration is verified to be consistent
+    with the prototype and is used to guide the mapping from Prolog
+    data to C and back.
+\end{itemize}
+
+As a result, we can verify the file system supports access time
+recording. To do this we first define statfs/2, dealing with the POSIX
+success/error conventions. The \arg{FsStat} variable is bound to a
+\jargon{pointer wrapper} that maintains the type (\exam{struct statfs}).
+The utility c_load/2 fetches the \exam{[f_flags]} field from the
+structure pointer. The \exam{'ST_NOATIME'} is replaced by its numerical
+value based on \jargon{term expansion} in Prolog.
+
+\begin{code}
+statfs(File, FsStat) :-
+    statfs(File, FsStat, Status),
+    posix_status(Status, statfs, file, File).
+
+maintains_access_time(File) :-
+    statfs(File, FsStat),
+    c_load(FsStat[f_flags], Flags),
+    Flags /\ 'ST_NOATIME' =:= 0.
+\end{code}
+
+
+\subsection{Limitations}
+
+Above we created a binding that accesses a C~library call and extracts
+information from the filled structure without writing any C. We did not
+need to worry about the structure layout, nor about the type of the
+\const{f_flags} field (\ctype{__fsword_t}). This seems to good to be
+true.  What are the limitations?
+
+\paragraph{Struct pointers, but no struct}
+
+The underlying \href{cinvoke}{http://www.nongnu.org/cinvoke/} library
+cannot create dynamic calls for arguments that that a structure as
+argument, nor deal with functions that return a struct. For example we
+cannot wrap mallinfo() with the synopsis as below.
+
+\begin{code}
+#include <malloc.h>
+
+struct mallinfo mallinfo(void);
+\end{code}
+
+Accessing such a function is possible by defining a C source using the
+code below. This file can be compiled to a shared object and the source
+can be used by this library to access our wrapper library. The
+disadvantage of this approach is that we a fully operational C
+development environment and we need to create and deploy our wrapper
+shared object. Unlike the native SWI-Prolog approach though our library
+is completely independent from SWI-Prolog and thus \file{SWI-Prolog.h}
+nor the library \file{libswipl.so} is needed.
+
+\begin{code}
+#include <malloc.h>
+void
+pl_mallinfo(struct mallinfo *info)
+{ *info = pl_mallinfo();
+}"
+\end{code}
+
+
+\paragraph{Inline functions and macros}
+
+Part of the C API of a library may look like functions but are in fact
+implemented as inline functions or macros. For example, the glibc
+function stat() to obtain information about an entry of the filesystem
+has the synopsis below.  Binding this as statfs() though results in an
+existence error.
+
+\begin{code}
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+int stat(const char *pathname, struct stat *statbuf);
+\end{code}
+
+What is wrong? Going through the headers we find stat() as an inline
+function that calls __xstat() with an extra parameter that defines the
+version that should be \exam{'_STAT_VER'}. We now have two options. We
+can use the same strategy as for mallinfo() above and define our own
+wrapper library that provides a stat() as a proper function or we can
+use the code below.
+
+\begin{code}
+cpp_const('_STAT_VER').
+
+:- c_import("#include <sys/types.h>
+             #include <sys/stat.h>
+             #include <unistd.h>",
+            [ 'libc.so.6' ],
+            [ '__xstat'(+int,+string,-struct(stat),[-int])
+            ]).
+
+stat(File, Stat) :-
+    '__xstat'('_STAT_VER', File, Stat, Status),
+    posix_status(Status, stat, file, File).
+\end{code}
+
+The advantage of the above is that no wrapper library is needed, but the
+disadvantage is that this only works for glibc. Other POSIX runtime
+libraries may provide stat() as a function or do something similar to,
+but incompatible with, glibc.
