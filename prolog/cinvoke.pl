@@ -90,7 +90,7 @@
     c_struct_dict(:,?).
 
 
-:- use_foreign_library('lib/x86_64-linux/cinvoke4pl').
+:- use_foreign_library(foreign(cinvoke4pl)).
 
 :- multifile
     user:file_search_path/2,
