@@ -431,29 +431,6 @@ unify_type(term_t t, atom_t tname, type_qualifier q)
 
 
 static foreign_t
-c_malloc(term_t ptr, term_t type, term_t size)
-{ size_t sz;
-  atom_t ta;
-  type_qualifier q;
-
-  if ( get_type(type, &ta, &q) &&
-       PL_get_size_ex(size, &sz) )
-  { void *p = malloc(sz);
-
-    if ( p )
-    { memset(p, 0, sz);
-      if ( unify_ptr(ptr, p, sz, 1, ta, q, free) )
-	return TRUE;
-      free(p);
-    } else
-      PL_resource_error("memory");
-  }
-
-  return FALSE;
-}
-
-
-static foreign_t
 c_calloc(term_t ptr, term_t type, term_t esize, term_t count)
 { size_t esz;
   size_t cnt;
@@ -893,7 +870,6 @@ install_c_memory(void)
   MKFUNCTOR(enum, 1);
   FUNCTOR_array2 = PL_new_functor(ATOM_nil, 2);
 
-  PL_register_foreign("c_malloc",	3, c_malloc,	   0);
   PL_register_foreign("c_calloc",	4, c_calloc,	   0);
   PL_register_foreign("c_realloc",	2, c_realloc,	   0);
   PL_register_foreign("c_free",		1, c_free,	   0);
