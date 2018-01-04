@@ -194,18 +194,73 @@ maintains_access_time(File) :-
 \end{code}
 
 
-\subsection{Limitations}
+\subsection{Disadvantages}
 
 Above we created a binding that accesses a C~library call and extracts
 information from the filled structure without writing any C. We did not
 need to worry about the structure layout, nor about the type of the
 \const{f_flags} field (\ctype{__fsword_t}). This seems to good to be
-true.  What are the limitations?
+true. What are the disadvantages? We give them below, split into new
+complexities and limitations. For each we hint at the (im)possibility
+for remedying.
+
+\subsubsection{New complexities and disadvantages}
+
+\paragraph{Finding a compatible C preprocessor and headers}
+
+Our library uses library(process) to talk to the C~preprocessor and
+assumes this is correctly configured to find the header files needed for
+the target libraries. This currently is configured for Linux and
+\program{gcc}. This should cover other popular options and a mechanism
+for the user to provide rules that match the target.
+
+On Windows, \href{http://www.mingw.org/}{MinGW} can provide a compatible
+toolchain. On MacOS Xcode needs to be installed. Note that applications
+may provide precompiled \fileext{.qlf} files (see qcompile/1) which
+allows a user to access the foreign code without access to a
+C~preprocessor and the header files.
+
+
+\paragraph{Finding libraries}
+
+The interface requires the real file that represents the shared object
+to be loaded. C~toolchains come with a complicated OS and compiler
+dependent search strategy to find the concrete library file for the
+correct architecture and of the correct version. All we can probably do
+is to replicate some of this process for popular platforms, allow users
+to extend the rules and ultimately the user can specify the location as
+an absolute path.
+
+
+\paragraph{Portability}
+
+The portability is notably limited by the low-level library doing the
+dynamic calling of C functions. This library is in part written in
+assembler and requires details on the target C~calling conventions, i.e.
+which parameters are placed where and where can the return value be
+found. The Prolog wrapper around that is only a new pages and thus
+easily replaced to use another low-level library.
+
+
+\paragraph{Performance}
+
+Implemented on top of the existing C-interface, this interface is by
+definition slower. In addition, Prolog wrappers may be generated to
+allocate memory for output arguments and the allocated memory is subject
+to malloc and the Prolog atom garbage collection while in several cases
+an automatic variable (allocated on the stack) suffices to hold the
+output. The automatically generated interface often does not provide a
+natural interface to the target resource, in which case a Prolog library
+is required to provide the desired interface. Although this is typically
+far less work than doing this in C, the result generally performs less.
+
+
+\subsubsection{Limitations}
 
 \paragraph{Struct pointers, but no struct}
 
-The underlying \href{cinvoke}{http://www.nongnu.org/cinvoke/} library
-cannot create dynamic calls for arguments that that a structure as
+The underlying \href{http://www.nongnu.org/cinvoke/}{cinvoke} library
+cannot create dynamic calls to functions that have a structure as
 argument, nor deal with functions that return a struct. For example we
 cannot wrap mallinfo() with the synopsis as below.
 
@@ -218,26 +273,56 @@ struct mallinfo mallinfo(void);
 Accessing such a function is possible by defining a C source using the
 code below. This file can be compiled to a shared object and the source
 can be used by this library to access our wrapper library. The
-disadvantage of this approach is that we a fully operational C
-development environment and we need to create and deploy our wrapper
-shared object. Unlike the native SWI-Prolog approach though our library
-is completely independent from SWI-Prolog and thus \file{SWI-Prolog.h}
-nor the library \file{libswipl.so} is needed.
+disadvantage of this approach is that it requires a fully operational C
+development toolchain, knowledge on how to operate it and the need to
+create and deploy the wrapper shared object. Unlike the native
+SWI-Prolog approach though our library is completely independent from
+SWI-Prolog and thus \file{SWI-Prolog.h} nor the library
+\file{libswipl.so} is needed.
 
 \begin{code}
 #include <malloc.h>
 void
 pl_mallinfo(struct mallinfo *info)
 { *info = pl_mallinfo();
-}"
+}
 \end{code}
+
+We assume that it is possible to extend the low-level assembly code
+used to build the dynamic calls to support structures if it is told
+how large the structures are.
+
+
+\paragraph{Bitfields}
+
+The current version does not support bitfields (\exam{unsigned name :
+bits}) fields in structs.
+
+This is not a fundamental restriction see also \jargon{Struct layout}
+below.
+
+\paragraph{Struct layout}
+
+The Prolog library rewrites a struct type into a sequence of fields
+where each field is either a basic scalar type or a struct, union or
+enum. It first computes the layout, size and alignment of sub structs
+and unions. The layout of the struct is computed by placing the fields
+linearly in memory while adding padding fields required to satisfy the
+alignment restrictions (see c_alignof/2).
+
+This is the default algorithm used by C compilers, but many compilers
+support additional attributes to control the layout.  Such attributes
+are currently ignored.  Accessing a struct with such attributes will
+lead to incorrect values.
+
+Additional rules can be added to resolve this.
 
 
 \paragraph{Inline functions and macros}
 
 Part of the C API of a library may look like functions but are in fact
 implemented as inline functions or macros. For example, the glibc
-function stat() to obtain information about an entry of the filesystem
+function stat() to obtain information about an entry in the filesystem
 has the synopsis below.  Binding this as statfs() though results in an
 existence error.
 

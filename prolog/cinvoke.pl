@@ -800,7 +800,7 @@ system:term_expansion(T0, T) :-
 %   the chunk behind the pointer is  known,   Offset  is validated to be
 %   inside the chunk represented by Ptr.  Pointers may
 
-%!  c_offset(+Ptr0, +Off, +Type, +Size, +Count, -Ptr) is det.
+%!  c_offset(+Ptr0, +Offset, +Type, +Size, +Count, -Ptr) is det.
 %
 %   Get a pointer to some  location  inside   the  chunk  Ptr0.  This is
 %   currently used to get a stand-alone pointer  to a struct embedded in
@@ -811,6 +811,10 @@ system:term_expansion(T0, T) :-
 %   count of Ptr0. Reclaiming the two pointers requires two atom garbage
 %   collection cycles, one to reclaim  the   sub-pointer  Ptr and one to
 %   reclaim Ptr0.
+%
+%   The c_offset/5 primitive can also be used to _cast_ a pointer, i.e.,
+%   reinterpret its contents as if  the  pointer   points  at  data of a
+%   different type.
 
 %!  c_store(+Ptr, +Offset, +Type, +Value) is det.
 %
