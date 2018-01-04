@@ -1,0 +1,9 @@
+*.aux
+*.idx
+*.ilg
+*.ind
+*.toc
+*.log
+*.out
+*.pdf
+cinvoke.tex

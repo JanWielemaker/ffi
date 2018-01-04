@@ -275,3 +275,5 @@ The advantage of the above is that no wrapper library is needed, but the
 disadvantage is that this only works for glibc. Other POSIX runtime
 libraries may provide stat() as a function or do something similar to,
 but incompatible with, glibc.
+
+\end{document}
