@@ -276,4 +276,6 @@ disadvantage is that this only works for glibc. Other POSIX runtime
 libraries may provide stat() as a function or do something similar to,
 but incompatible with, glibc.
 
+\input{cmem.tex}
+
 \end{document}

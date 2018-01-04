@@ -802,14 +802,37 @@ system:term_expansion(T0, T) :-
 
 %!  c_offset(+Ptr0, +Off, +Type, +Size, +Count, -Ptr) is det.
 %
-%   Get a pointer to some location inside the chunk Ptr0.
-
+%   Get a pointer to some  location  inside   the  chunk  Ptr0.  This is
+%   currently used to get a stand-alone pointer  to a struct embedded in
+%   another struct or a struct from an  array of structs. Note that this
+%   is *not* for accessing pointers inside a struct.
+%
+%   Creating a pointer inside an existing chunk increments the reference
+%   count of Ptr0. Reclaiming the two pointers requires two atom garbage
+%   collection cycles, one to reclaim  the   sub-pointer  Ptr and one to
+%   reclaim Ptr0.
 
 %!  c_store(+Ptr, +Offset, +Type, +Value) is det.
-
+%
+%   Store a C scalar value of type Type  at Offset into Ptr. If Value is
+%   a pointer, its reference count is incremented   to  ensure it is not
+%   garbage collected before Ptr is garbage collected.
 
 %!  c_typeof(+Ptr, -Type) is det.
+%
+%   True when Type is the Type used   to  create Ptr using c_calloc/4 or
+%   c_offset/6.
+%
+%   @arg Type is an atom or term of the shape struct(Name), union(Name)
+%   or enum(Name).
 
 %!  c_sizeof(+Type, -Bytes) is semidet.
+%
+%   True when Bytes is the size of the C scalar type Type. Only supports
+%   basic C types.  Fails silently on user defined types.
 
 %!  c_alignof(+Type, -Bytes) is semidet.
+%
+%   True when Bytes is the mininal alignment for the C scalar type Type.
+%   Only supports basic C types. Fails   silently on user defined types.
+%   This value is used to compute the layout of structs.
