@@ -91,6 +91,7 @@ strip(In, Code, Out) :-
 %   The entry point
 
 main(Argv) :-
+    gtrace,
     partition(is_option, Argv, OptArgs, Files),
     maplist(to_option, OptArgs, Options0),
     flatten(Options0, Options),
