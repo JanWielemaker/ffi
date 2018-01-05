@@ -34,8 +34,21 @@ cpp_const('_STAT_VER').
 :- c_import("#include \"test/test.c\"",
             [ 'test/test.so' ],
             [ get_point(-struct(point), [-int]),
-              set_point(+struct(point), +int, +int)
+              set_point(+struct(point), +int, +int),
+              set_dow(+pointer, +enum(dow))
             ]).
+
+:- c_import("#include <malloc.h>
+	    void pl_mallinfo(struct mallinfo *info) {
+	      *info = pl_mallinfo();
+            }",
+            [ 'libm.so.6' ],
+            [ pl_mallinfo(-struct(mallinfo))
+            ]).
+
+
+
+
 
 stat(File, Stat) :-
     '__xstat'('_STAT_VER', File, Stat, Status),
