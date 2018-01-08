@@ -1,17 +1,11 @@
-#include <stdio.h>
-
 typedef struct point
 { int x;
   int y;
 } point;
 
-// Not needed
-// int get_point(point *p);
-
 int
 get_point(point *p)
-{ // printf("p=%p\n", p);
-  p->x = 42;
+{ p->x = 42;
   p->y = 4242;
 
   return 0;
