@@ -457,6 +457,10 @@ type_size_align(enum(_Enum), Size, Alignment, _) :-
     !,
     c_alignof(int, Alignment),
     c_sizeof(int, Size).
+type_size_align(*(_), Size, Alignment, _) :-
+    !,
+    c_alignof(pointer, Alignment),
+    c_sizeof(pointer, Size).
 type_size_align(Type, _Size, _Alignment, _) :-
     existence_error(type, Type).
 
