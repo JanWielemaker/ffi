@@ -31,13 +31,13 @@ prototypes([H|T], AST) --> prototype(H, AST), prototypes(T, AST).
 prototype(Func, AST) -->
     { skeleton(prototype(Return, RDecl, Params0), Func, FuncDecl),
       memberchk(FuncDecl, AST), !,
-      maplist(param, Params0, Params),
+      parameters(Params0, Params),
       memberchk(type(BasicType), Return),
       pointers(RDecl, BasicType, RType)
     },
     [ function(Func, RType, Params) ],
-    type_opt(RType, AST),
-    types(Params, AST).
+    type_opt(RType, AST, [], Resolved),
+    types(Params, AST, Resolved, _).
 
 %!  skeleton(+Type, +Id, -Skeleton)
 %
@@ -54,6 +54,12 @@ skeleton(prototype(Return, RDecl, Params), Func,
                   _Attributes,
                   _Block)).
 
+
+parameters([param([type(void)], _)], []) :- %fail,
+    !.
+parameters(Params0, Params) :-
+    maplist(param, Params0, Params).
+
 param(param(Specifiers, declarator(Decl, dd(Name,_))), Name-Type) :-
     memberchk(type(BasicType), Specifiers),
     pointers(Decl, BasicType, Type).
@@ -68,31 +74,41 @@ pointers([ptr(_)|T], Basic, Type) :-
 		 *      TYPE DEFINITIONS	*
 		 *******************************/
 
-types([], _) --> [].
-types([H|T], AST) --> type_opt(H, AST), types(T, AST).
+%!  types(+Types, +AST, +Resolved0, -Resolved)// is det.
+%
+%   Create a simplified representation of   Types using the declarations
+%   in AST.
 
-type_opt(Type, AST) -->
-    type(Type, AST), !.
-type_opt(_, _) --> [].
+types([], _, Resolved, Resolved) --> [].
+types([H|T], AST, Resolved0, Resolved) -->
+    type_opt(H, AST, Resolved0, Resolved1),
+    types(T, AST, Resolved1, Resolved).
 
-type(_Name-Type, AST) --> !, type(Type, AST).
-type(*(Type), AST) --> !, type(Type, AST).
-type(Type, AST) -->
+type_opt(Type, AST, Resolved0, Resolved) -->
+    type(Type, AST, Resolved0, Resolved), !.
+type_opt(_, _, Resolved, Resolved) --> [].
+
+type(Type, _AST, Resolved, Resolved) -->
+    { memberchk(Type, Resolved) },
+    !.
+type(_Name-Type, AST, R0, R) --> !, type(Type, AST, R0, R).
+type(*(Type), AST, R0, R) --> !, type(Type, AST, R0, R).
+type(Type, AST, R0, R) -->
     { ast_type(Type, AST, Defined) },
     [ Defined ],
-    type(Defined, AST).
-type(type(Type), AST) -->
-    type(Type, AST).
-type(type(_, struct, Fields), AST) -->
-    types(Fields, AST).
-type(type(_, union, Fields), AST) -->
-    types(Fields, AST).
-type(type(_, enum, _Members), _AST) -->
+    type(Defined, AST, [Type|R0], R).
+type(type(Type), AST, R0, R) -->
+    type(Type, AST, R0, R).
+type(type(_, struct, Fields), AST, R0, R) -->
+    types(Fields, AST, R0, R).
+type(type(_, union, Fields), AST, R0, R) -->
+    types(Fields, AST, R0, R).
+type(type(_, enum, _Members), _AST, R, R) -->
     [].
-type(f(Types, _Declarator, _Attrs), AST) -->
-    types(Types, AST).
-type(type(_, typedef, Types), AST) -->
-    types(Types, AST).
+type(f(Types, _Declarator, _Attrs), AST, R0, R) -->
+    types(Types, AST, R0, R).
+type(type(_, typedef, Types), AST, R0, R) -->
+    types(Types, AST, R0, R).
 
 ast_type(struct(Name), AST, type(Name, struct, Fields)) :-
     member(decl(Specifier, _Decl, _Attrs), AST),
