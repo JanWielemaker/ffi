@@ -662,6 +662,17 @@ c_store(term_t ptr, term_t offset, term_t type, term_t value)
 }
 
 
+static int
+get_count_or_unknown(term_t t, size_t *sz)
+{ if ( PL_is_variable(t) )
+  { *sz = SZ_UNKNOWN;
+    return TRUE;
+  }
+
+  return PL_get_size_ex(t, sz);
+}
+
+
 static foreign_t
 c_offset(term_t ptr0, term_t offset,
 	 term_t type, term_t size, term_t count,
@@ -677,7 +688,7 @@ c_offset(term_t ptr0, term_t offset,
   if ( (ref=get_ptr_ref_ex(ptr0, &ptra)) &&
        PL_get_size_ex(offset, &off) &&
        PL_get_size_ex(size, &sz) &&
-       PL_get_size_ex(count, &cnt) &&
+       get_count_or_unknown(count, &cnt) &&
        get_type(type, &ta, &q) )
   { void *vp = (void*)((char *)ref->ptr + off);
 

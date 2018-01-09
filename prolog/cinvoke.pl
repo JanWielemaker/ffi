@@ -48,6 +48,7 @@
             c_alloc/2,			% -Ptr, +Type
             c_load/2,                   % +Location, -Value
             c_store/2,                  % +Location, +Value
+            c_cast/3,                   % +Type, +PtrIn, -PtrOut
 
             c_struct/2,                 % +Name, +Fields
 
@@ -332,15 +333,22 @@ convert_arg(-enum(Enum), Id, Ptr,
             c_alloc(Ptr, enum(Enum)),
             c_load(Ptr, Id)).
 
-% return value
-convert_arg([-string(Enc)], String, Ptr,
+% return value.  We allow for -Value, but do not demand it as the
+% return value can only be an output.
+convert_arg([-(X)], Out, In, Pre, Post) :-
+    !,
+    convert_arg([X], Out, In, Pre, Post).
+convert_arg([string(Enc)], String, Ptr,
             true,
             c_load_string(Ptr, String, string, Enc)).
-convert_arg([-string], String, Ptr, Pre, Post) :-
+convert_arg([string], String, Ptr, Pre, Post) :-
     convert_arg([-string(text)], String, Ptr, Pre, Post).
-convert_arg([-enum(Enum)], Id, Int,
+convert_arg([enum(Enum)], Id, Int,
             true,
             c_enum_out(Id, Enum, Int)).
+convert_arg([*(Type)], Out, In,
+            true,
+            c_cast(Type, In, Out)).
 
 mkconj(true, G, G) :- !.
 mkconj(G, true, G) :- !.
@@ -607,6 +615,14 @@ c_store_(Ptr, Offset, Type, Value) :-
     ->  c_enum_in(Value, Set, IntValue),
         c_store_(Ptr, Offset, int, IntValue)
     ).
+
+%!  c_cast(+Type, +PtrIn, -PtrOut)
+%
+%   Cast a pointer
+
+c_cast(Type, In, Out) :-
+    type_size(Type, Size),
+    c_offset(In, 0, Type, Size, _, Out).
 
 
 %!  c_address(+Spec, -Ptr, -Offset, -Type)
