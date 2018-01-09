@@ -154,16 +154,20 @@ expand_field([f(Type0, Declarators, _)|T], Types) -->
     repeat_fields(Names, Type),
     expand_field(T, Types).
 
-declarator_name(d(declarator(_,dd(Name,dds([],i(N))))), array(Name, N)) :- !.
-declarator_name(d(declarator(_,dd(Name,_))), plain(Name)).
+declarator_name(d(declarator(Ptr,dd(Name,dds([],i(N))))),
+                array(Name, N, Ptr)) :- !.
+declarator_name(d(declarator(Ptr,dd(Name,_))),
+                plain(Name, Ptr)).
 
 repeat_fields([], _) --> [].
 repeat_fields([H|T], Type) --> field(H, Type), repeat_fields(T, Type).
 
-field(plain(Name), Type) -->
+field(plain(Name, Ptr), Type0) -->
+    { pointers(Ptr, Type0, Type) },
     [f(Name, Type)].
-field(array(Name, Length), Type) -->
-    [f(Name, array(Type,Length))].
+field(array(Name, Length, Ptr), EType) -->
+    { pointers(Ptr, array(EType,Length), Type) },
+    [f(Name, Type)].
 
 simplify_types(Type0, Types, Type) :-
     phrase(expand_user_type(Type0, Types), Type1),
