@@ -35,6 +35,8 @@ cpp_const('_STAT_VER').
             [ 'test/test.so' ],
             [ get_point(-struct(point), [-int]),
               set_point(+struct(point), +int, +int),
+              add_point(+int, +int),
+              get_points([-struct(points)]),
               set_dow(+pointer, +enum(dow))
             ]).
 

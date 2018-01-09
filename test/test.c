@@ -1,3 +1,5 @@
+#include <stdlib.h>
+
 typedef struct point
 { int x;
   int y;
@@ -16,6 +18,33 @@ set_point(point *p, int x, int y)
 { p->x = x;
   p->y = y;
 }
+
+typedef struct points
+{ struct points *next;
+  point pt;
+} points;
+
+static points *list = (points*)0;
+
+void
+add_point(int x, int y)
+{ points *p = malloc(sizeof(*p));
+
+  p->pt.x = x;
+  p->pt.y = y;
+  p->next = list;
+  list = p;
+}
+
+points *
+get_points(void)
+{ return list;
+}
+
+
+		 /*******************************
+		 *	     ENUMS		*
+		 *******************************/
 
 typedef enum dow
 { sunday,
