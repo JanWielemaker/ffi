@@ -57,7 +57,7 @@ p(Pts, L) :-
     !,
     L = [].
 p(Pts, [point(X,Y)|T]) :-
-    c_load(Pts[0][pt][x], X),
-    c_load(Pts[0][pt][y], Y),
-    c_load(Pts[0][next], Next),
+    c_load(Pts[pt][x], X),
+    c_load(Pts[pt][y], Y),
+    c_load(Pts[next], Next),
     p(Next, T).
