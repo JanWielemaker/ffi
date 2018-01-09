@@ -97,7 +97,8 @@
     c_function/3.
 
 
-user:file_search_path(dc, '/lib/x86_64-linux-gnu').
+user:file_search_path(dc, '/lib/x86_64-linux-gnu'). % Ubuntu
+user:file_search_path(dc, '/usr/lib64').            % Fedora
 user:file_search_path(dc, '.').
 
 
