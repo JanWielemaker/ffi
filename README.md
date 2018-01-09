@@ -99,3 +99,4 @@ c_alignof(+Type, -Size)
 
   - -Scalar support for parameter types
   - Pointers into structures
+  - Use `gcc -print-file-name=libc.so`
