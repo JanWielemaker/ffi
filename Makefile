@@ -11,7 +11,7 @@ $(C4PL): c/cinvoke4pl.c c/c_memory.c Makefile
 	swipl-ld -Wall -g -shared $(CIFLAGS) -o $@ $< $(LIBS)
 
 test/test.so: test/test.c
-	gcc -shared -o $@ $<
+	gcc -shared -fPIC -o $@ $<
 
 clean:
 	rm -f $(C4PL) *~
