@@ -120,6 +120,9 @@ ast_type(union(Name, Fields), _, type(Name, union, Fields)).
 ast_type(struct(Name, Fields), _, type(Name, struct, Fields)).
 ast_type(type(enum(Name, Members)), _, type(Name, enum, Members)).
 ast_type(user_type(Name), AST, type(Name, typedef, Primitive)) :-
+    typedef(Name, AST, Primitive).
+
+typedef(Name, AST, Primitive) :-
     member(decl(Specifier,
                 [ declarator(_, dd(Name, _))], _Attrs), AST),
     selectchk(storage(typedef), Specifier, Primitive), !.
