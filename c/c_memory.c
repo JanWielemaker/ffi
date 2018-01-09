@@ -703,6 +703,18 @@ c_offset(term_t ptr0, term_t offset,
 
 
 static foreign_t
+c_address(term_t ptr, term_t address)
+{ c_ptr *ref;
+
+  if ( (ref=get_ptr_ref_ex(ptr, NULL)) )
+  { return PL_unify_integer(address, (intptr_t)ref->ptr);
+  }
+
+  return FALSE;
+}
+
+
+static foreign_t
 c_sizeof(term_t type, term_t bytes)
 { atom_t ta;
   int sz;
@@ -887,6 +899,7 @@ install_c_memory(void)
   PL_register_foreign("c_load",		4, c_load,	   0);
   PL_register_foreign("c_store",	4, c_store,	   0);
   PL_register_foreign("c_offset",	6, c_offset,	   0);
+  PL_register_foreign("c_address",	2, c_address,	   0);
   PL_register_foreign("c_typeof",	2, c_typeof,	   0);
   PL_register_foreign("c_sizeof",	2, c_sizeof,	   0);
   PL_register_foreign("c_alignof",	2, c_alignof,	   0);

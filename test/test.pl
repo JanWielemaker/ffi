@@ -13,45 +13,51 @@
               set_point(+struct(point), +int, +int),
               add_point(+int, +int),
               get_points([*(struct(points))]),
+              clear_points(),
               set_dow(+pointer, +enum(dow))
             ]).
 
 testpt :-
     c99_types("#include \"test/test.c\"",
               [ get_points,
-                add_point
+                add_point,
+                clear_points
               ], AST),
     pp(AST).
 
+add_points([]).
+add_points([point(X,Y)|T]) :-
+    add_point(X, Y),
+    add_points(T).
 
-testpt_ast(AST) :-
-    c99_header_ast("#include \"test/test.c\"", AST).
+t(Len) :-
+    clear_points,
+    length(Points, Len),
+    maplist(random_point, Points),
+    reverse(Points, RevPoints),
+    add_points(RevPoints),
+    p(L),
+    assertion(Points == L).
 
-t(N) :-
-    p(N, P),
-    phrase(c99_parse(AST), P),
-    pp(AST).
+random_point(point(X,Y)) :-
+    random_between(0, 1 000 000, X),
+    random_between(0, 1 000 000, Y).
 
-p(1, `
-double sin(double x);
-`).
+p1 :-
+    get_points(Pts),
+    c_load(Pts[0][pt][x], X),
+    writeln(X).
 
-p(2, `
-struct x { int x; int f[4]; };
-`).
-p(3, `
-extern int __fpclassifyf128 (_Float128 __value) __attribute__ ((__nothrow__ , __leaf__))
-     __attribute__ ((__const__));
-`).
-p(4, `
-`).
+p(L) :-
+    get_points(Pts),
+    p(Pts, L).
 
-
-incl(AST) :-
-    phrase_from_file(c99_parse(AST), 'incl.h', []).
-
-m(AST) :-
-    phrase_from_file(c99_parse(AST), 'm.cpp', []).
-
-
-
+p(Pts, L) :-
+    c_cast(address, Pts, 0),
+    !,
+    L = [].
+p(Pts, [point(X,Y)|T]) :-
+    c_load(Pts[0][pt][x], X),
+    c_load(Pts[0][pt][y], Y),
+    c_load(Pts[0][next], Next),
+    p(Next, T).

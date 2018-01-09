@@ -169,10 +169,14 @@ repeat_fields([], _) --> [].
 repeat_fields([H|T], Type) --> field(H, Type), repeat_fields(T, Type).
 
 field(plain(Name, Ptr), Type0) -->
-    { pointers(Ptr, Type0, Type) },
+    { pointers(Ptr, Type0, Type1),
+      type_reference(Type1, Type)
+    },
     [f(Name, Type)].
-field(array(Name, Length, Ptr), EType) -->
-    { pointers(Ptr, array(EType,Length), Type) },
+field(array(Name, Length, Ptr), EType0) -->
+    { type_reference(EType0, EType),
+      pointers(Ptr, array(EType,Length), Type)
+    },
     [f(Name, Type)].
 
 simplify_types(Type0, Types, Type) :-
@@ -222,9 +226,9 @@ untypedef(Types, user_type(Name), Type) :-
     !.
 untypedef(_, Type, Type).
 
-type_reference(struct(Name, _Fields), struct(Name)).
-type_reference(union(Name, _Fields),  union(Name)).
-type_reference(enum(Name, _Values),   enum(Name)).
+type_reference(struct(Name, _Fields), struct(Name)) :- !.
+type_reference(union(Name, _Fields),  union(Name)) :- !.
+type_reference(enum(Name, _Values),   enum(Name)) :- !.
 type_reference(Type,                  Type).
 
 

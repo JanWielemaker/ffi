@@ -194,7 +194,7 @@ system:term_expansion((:- c_import(Header, Libs, Functions)),
            Clauses).
 
 functor_name(Spec, Name) :-
-    functor(Spec, Name, _).
+    compound_name_arity(Spec, Name, _).
 
 c_import(Libs, Functions, FunctionNames, Types) -->
     decls(Types),
@@ -222,7 +222,7 @@ wrap_functions([H|T], Types) -->
     wrap_function(H, Types), wrap_functions(T, Types).
 
 wrap_function(Signature, Types) -->
-    { Signature =.. [Name|SigArgs],
+    { compound_name_arguments(Signature, Name, SigArgs),
       memberchk(function(Name, Ret, Params), Types),
       length(SigArgs, Arity),
       matching_signature(Name, SigArgs, Ret, Params),
@@ -596,6 +596,8 @@ c_load_(Ptr, Offset, Type, Value) :-
     ;   Type = enum(Enum)
     ->  c_load(Ptr, Offset, int, IntValue),
         c_enum_out(Value, Enum, IntValue)
+    ;   Type = *(PtrType)
+    ->  c_load(Ptr, Offset, pointer(PtrType), Value)
     ;   domain_error(type, Type)
     ).
 
@@ -618,8 +620,27 @@ c_store_(Ptr, Offset, Type, Value) :-
 
 %!  c_cast(+Type, +PtrIn, -PtrOut)
 %
-%   Cast a pointer
+%   Cast a pointer.  Type is one of:
+%
+%     - address
+%     Unify PtrOut with an integer that reflects the addres of the
+%     pointer.
+%     - Type[Count]
+%     Create a pointer to Count elements of Type.
+%     - Type
+%     Create a pointer to an unknown number of elements of Type.
 
+c_cast(Type, _, _) :-
+    var(Type),
+    !,
+    type_error(c_type, Type).
+c_cast(address, In, Out) :-
+    !,
+    c_address(In, Out).
+c_cast(Type[Count], In, Out) :-
+    !,
+    type_size(Type, Size),
+    c_offset(In, 0, Type, Size, Count, Out).
 c_cast(Type, In, Out) :-
     type_size(Type, Size),
     c_offset(In, 0, Type, Size, _, Out).
@@ -646,13 +667,11 @@ c_array_element(Type, E, Ptr, Offset0, Ptr, Offset, Type) :-
     Offset is Offset0+E*ESize.
 
 c_member(struct(Struct), Field, Ptr, Offset0, Ptr, Offset, EType) :-
-    !,                                          % should always be this
+    !,
     '$c_struct_field'(Struct, Field, FOffset, EType),
     Offset is Offset0+FOffset.
-c_member(Struct, Field, Ptr, Offset0, Ptr, Offset, EType) :-
-    '$c_struct_field'(Struct, Field, FOffset, EType),
-    Offset is Offset0+FOffset.
-
+c_member(Type, _, _, _, _, _, _) :-
+    domain_error(struct, Type).
 
 		 /*******************************
 		 *             DICT		*

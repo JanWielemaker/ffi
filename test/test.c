@@ -43,6 +43,18 @@ get_points(void)
 { return list;
 }
 
+void
+clear_points(void)
+{ points *p = list, *next;
+
+  list = NULL;
+
+  for(; p; p = next)
+  { next = p->next;
+    free(p);
+  }
+}
+
 
 		 /*******************************
 		 *	     ENUMS		*
