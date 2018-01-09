@@ -49,6 +49,7 @@
             c_load/2,                   % +Location, -Value
             c_store/2,                  % +Location, +Value
             c_cast/3,                   % +Type, +PtrIn, -PtrOut
+            c_nil/1,                    % +Ptr
 
             c_struct/2,                 % +Name, +Fields
 
@@ -645,6 +646,12 @@ c_cast(Type, In, Out) :-
     type_size(Type, Size),
     c_offset(In, 0, Type, Size, _, Out).
 
+%!  c_nil(+Ptr) is semidet.
+%
+%   True if Ptr is a NULL pointer.
+
+c_nil(Ptr) :-
+    c_address(Ptr, 0).
 
 %!  c_address(+Spec, -Ptr, -Offset, -Type)
 %

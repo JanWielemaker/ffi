@@ -53,7 +53,7 @@ p(L) :-
     p(Pts, L).
 
 p(Pts, L) :-
-    c_cast(address, Pts, 0),
+    c_nil(Pts),
     !,
     L = [].
 p(Pts, [point(X,Y)|T]) :-
