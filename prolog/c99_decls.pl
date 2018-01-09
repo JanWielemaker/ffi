@@ -137,7 +137,10 @@ expand_types([H|T], Types) -->
     expand_type(H, Types),
     expand_types(T, Types).
 
-expand_type(function(Name, Return, Params), _Types) --> !,
+expand_type(function(Name, Return0, Params0), Types) --> !,
+    { untypedef(Types, Return0, Return),
+      maplist(untypedef(Types), Params0, Params)
+    },
     [ function(Name, Return, Params) ].
 expand_type(type(Name, struct, Fields0), Types) --> !,
     [ struct(Name, Fields) ],
@@ -206,6 +209,24 @@ simplify_type(Type)      --> [type(Type)].
 simplify_type(longlong)  --> [type(long),type(long),type(int)].
 simplify_type(long)      --> [type(long),type(int)].
 simplify_type(short)     --> [type(short),type(int)].
+
+untypedef(Types, *(Type0), *(Type)) :-
+    !,
+    untypedef(Types, Type0, Type).
+untypedef(Types, Name-Type0, Name-Type) :-
+    !,
+    untypedef(Types, Type0, Type).
+untypedef(Types, user_type(Name), Type) :-
+    simplify_types([type(user_type(Name))], Types, Type1),
+    type_reference(Type1, Type),
+    !.
+untypedef(_, Type, Type).
+
+type_reference(struct(Name, _Fields), struct(Name)).
+type_reference(union(Name, _Fields),  union(Name)).
+type_reference(enum(Name, _Values),   enum(Name)).
+type_reference(Type,                  Type).
+
 
 
 		 /*******************************

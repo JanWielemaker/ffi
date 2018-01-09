@@ -1,8 +1,10 @@
 #include <stdlib.h>
 
+typedef int dim;
+
 typedef struct point
-{ int x;
-  int y;
+{ dim x;
+  dim y;
 } point;
 
 int
@@ -14,7 +16,7 @@ get_point(point *p)
 }
 
 void
-set_point(point *p, int x, int y)
+set_point(point *p, dim x, dim y)
 { p->x = x;
   p->y = y;
 }
@@ -27,7 +29,7 @@ typedef struct points
 static points *list = (points*)0;
 
 void
-add_point(int x, int y)
+add_point(dim x, dim y)
 { points *p = malloc(sizeof(*p));
 
   p->pt.x = x;
