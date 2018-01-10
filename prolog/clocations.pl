@@ -86,9 +86,10 @@ c_lib_path(Name, Path) :-
     !.
 c_lib_path(Name, Path) :-
     atomic(Name),
-    exists_file(Name),
+    add_extension(Name, File),
+    exists_file(File),
     !,
-    Path = Name.
+    Path = File.
 c_lib_path(Spec, Path) :-
     compound(Spec),
     !,
@@ -102,6 +103,12 @@ c_lib_path(Name, Path) :-
     !.
 c_lib_path(Name, _Path) :-
     existence_error(c_library, Name).
+
+add_extension(Name, Name).
+add_extension(Base, Name) :-
+    current_prolog_flag(shared_object_extension, Ext),
+    file_name_extension(Base, Ext, Name).
+
 
 
 		 /*******************************
