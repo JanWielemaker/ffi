@@ -76,6 +76,11 @@ a C library.
 %
 %   @tbd Extend the platform specific search strategies.
 
+%!  library_path_hook(+Name, -Path) is semidet.
+%
+%   Multifile hook that can  be  defined  to   resolve  a  library  to a
+%   concrete file.  The hook is tried as first option by c_lib_path/2.
+
 c_lib_path(Name, Path) :-
     library_path_hook(Name, Path),
     !.
