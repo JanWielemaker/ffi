@@ -1,7 +1,8 @@
 :- module(c99_decls,
-          [ c99_header_ast/2,                   % +Header, -AST
-            c99_types/3,                        % +Header, +Functions, -AST
-            c99_types/4                         % +Header, +Functions, -AST, -Consts
+          [ c99_header_ast/2,           % +Header, -AST
+            c99_types/3,                % +Header, +Functions, -AST
+            c99_types/4,                % +Header, +Functions, -AST, -Consts
+            ast_constant/2		% +AST, -Constant
           ]).
 :- use_module(library(process)).
 :- use_module(library(pure_input)).
@@ -231,6 +232,74 @@ type_reference(union(Name, _Fields),  union(Name)) :- !.
 type_reference(enum(Name, _Values),   enum(Name)) :- !.
 type_reference(Type,                  Type).
 
+
+
+		 /*******************************
+		 *              EVAL		*
+		 *******************************/
+
+%!  ast_constant(+AST, -Constant) is det.
+%
+%   Evaluate an AST expression to a constant.
+%
+%   @tbd: complete operators. Clarify what  to   do  with  limited range
+%   integers and overflows.
+
+ast_constant(i(V), V).
+ast_constant(l(Int), Int).
+ast_constant(ll(Int), Int).
+ast_constant(u(Int), Int).
+ast_constant(ul(Int), Int).
+ast_constant(ull(Int), Int).
+ast_constant(float(Float), Float).
+ast_constant(double(Float), Float).
+ast_constant(char(Codes), Codes).
+ast_constant(wchar(Codes), Codes).
+ast_constant(o(Op, L), C) :-
+    ast_constant(L, LC),
+    c_op(Op, LC, C).
+ast_constant(o(Op, L, R), C) :-
+    ast_constant(L, LC),
+    ast_constant(R, RC),
+    c_op(Op, LC, RC, C).
+
+c_op(+, A, A).
+c_op(-, A, V) :- V is -A.
+c_op(~, A, V) :- V is \A.
+c_op(!, A, V) :- ebool(A, B), neg(B, V).
+
+c_op(*,    L, R, V) :- V is L*R.
+c_op(/,    L, R, V) :- V is L/R.
+c_op('%',  L, R, V) :- V is L mod R.
+c_op(+,    L, R, V) :- V is L + R.
+c_op(-,    L, R, V) :- V is L - R.
+c_op(<<,   L, R, V) :- V is L << R.
+c_op(>>,   L, R, V) :- V is L >> R.
+c_op(<,    L, R, V) :- (L < R -> V = 1 ; V = 0).
+c_op(>,    L, R, V) :- (L > R -> V = 1 ; V = 0).
+c_op(>=,   L, R, V) :- (L >= R -> V = 1 ; V = 0).
+c_op(<=,   L, R, V) :- (L =< R -> V = 1 ; V = 0).
+c_op(==,   L, R, V) :- (L =:= R -> V = 1 ; V = 0).
+c_op('!=', L, R, V) :- (L =\= R -> V = 1 ; V = 0).
+c_op(&,    L, R, V) :- V is L /\ R.
+c_op('|',  L, R, V) :- V is L \/ R.
+c_op(^,    L, R, V) :- V is L xor R.
+c_op(&&,   L, R, V) :- ebool(L, LB), ebool(R, RB), and(LB, RB, V).
+c_op('||', L, R, V) :- ebool(L, LB), ebool(R, RB), or(LB, RB, V).
+
+ebool(V, 0) :- V =:= 0, !.
+ebool(_, 1).
+
+neg(0, 1).
+neg(1, 0).
+
+and(1, 1, 1) :- !.
+and(_, _, 0).
+
+or(1, 1, 1) :- !.
+or(0, 1, 1) :- !.
+or(1, 0, 1) :- !.
+or(0, 0, 0) :- !.
 
 
 		 /*******************************
