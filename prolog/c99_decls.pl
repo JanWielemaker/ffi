@@ -10,6 +10,7 @@
 :- use_module(library(lists)).
 :- use_module(library(dcg/basics)).
 :- use_module(c99_phrase).
+:- use_module(cinvoke, [c_sizeof/2]).
 
 %!  c99_types(+Header, +Functions, -Types) is det.
 %!  c99_types(+Header, +Functions, -Types, Consts) is det.
@@ -161,8 +162,11 @@ expand_field([f(Type0, Declarators, _)|T], Types) -->
     repeat_fields(Names, Type),
     expand_field(T, Types).
 
-declarator_name(d(declarator(Ptr,dd(Name,dds([],i(N))))),
-                array(Name, N, Ptr)) :- !.
+declarator_name(d(declarator(Ptr,dd(Name,dds([],AST)))),
+                array(Name, N, Ptr)) :-
+    ast \== (-),
+    ast_constant(AST, N),
+    !.
 declarator_name(d(declarator(Ptr,dd(Name,_))),
                 plain(Name, Ptr)).
 
@@ -255,6 +259,12 @@ ast_constant(float(Float), Float).
 ast_constant(double(Float), Float).
 ast_constant(char(Codes), Codes).
 ast_constant(wchar(Codes), Codes).
+ast_constant(sizeof(Type), Size) :-
+    (   ast_sizeof(Type, Size)
+    ->  true
+    ;   print_message(warning, c(failed, sizeof(Type))),
+        fail
+    ).
 ast_constant(o(Op, L), C) :-
     ast_constant(L, LC),
     c_op(Op, LC, C).
@@ -300,6 +310,15 @@ or(1, 1, 1) :- !.
 or(0, 1, 1) :- !.
 or(1, 0, 1) :- !.
 or(0, 0, 0) :- !.
+
+%!  ast_sizeof(+Type, -Size)
+%
+%   Determine the size of an AST type expression.
+%
+%   @tbd: complete with user defined types, general expressions.
+
+ast_sizeof(type(type_name([type(Primitive)],ad(-,dad(-,-)))), Size) :-
+    c_sizeof(Primitive, Size).
 
 
 		 /*******************************
