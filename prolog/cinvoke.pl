@@ -52,11 +52,15 @@
             c_nil/1,                    % +Ptr
 
             c_struct/2,                 % +Name, +Fields
+            c_union/2,                  % +Name, +Fields
 
             c_current_enum/3,           % :Id, ?Enum, ?Value
             c_current_struct/1,         % :Name
             c_current_struct/3,         % :Name, -Size, -Alignment
             c_current_struct_field/4,   % :Name, ?Field, ?Offset, ?Type
+            c_current_union/1,          % :Name
+            c_current_union/3,          % :Name, -Size, -Alignment
+            c_current_union_field/3,    % :Name, ?Field, ?Type
 
             c_struct_dict/2,            % ?Ptr,  ?Dict
 
@@ -87,6 +91,9 @@
     c_current_struct(:),
     c_current_struct(:,?,?),
     c_current_struct_field(:,?,?,?),
+    c_current_union(:),
+    c_current_union(:,?,?),
+    c_current_union_field(:,?,?),
     c_struct_dict(:,?).
 
 
@@ -212,6 +219,9 @@ compile_types([], _) --> [].
 compile_types([struct(Name,Fields)|T], Types) --> !,
     compile_struct(Name, Fields, Types),
     compile_types(T, Types).
+compile_types([union(Name,Fields)|T], Types) --> !,
+    compile_union(Name, Fields, Types),
+    compile_types(T, Types).
 compile_types([enum(Name, Values)|T], Types) --> !,
     compile_enum(Name, Values),
     compile_types(T, Types).
@@ -322,6 +332,9 @@ convert_args([H|T], I, Arity, Head0, Head1, GPre, GPost) :-
 convert_arg(-struct(Name), Ptr, Ptr,
             c_alloc(Ptr, struct(Name)),
             true).
+convert_arg(-union(Name), Ptr, Ptr,
+            c_alloc(Ptr, union(Name)),
+            true).
 convert_arg(+string(Enc),  String, Ptr,
             c_alloc_string(Ptr, String, Enc),
             true).
@@ -430,6 +443,53 @@ field_clauses([f(Name,Type)|T], Struct, Off0, Off, Align0, Align, All) -->
     field_clauses(T, Struct, Off2, Off, Align1, Align, All).
 
 
+%!  c_union(+Name, +Fields)
+%
+%   Declare a C union with name  Name.   Fields  is  a list of field
+%   specifications of the form:
+%
+%     - f(Name, Type)
+%
+%   Where Type is one of
+%
+%     - A primitive type (`char`, `uchar`, ...)
+%     - struct(Name)
+%     - union(Name)
+%     - enum(Name)
+%     - *(Type)
+%     - array(Type, Size)
+%
+%   A structure declaration is compiled into a number of clauses
+
+c_union(Name, Fields) :-
+    throw(error(context_error(nodirective, c_union(Name, Fields)), _)).
+
+system:term_expansion((:- c_union(Name, Fields)), Clauses) :-
+    phrase(compile_unions([union(Name, Fields)]), Clauses).
+
+compile_unions(List) -->
+    compile_unions(List, List).
+
+compile_unions([], _) --> [].
+compile_unions([union(Name,Fields)|T], All) -->
+    compile_union(Name, Fields, All),
+    compile_unions(T, All).
+
+compile_union(Name, Fields, All) -->
+    ufield_clauses(Fields, Name, 0, Size, 0, Alignment, All),
+    { Size is Alignment*((Size+Alignment-1)//Alignment) },
+    [ '$c_union'(Name, Size, Alignment) ].
+
+ufield_clauses([], _, Size, Size, Align, Align, _) --> [].
+ufield_clauses([f(Name,Type)|T], Struct, Size0, Size, Align0, Align, All) -->
+    { type_size_align(Type, ESize, Alignment, All),
+      Align1 is max(Align0, Alignment),
+      Size1  is max(Size0, ESize)
+    },
+    [ '$c_union_field'(Struct, Name, Type) ],
+    ufield_clauses(T, Struct, Size1, Size, Align1, Align, All).
+
+
 %!  type_size(+Type, -Size)
 %
 %   Size is the size of an object of Type.
@@ -455,8 +515,18 @@ type_size_align(struct(Name), Size, Alignment, All) :-
 type_size_align(struct(Name, Fields), Size, Alignment, All) :-
     phrase(compile_struct(Name, Fields, All), Clauses),
     memberchk('$c_struct'(Name, Size, Alignment), Clauses).
+type_size_align(union(Name), Size, Alignment, All) :-
+    memberchk(union(Name, Fields), All), !,
+    phrase(compile_union(Name, Fields, All), Clauses),
+    memberchk('$c_union'(Name, Size, Alignment), Clauses).
+type_size_align(union(Name, Fields), Size, Alignment, All) :-
+    phrase(compile_union(Name, Fields, All), Clauses),
+    memberchk('$c_union'(Name, Size, Alignment), Clauses).
 type_size_align(struct(Name), Size, Alignment, _) :-
     '$c_struct'(Name, Size, Alignment),
+    !.
+type_size_align(union(Name), Size, Alignment, _) :-
+    '$c_union'(Name, Size, Alignment),
     !.
 type_size_align(array(Type,Len), Size, Alignment, All) :-
     !,
@@ -491,6 +561,26 @@ c_current_struct(M:Name, Size, Align) :-
 c_current_struct_field(M:Name, Field, Offset, Type) :-
     current_predicate(M:'$c_struct_field'/4),
     M:'$c_struct_field'(Name, Field, Offset, Type).
+
+
+%!  c_current_union(:Name) is nondet.
+%!  c_current_union(:Name, ?Size, ?Align) is nondet.
+%
+%   Total size of the union in bytes and alignment restrictions.
+
+c_current_union(Name) :-
+    c_current_union(Name, _, _).
+c_current_union(M:Name, Size, Align) :-
+    current_predicate(M:'$c_union'/3),
+    M:'$c_union'(Name, Size, Align).
+
+%!  c_current_union_field(:Name, ?Field, ?Type)
+%
+%   Fact to provide efficient access to fields
+
+c_current_union_field(M:Name, Field, Type) :-
+    current_predicate(M:'$c_union_field'/3),
+    M:'$c_union_field'(Name, Field, Type).
 
 
 %!  c_alloc(-Ptr, +TypeAndInit) is det.
