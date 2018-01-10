@@ -97,6 +97,7 @@ c_alignof(+Type, -Size)
 
 # TBD
 
+  - Module awareness
   - Scalar output (-Type): make sure to have the right size
   - Alloction using type aliases.
     - Make user types available

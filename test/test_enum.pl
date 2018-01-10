@@ -13,9 +13,20 @@ test_enum :-
 
 :- begin_tests(c_enum).
 
-test(set, Day == tuesday) :-
+test(return, Day == tuesday) :-
     c_alloc(P, enum(dow)),
     set_dow(P, tuesday),
+    get_dow(P, Day).
+test(output, Day == tuesday) :-
+    c_alloc(P, enum(dow)),
+    set_dow(P, tuesday),
+    get_dow2(P, Day).
+test(load, Day == tuesday) :-
+    c_alloc(P, enum(dow)),
+    set_dow(P, tuesday),
+    c_load(P, Day).
+test(init, Day == tuesday) :-
+    c_alloc(P, enum(dow) = tuesday),
     c_load(P, Day).
 
 :- end_tests(c_enum).

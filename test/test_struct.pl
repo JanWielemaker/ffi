@@ -16,6 +16,9 @@
               clear_points()
             ]).
 
+ptn(N) :-
+    time(forall(between(1, N, _), get_point(_,_))).
+
 testpt :-
     c99_types("#include \"test/test.c\"",
               [ get_points,

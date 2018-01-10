@@ -51,9 +51,6 @@ strupr(In, Out) :-
             fail
         ).
 
-ptn(N) :-
-    time(forall(between(1, N, _), get_point(_,_))).
-
 tmath :-
     c99_types("#include <math.h>",
               [ sin,cos ], AST),
