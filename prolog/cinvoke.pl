@@ -759,6 +759,14 @@ c_address(Spec[E], Ptr, Offset, Type) :-
 c_address(Ptr, Ptr, 0, Type) :-
     c_typeof(Ptr, Type).
 
+c_array_element(array(EType,Size), E, Ptr, Offset0, Ptr, Offset, EType) :-
+    !,
+    (   E >= 0,
+        E < Size
+    ->  type_size(EType, ESize),
+        Offset is Offset0+E*ESize
+    ;   domain_error(array(EType,Size), E)
+    ).
 c_array_element(Type, E, Ptr, Offset0, Ptr, Offset, Type) :-
     type_size(Type, ESize),
     Offset is Offset0+E*ESize.
@@ -767,6 +775,9 @@ c_member(struct(Struct), Field, Ptr, Offset0, Ptr, Offset, EType) :-
     !,
     '$c_struct_field'(Struct, Field, FOffset, EType),
     Offset is Offset0+FOffset.
+c_member(union(Union), Field, Ptr, Offset, Ptr, Offset, EType) :-
+    !,
+    '$c_union_field'(Union, Field, EType).
 c_member(Type, _, _, _, _, _, _) :-
     domain_error(struct, Type).
 
