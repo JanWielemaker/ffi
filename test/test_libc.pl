@@ -12,45 +12,24 @@ cpp_const('_STAT_VER').
 :- c_import("#include <sys/types.h>
              #include <sys/stat.h>
              #include <unistd.h>",
-            [ 'libc' ],
+            [ libc ],
             [ '__xstat'(+int,+string,-struct(stat),[-int])
             ]).
 
 :- c_import("#include <sys/vfs.h>",
-            [ 'libc' ],
+            [ libc ],
             [ statfs(+string, -struct(statfs), [-int])
             ]).
 
 :- c_import("#include <math.h>",
-            [ 'libm' ],
+            [ libm ],
             [ sin(+double, [-double])
             ]).
 
 :- c_import("#include <ctype.h>",
-            [ 'libm' ],
+            [ libc ],
             [ toupper(+int, [-int])
             ]).
-
-:- c_import("#include \"test/test.c\"",
-            [ 'test/test.so' ],
-            [ get_point(-struct(point), [-int]),
-              set_point(+struct(point), +int, +int),
-              add_point(+int, +int),
-              get_points([-struct(points)]),
-              set_dow(+pointer, +enum(dow))
-            ]).
-
-:- c_import("#include <malloc.h>
-	    void pl_mallinfo(struct mallinfo *info) {
-	      *info = pl_mallinfo();
-            }",
-            [ 'libc' ],
-            [ pl_mallinfo(-struct(mallinfo))
-            ]).
-
-
-
-
 
 stat(File, Stat) :-
     '__xstat'('_STAT_VER', File, Stat, Status),
@@ -124,23 +103,3 @@ t(N) :-
 p(1, `
 double sin(double x);
 `).
-
-p(2, `
-struct x { int x; int f[4]; };
-`).
-p(3, `
-extern int __fpclassifyf128 (_Float128 __value) __attribute__ ((__nothrow__ , __leaf__))
-     __attribute__ ((__const__));
-`).
-p(4, `
-`).
-
-
-incl(AST) :-
-    phrase_from_file(c99_parse(AST), 'incl.h', []).
-
-m(AST) :-
-    phrase_from_file(c99_parse(AST), 'm.cpp', []).
-
-
-
