@@ -12,22 +12,22 @@ cpp_const('_STAT_VER').
 :- c_import("#include <sys/types.h>
              #include <sys/stat.h>
              #include <unistd.h>",
-            [ 'libc.so.6' ],
+            [ 'libc' ],
             [ '__xstat'(+int,+string,-struct(stat),[-int])
             ]).
 
 :- c_import("#include <sys/vfs.h>",
-            [ 'libc.so.6' ],
+            [ 'libc' ],
             [ statfs(+string, -struct(statfs), [-int])
             ]).
 
 :- c_import("#include <math.h>",
-            [ 'libm.so.6' ],
+            [ 'libm' ],
             [ sin(+double, [-double])
             ]).
 
 :- c_import("#include <ctype.h>",
-            [ 'libm.so.6' ],
+            [ 'libm' ],
             [ toupper(+int, [-int])
             ]).
 
@@ -44,7 +44,7 @@ cpp_const('_STAT_VER').
 	    void pl_mallinfo(struct mallinfo *info) {
 	      *info = pl_mallinfo();
             }",
-            [ 'libm.so.6' ],
+            [ 'libc' ],
             [ pl_mallinfo(-struct(mallinfo))
             ]).
 
