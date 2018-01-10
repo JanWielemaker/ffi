@@ -41,6 +41,7 @@
 :- use_module(library(error)).
 :- use_module(library(readutil)).
 :- use_module(library(process)).
+:- use_module(library(apply)).
 :- use_module(library(dcg/basics)).
 
 /** <module> Define resource locations for cinvoke
@@ -92,8 +93,7 @@ c_lib_path(Spec, Path) :-
                          extensions(['',Ext])
                        ]).
 c_lib_path(Name, Path) :-
-    ldconfig(Name, Path, _Version, Flags),
-    compatible_architecture(Flags),
+    ldconfig(Name, Path),
     !.
 c_lib_path(Name, _Path) :-
     existence_error(c_library, Name).
@@ -102,6 +102,51 @@ c_lib_path(Name, _Path) :-
 		 /*******************************
 		 *            LDCONFIG		*
 		 *******************************/
+
+%!  ldconfig(+Name, -Path) is semidet.
+%
+%   Find the best matching library from the given base name
+
+ldconfig(Name, Path) :-
+    findall(l(Path, Version, Flags),
+            ldconfig(Name, Path, Version, Flags),
+            Candidates),
+    (   Candidates = [One]
+    ->  One = l(Path,_,_)
+    ;   include(compatible, Candidates, Compatible),
+        Compatible \== []
+    ->  latest_version(Compatible, l(Path,_,_))
+    ;   latest_version(Candidates, l(Path,_,_))
+    ).
+
+compatible(l(_,_,Flags)) :-
+    compatible_architecture(Flags).
+
+latest_version([One], One) :-
+    !.
+latest_version([H1,H2|T], Latest) :-
+    version_list(H1, V1),
+    version_list(H2, V2),
+    (   later_version(V1, V2)
+    ->  H = H1
+    ;   H = H2
+    ),
+    latest_version([H|T], Latest).
+
+version_list(l(_,V,_), L) :-
+    split_string(V, ".", "", L0),
+    maplist(try_number, L0, L).
+
+try_number(V, N) :-
+    atom_number(V, N),
+    !.
+try_number(V, V).
+
+later_version([H|T1], [H|T2]) :-
+    !,
+    later_version(T1, T2).
+later_version(V1, V2) :-
+    V1 @> V2.
 
 %!  ldconfig(?Name, ?Path, ?Version, ?Flags) is nondet.
 %
