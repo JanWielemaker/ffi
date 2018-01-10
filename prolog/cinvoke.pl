@@ -662,12 +662,21 @@ fill_array([H|T], Offset, Ptr, Size, Type) :-
     fill_array(T, Offset2, Ptr, Size, Type).
 
 
-%!  c_load(+Ptr, -Value) is det.
+%!  c_load(:Location, -Value) is det.
 %
-%   Load a C value indirect over Ptr. Ptr   may be of the form Ptr[I] to
-%   access the nth element of the array or.
+%   Load a C value  indirect  from   Location.  Location  is  a pointer,
+%   postfixed with zero or more one-element  lists. Like JavaScript, the
+%   array postfix notation is used to access   array elements as well as
+%   struct or union fields. Value depends on   the type of the addressed
+%   location:
 %
-%   @tbd: enum
+%     | *Type*          | *Prolog value* |
+%     ------------------------------------
+%     | scalar		| number         |
+%     | struct          | pointer        |
+%     | union           | pointer        |
+%     | enum            | atom           |
+%     | pointer         | pointer        |
 
 c_load(Spec, Value) :-
     c_address(Spec, Ptr, Offset, Type),
@@ -694,6 +703,9 @@ compound_type(struct(_)).
 compound_type(union(_)).
 
 %!  c_store(:Location, +Value)
+%
+%   Store a C value indirect at Location.  See c_load/2 for the location
+%   syntax.
 
 c_store(Spec, Value) :-
     c_address(Spec, Ptr, Offset, Type),
@@ -712,7 +724,7 @@ c_store_(Ptr, Offset, Type, Value) :-
 %   Cast a pointer.  Type is one of:
 %
 %     - address
-%     Unify PtrOut with an integer that reflects the addres of the
+%     Unify PtrOut with an integer that reflects the address of the
 %     pointer.
 %     - Type[Count]
 %     Create a pointer to Count elements of Type.

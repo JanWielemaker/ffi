@@ -13,9 +13,53 @@ The high level layer reasons in terms of abstract types, while the low
 level layer deals with pointers and access to primitive C (scalar) data
 types.
 
+## Pointers
+
+The core of the memory access functions is formed by a SWI-Prolog _blob_
+of type `c_ptr`.  Such a blob wraps a C pointer.  It has the following
+properties:
+
+  - The *type* is an atom or a term struct(Name), union(Name) or
+    enum(Name) that represents the C type of an element.
+  - The *size* is an integer representing the size of an element
+    in bytes.
+  - The *count* represents the number of elements.  It is `-1` if
+    this is not know.
+  - An optionally associated _free_ function is called if the blob
+    is garbage collected by the atom garbage collector.
+
+Pointer blobs are created using c_alloc/2, c_cast/3 and c_load/2 if the
+addressed object is not a scalar type. They are subject to (atom)
+garbage collection. Atom reference counts are used to avoid collecting
+of pointers that depend on other pointers. Notable c_load/2 references
+the original pointer if it returns a pointer inside the area of the
+original pointer and c_store/2 references the _Value_ if the _Value_ is
+a pointer.
+
+
+## Types
+
+A type is either a primitive type   or a constructed type. The following
+basic types are identified:
+
+  $ Signed integers :
+  `char`, `short`, `int`, `long` and `longlong`
+  $ Unsigned integers :
+  `uchar`, `ushort`, `uint`, `ulong` and `ulonglong`
+  $ Floats :
+  `float` and `double`
+  $ Pointers :
+  `pointer`
+
+The constructed types are struct(Name), union(Name) and enum(Name).
+
 ## The high level interface
 
   - [[c_alloc/2]]
+  - [[c_cast/3]]
+  - [[c_load/2]]
+  - [[c_store/2]]
+  - [[c_nil/1]]
 
 ## The low level interface
 
