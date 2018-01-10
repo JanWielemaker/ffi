@@ -79,7 +79,9 @@
 :- use_module(library(error)).
 :- use_module(library(apply)).
 :- use_module(library(pairs)).
+
 :- use_module(c99_decls).
+:- use_module(clocations).
 
 /** <module> Bind Prolog predicates to C functions
 */
@@ -104,11 +106,6 @@
     system:term_expansion/2,
     user:exception/3,
     c_function/3.
-
-
-user:file_search_path(dc, '/lib/x86_64-linux-gnu'). % Ubuntu
-user:file_search_path(dc, '/usr/lib64').            % Fedora
-user:file_search_path(dc, '.').
 
 
 		 /*******************************
@@ -169,10 +166,7 @@ ci_library_sync(Base, FHandle) :-
     !,
     FHandle = FHandle0.
 ci_library_sync(Base, FHandle) :-
-    absolute_file_name(dc(Base), Path,
-                       [ access(read),
-                         file_type(executable)
-                       ]),
+    c_lib_path(Base, Path),
     ci_context(Ctx),
     ci_library_create(Ctx, Path, FHandle),
     assertz(ci_library_cache(Base, FHandle)).
@@ -346,6 +340,10 @@ convert_arg(+enum(Enum), Id, Int,
 convert_arg(-enum(Enum), Id, Ptr,
             c_alloc(Ptr, enum(Enum)),
             c_load(Ptr, Id)).
+convert_arg(-ScalarType, Value, Ptr,
+            c_calloc(Ptr, ScalarType, Size, 1),
+            c_load(Ptr, 0, ScalarType, Value)) :-
+    c_sizeof(ScalarType, Size).
 
 % return value.  We allow for -Value, but do not demand it as the
 % return value can only be an output.
