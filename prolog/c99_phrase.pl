@@ -349,19 +349,20 @@ type_specifier(type(Type))       --> [enum],     enum_specifier(Type).
 type_specifier(type(Type))       --> [id(Name)], {typedef_name(Name, Type)}.
 
 struct_specifier(struct(Id, Fields)) -->
-    opt_id(Id),
+    opt_id(struct, Id),
     ['{'], struct_declaration_list(Fields), ['}'].
 struct_specifier(struct(Id)) -->
     [ id(Id) ].
 
 union_specifier(union(Id, Fields)) -->
-    opt_id(Id),
+    opt_id(union, Id),
     ['{'], struct_declaration_list(Fields), ['}'].
 union_specifier(union(Id)) -->
     [ id(Id) ].
 
-opt_id(Id) --> [id(Id)], !.
-opt_id(-)  --> [].
+opt_id(_, Id)    --> [id(Id)], !.
+opt_id(Sort, Id) -->
+    { anon_id(Sort, Id) }.
 
 struct_declaration_list([H|T]) -->
     struct_declaration(H), !,
@@ -405,7 +406,7 @@ struct_declarator(SD) -->
     {SD = bitfield(-, E)}.
 
 enum_specifier(enum(ID, EL)) -->
-    opt_id(ID),
+    opt_id(enum, ID),
     ['{'], enumerator_list(EL), opt_comma, ['}'].
 enum_specifier(enum(ID)) -->
     [id(ID)].
@@ -778,10 +779,12 @@ pp(pp(Line)) -->
 		 *******************************/
 
 :- thread_local
-    typedef/1.
+    typedef/1,
+    anon/2.
 
 init_state :-
-    retractall(typedef(_)).
+    retractall(typedef(_)),
+    retractall(anon(_,_)).
 
 defined_type(Name) :-
     typedef(Name).
@@ -793,6 +796,15 @@ update_types(decl(What, As, _GCC)) :-
            ),
              assertz(typedef(Name))).
 update_types(_).
+
+anon_id(Sort, Id) :-
+    (   retract(anon(Sort, I0))
+    ->  I is I0+1
+    ;   I = 1
+    ),
+    asserta(anon(Sort, I)),
+    atomic_list_concat(['_:', Sort, '_', I], Id).
+
 
 		 /*******************************
 		 *           EXAMINE AST	*

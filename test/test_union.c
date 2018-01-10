@@ -1,4 +1,4 @@
-typedef union convert
+typedef union
 { double d;
   char   s[sizeof(double)];
 } convert;
