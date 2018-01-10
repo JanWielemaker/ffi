@@ -49,13 +49,13 @@ data structures.
 One of the oldest foreign interfaces for Prolog was provided by Quintus
 Prolog. In this interface the C~functions that are to be made available
 from Prolog are, together with their parameter types, declared in
-Prolog. A subsequent call to \nopredref{load_foreign_files/1-3} attaches
-the C library, making the functions available as predicates. This
-interface is also available from SICStus Prolog, Ciao and SWI-Prolog by
-means of library(qpforeign). There are several ways to realise the
-interface. The SWI-Prolog library generates C wrapper code, compiles
-this to a shared object and loads this. Other implementations may use a
-library for dynamically calling C functions similar to what is
+Prolog. A subsequent call to \nopredref{load_foreign_files}{1-3}
+attaches the C library, making the functions available as predicates.
+This interface is also available from SICStus Prolog, Ciao and
+SWI-Prolog by means of library(qpforeign). There are several ways to
+realise the interface. The SWI-Prolog library generates C wrapper code,
+compiles this to a shared object and loads this. Other implementations
+may use a library for dynamically calling C functions similar to what is
 underlying the library that is the subject of this document. The Quintus
 interface only provides support for a limited set of C~types:
 \ctype{long}, \ctype{double}, \ctype{single}, \ctype{char*} and the
@@ -82,7 +82,7 @@ The interface allows for writing high-level Prolog predicates
 entirely in C.
 
     \item[Portable]
-Making the functions avaible as Prolog predicates is controlled from C
+Making the functions available as Prolog predicates is controlled from C
 using PL_register_foreign().  As a result the dynamic loader only has
 to load the shared object can call a \ctype{void} function that takes
 no argumens.  This functionality is easily provided on any modern OS.
@@ -127,7 +127,7 @@ C~compilers. For similar reasons they use a lot of preprocessor macros.
 From \file{pyswip/core.py} we learn that these definitions from the
 SWI-Prolog header \file{SWI-Prolog.h} are repeated in Python syntax and,
 as \file{pyswip} is a bit outdated, several of the definitions are now
-incorrect of do not deal with e.g., portability to 64-bit machines
+incorrect or do not deal with e.g., portability to 64-bit machines
 correctly.  We need some way to extract up-to-date information from
 the library automatically.
 
@@ -148,7 +148,7 @@ cpp_const('ST_NOATIME').
 ...
 
 :- c_import("#include <sys/vfs.h>",
-            [ 'libc.so.6' ],
+            [ libc ],
             [ statfs(+string, -struct(statfs), [-int])
             ]).
 \end{code}
@@ -347,7 +347,7 @@ cpp_const('_STAT_VER').
 :- c_import("#include <sys/types.h>
              #include <sys/stat.h>
              #include <unistd.h>",
-            [ 'libc.so.6' ],
+            [ libc ],
             [ '__xstat'(+int,+string,-struct(stat),[-int])
             ]).
 
