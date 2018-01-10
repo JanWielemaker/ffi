@@ -54,33 +54,3 @@ clear_points(void)
     free(p);
   }
 }
-
-
-		 /*******************************
-		 *	     ENUMS		*
-		 *******************************/
-
-typedef enum dow
-{ sunday,
-  monday,
-  tuesday,
-  wednessday = 3*4,
-  thursday,
-  friday,
-  saturday
-} dow;
-
-void
-set_dow(dow *ptr, enum dow d)
-{ *ptr = d;
-}
-
-enum dow
-get_dow(dow *ptr)
-{ return *ptr;
-}
-
-void
-get_dow2(dow *ptr, dow *out)
-{ *out = *ptr;
-}

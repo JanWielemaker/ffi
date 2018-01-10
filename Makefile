@@ -4,7 +4,7 @@ C4PL=lib/$(ARCH)/cinvoke4pl.so
 CIFLAGS=-Icinvoke-1.0/lib
 LIBS=-Lcinvoke-1.0/lib -lcinvoke
 
-all: $(C4PL) test/test.so test/test_union.so
+all: $(C4PL) test/test_struct.so test/test_union.so test/test_enum.so
 
 $(C4PL): c/cinvoke4pl.c c/c_memory.c Makefile
 	mkdir -p lib/$(ARCH)
@@ -12,7 +12,11 @@ $(C4PL): c/cinvoke4pl.c c/c_memory.c Makefile
 
 test/test.so: test/test.c
 	gcc -shared -fPIC -o $@ $<
+test/test_struct.so: test/test_struct.c
+	gcc -shared -fPIC -o $@ $<
 test/test_union.so: test/test_union.c
+	gcc -shared -fPIC -o $@ $<
+test/test_enum.so: test/test_enum.c
 	gcc -shared -fPIC -o $@ $<
 
 clean:

@@ -7,14 +7,13 @@
 :- use_module('../prolog/c99_phrase').
 :- use_module('../prolog/c99_decls').
 
-:- c_import("#include \"test/test.c\"",
-            [ 'test/test.so' ],
+:- c_import("#include \"test/test_struct.c\"",
+            [ 'test/test_struct' ],
             [ get_point(-struct(point), [int]),
               set_point(+struct(point), +int, +int),
               add_point(+int, +int),
               get_points([*(struct(points))]),
-              clear_points(),
-              set_dow(+pointer, +enum(dow))
+              clear_points()
             ]).
 
 testpt :-
