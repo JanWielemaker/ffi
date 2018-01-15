@@ -386,6 +386,10 @@ static int
 get_type(term_t t, atom_t *tname, type_qualifier *tq)
 { atom_t qn;
   size_t arity;
+  module_t m = NULL;
+
+  if ( !PL_strip_module(t, &m, t) )		/* module just ignored for now */
+    return FALSE;
 
   if ( PL_get_atom(t, tname) )
   { *tq = Q_PLAIN;
@@ -437,7 +441,7 @@ c_calloc(term_t ptr, term_t type, term_t esize, term_t count)
   atom_t ta;
   type_qualifier q;
 
-  if ( get_type(type, &ta,   &q) &&
+  if ( get_type(type, &ta, &q) &&
        PL_get_size_ex(esize, &esz) &&
        PL_get_size_ex(count, &cnt) )
   { size_t bytes = esz*cnt;
