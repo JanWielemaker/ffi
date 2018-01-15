@@ -87,16 +87,22 @@
 */
 
 :- meta_predicate
+    c_alloc(-,:),
+    c_cast(:,+,-),
+    c_load(:, -),
+    c_store(:, +),
     c_current_enum(:,?,?),
-    c_enum_in(:,+,-),
-    c_enum_out(:,+,+),
+    c_enum_in(+,:,-),
+    c_enum_out(+,:,+),
     c_current_struct(:),
     c_current_struct(:,?,?),
     c_current_struct_field(:,?,?,?),
     c_current_union(:),
     c_current_union(:,?,?),
     c_current_union_field(:,?,?),
-    c_struct_dict(:,?).
+    c_struct_dict(:,?),
+    type_size(:,-),
+    type_size_align(:,-,-).
 
 
 :- use_foreign_library(foreign(cinvoke4pl)).
@@ -488,53 +494,55 @@ ufield_clauses([f(Name,Type)|T], Struct, Size0, Size, Align0, Align, All) -->
     ufield_clauses(T, Struct, Size1, Size, Align1, Align, All).
 
 
-%!  type_size(+Type, -Size)
+%!  type_size(:Type, -Size)
 %
 %   Size is the size of an object of Type.
 
 type_size(Type, Size) :-
     type_size_align(Type, Size, _).
 
-%!  type_size_align(+Type, -Size, -Alignment) is det.
+%!  type_size_align(:Type, -Size, -Alignment) is det.
 %
 %   True when Type must be aligned at Alignment and is of size Size.
 
 type_size_align(Type, Size, Alignment) :-
     type_size_align(Type, Size, Alignment, []).
 
-type_size_align(Type, Size, Alignment, _All) :-
+type_size_align(_:Type, Size, Alignment, _All) :-
     c_alignof(Type, Alignment),
     !,
     c_sizeof(Type, Size).
-type_size_align(struct(Name), Size, Alignment, All) :-
+type_size_align(_:struct(Name), Size, Alignment, All) :-
     memberchk(struct(Name, Fields), All), !,
     phrase(compile_struct(Name, Fields, All), Clauses),
     memberchk('$c_struct'(Name, Size, Alignment), Clauses).
-type_size_align(struct(Name, Fields), Size, Alignment, All) :-
+type_size_align(_:struct(Name, Fields), Size, Alignment, All) :-
     phrase(compile_struct(Name, Fields, All), Clauses),
     memberchk('$c_struct'(Name, Size, Alignment), Clauses).
-type_size_align(union(Name), Size, Alignment, All) :-
+type_size_align(_:union(Name), Size, Alignment, All) :-
     memberchk(union(Name, Fields), All), !,
     phrase(compile_union(Name, Fields, All), Clauses),
     memberchk('$c_union'(Name, Size, Alignment), Clauses).
-type_size_align(union(Name, Fields), Size, Alignment, All) :-
+type_size_align(_:union(Name, Fields), Size, Alignment, All) :-
     phrase(compile_union(Name, Fields, All), Clauses),
     memberchk('$c_union'(Name, Size, Alignment), Clauses).
-type_size_align(struct(Name), Size, Alignment, _) :-
-    '$c_struct'(Name, Size, Alignment),
+type_size_align(M:struct(Name), Size, Alignment, _) :-
+    current_predicate(M:'$c_struct'/3),
+    M:'$c_struct'(Name, Size, Alignment),
     !.
-type_size_align(union(Name), Size, Alignment, _) :-
-    '$c_union'(Name, Size, Alignment),
+type_size_align(M:union(Name), Size, Alignment, _) :-
+    current_predicate(M:'$c_union'/3),
+    M:'$c_union'(Name, Size, Alignment),
     !.
-type_size_align(array(Type,Len), Size, Alignment, All) :-
+type_size_align(M:array(Type,Len), Size, Alignment, All) :-
     !,
-    type_size_align(Type, Size0, Alignment, All),
+    type_size_align(M:Type, Size0, Alignment, All),
     Size is Size0*Len.
-type_size_align(enum(_Enum), Size, Alignment, _) :-
+type_size_align(_:enum(_Enum), Size, Alignment, _) :-
     !,
     c_alignof(int, Alignment),
     c_sizeof(int, Size).
-type_size_align(*(_), Size, Alignment, _) :-
+type_size_align(_:(*(_)), Size, Alignment, _) :-
     !,
     c_alignof(pointer, Alignment),
     c_sizeof(pointer, Size).
@@ -556,7 +564,7 @@ c_current_struct(M:Name, Size, Align) :-
 %
 %   Fact to provide efficient access to fields
 
-c_current_struct_field(M:Name, Field, Offset, Type) :-
+c_current_struct_field(M:Name, Field, Offset, M:Type) :-
     current_predicate(M:'$c_struct_field'/4),
     M:'$c_struct_field'(Name, Field, Offset, Type).
 
@@ -581,7 +589,7 @@ c_current_union_field(M:Name, Field, Type) :-
     M:'$c_union_field'(Name, Field, Type).
 
 
-%!  c_alloc(-Ptr, +TypeAndInit) is det.
+%!  c_alloc(-Ptr, :TypeAndInit) is det.
 %
 %   Allocate memory for a C object of  Type and optionally initialse the
 %   data. TypeAndInit can take several forms:
@@ -620,21 +628,21 @@ c_current_union_field(M:Name, Field, Type) :-
 %   @tbd: support enum and struct initialization from atoms and
 %   dicts.
 
-c_alloc(Ptr, Type = Data) :-
+c_alloc(Ptr, M:(Type = Data)) :-
     !,
-    c_init(Type, Data, Ptr).
-c_alloc(Ptr, Type[Count]) :-
+    c_init(M:Type, Data, Ptr).
+c_alloc(M:Ptr, M:Type[Count]) :-
     !,
-    type_size(Type, Size),
+    type_size(M:Type, Size),
     c_calloc(Ptr, Type, Size, Count).
 c_alloc(Ptr, Type) :-
     type_size(Type, Size),
     c_calloc(Ptr, Type, Size, 1).
 
-c_init(Type[], Data, Ptr) :-
+c_init(M:Type[], Data, Ptr) :-
     !,
-    c_init_array(Type, Data, Ptr).
-c_init(Type, Data, Ptr) :-
+    c_init_array(M:Type, Data, Ptr).
+c_init(_:Type, Data, Ptr) :-
     atom(Type),                                 % primitive type
     !,
     type_size(Type, Size),
@@ -645,13 +653,13 @@ c_init(Type, Data, Ptr) :-                      % user types
     c_calloc(Ptr, Type, Size, 1),
     c_store(Ptr, Data).
 
-c_init_array(char, Data, Ptr) :-
+c_init_array(_:char, Data, Ptr) :-
     !,
     c_alloc_string(Ptr, Data, text).
-c_init_array(char(Encoding), Data, Ptr) :-
+c_init_array(_:char(Encoding), Data, Ptr) :-
     !,
     c_alloc_string(Ptr, Data, Encoding).
-c_init_array(Type, List, Ptr) :-
+c_init_array(_:Type, List, Ptr) :-
     atom(Type),                                 % primitive type
     is_list(List),
     length(List, Len),
@@ -686,18 +694,18 @@ c_load(Spec, Value) :-
     c_address(Spec, Ptr, Offset, Type),
     c_load_(Ptr, Offset, Type, Value).
 
-c_load_(Ptr, Offset, Type, Value) :-
+c_load_(M:Ptr, Offset, Type, Value) :-
     (   atom(Type)
     ->  c_load(Ptr, Offset, Type, Value)
     ;   compound_type(Type)
-    ->  type_size(Type, Size),
+    ->  type_size(M:Type, Size),
         c_offset(Ptr, Offset, Type, Size, 1, Value)
     ;   Type = array(EType, Len)
-    ->  type_size(Type, ESize),
+    ->  type_size(M:Type, ESize),
         c_offset(Ptr, Offset, EType, ESize, Len, Value)
     ;   Type = enum(Enum)
     ->  c_load(Ptr, Offset, int, IntValue),
-        c_enum_out(Value, Enum, IntValue)
+        c_enum_out(Value, M:Enum, IntValue)
     ;   Type = *(PtrType)
     ->  c_load(Ptr, Offset, pointer(PtrType), Value)
     ;   domain_error(type, Type)
@@ -715,15 +723,15 @@ c_store(Spec, Value) :-
     c_address(Spec, Ptr, Offset, Type),
     c_store_(Ptr, Offset, Type, Value).
 
-c_store_(Ptr, Offset, Type, Value) :-
+c_store_(M:Ptr, Offset, Type, Value) :-
     (   atom(Type)
     ->  c_store(Ptr, Offset, Type, Value)
     ;   Type = enum(Set)
-    ->  c_enum_in(Value, Set, IntValue),
+    ->  c_enum_in(Value, M:Set, IntValue),
         c_store_(Ptr, Offset, int, IntValue)
     ).
 
-%!  c_cast(+Type, +PtrIn, -PtrOut)
+%!  c_cast(:Type, +PtrIn, -PtrOut)
 %
 %   Cast a pointer.  Type is one of:
 %
@@ -735,16 +743,16 @@ c_store_(Ptr, Offset, Type, Value) :-
 %     - Type
 %     Create a pointer to an unknown number of elements of Type.
 
-c_cast(Type, _, _) :-
+c_cast(_:Type, _, _) :-
     var(Type),
     !,
     type_error(c_type, Type).
-c_cast(address, In, Out) :-
+c_cast(_:address, In, Out) :-
     !,
     c_address(In, Out).
-c_cast(Type[Count], In, Out) :-
+c_cast(M:Type[Count], In, Out) :-
     !,
-    type_size(Type, Size),
+    type_size(M:Type, Size),
     c_offset(In, 0, Type, Size, Count, Out).
 c_cast(Type, In, Out) :-
     type_size(Type, Size),
@@ -761,23 +769,23 @@ c_nil(Ptr) :-
 %
 %   Translate a specification into a pointer, offset and type.
 
-c_address(Spec[E], Ptr, Offset, Type) :-
+c_address(M:Spec[E], Ptr, Offset, M:Type) :-
     !,
-    c_address(Spec, Ptr0, Offset0, Type0),
+    c_address(M:Spec, Ptr0, Offset0, M:Type0),
     (   atom(E)
-    ->  c_member(Type0, E, Ptr0, Offset0, Ptr, Offset, Type)
+    ->  c_member(M:Type0, E, Ptr0, Offset0, Ptr, Offset, M:Type)
     ;   integer(E)
-    ->  c_array_element(Type0, E, Ptr0, Offset0, Ptr, Offset, Type)
+    ->  c_array_element(M:Type0, E, Ptr0, Offset0, Ptr, Offset, M:Type)
     ;   type_error(member_selector, E)
     ).
-c_address(Ptr, Ptr, 0, Type) :-
+c_address(Ptr, Ptr, 0, user:Type) :-
     c_typeof(Ptr, Type).
 
-c_array_element(array(EType,Size), E, Ptr, Offset0, Ptr, Offset, EType) :-
+c_array_element(M:array(EType,Size), E, Ptr, Offset0, Ptr, Offset, EType) :-
     !,
     (   E >= 0,
         E < Size
-    ->  type_size(EType, ESize),
+    ->  type_size(M:EType, ESize),
         Offset is Offset0+E*ESize
     ;   domain_error(array(EType,Size), E)
     ).
@@ -785,15 +793,16 @@ c_array_element(Type, E, Ptr, Offset0, Ptr, Offset, Type) :-
     type_size(Type, ESize),
     Offset is Offset0+E*ESize.
 
-c_member(struct(Struct), Field, Ptr, Offset0, Ptr, Offset, EType) :-
+c_member(M:struct(Struct), Field, Ptr, Offset0, Ptr, Offset, EType) :-
     !,
-    '$c_struct_field'(Struct, Field, FOffset, EType),
+    c_current_struct_field(M:Struct, Field, FOffset, EType),
     Offset is Offset0+FOffset.
-c_member(union(Union), Field, Ptr, Offset, Ptr, Offset, EType) :-
+c_member(M:union(Union), Field, Ptr, Offset, Ptr, Offset, EType) :-
     !,
-    '$c_union_field'(Union, Field, EType).
+    c_current_union_field(M:Union, Field, EType).
 c_member(Type, _, _, _, _, _, _) :-
-    domain_error(struct, Type).
+    domain_error(struct_or_union, Type).
+
 
 		 /*******************************
 		 *             DICT		*
@@ -824,15 +833,15 @@ get_field(Ptr, f(Name, Offset, Type), Name-Value) :-
 		 *            ENUM		*
 		 *******************************/
 
-%!  c_current_enum(:Id, ?Enum, ?Value)
+%!  c_current_enum(?Name, :Enum, ?Int)
 %
 %   True when Id is a member of Enum with Value.
 
-c_current_enum(M:Id, Enum, Value) :-
+c_current_enum(Id, M:Enum, Value) :-
     current_predicate(M:'$c_struct'/3),
     M:'$enum'(Id, Enum, Value).
 
-%!  c_enum_in(:Id, +Enum, -Value) is det.
+%!  c_enum_in(+Name, :Enum, -Int) is det.
 %
 %   Convert an input element for an enum to a value.
 
@@ -842,7 +851,7 @@ c_enum_in(Id, Enum, Value) :-
 c_enum_in(Id, Enum, _Value) :-
     existence_error(enum_id, Id, Enum).
 
-%!  c_enum_in(:Id, +Enum, +Value) is det.
+%!  c_enum_in(+Name, :Enum, -Int) is det.
 %
 %   Convert an input element for an enum to a value.
 
