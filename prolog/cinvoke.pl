@@ -102,7 +102,8 @@
     c_current_union_field(:,?,?),
     c_struct_dict(:,?),
     type_size(:,-),
-    type_size_align(:,-,-).
+    type_size_align(:,-,-),
+    type_size_align(:,-,-, +).
 
 
 :- use_foreign_library(foreign(cinvoke4pl)).
