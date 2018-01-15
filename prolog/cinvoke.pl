@@ -709,7 +709,7 @@ c_load_(Ptr, Offset, Type, Value) :-
     ;   Plain = enum(Enum)
     ->  c_load(Ptr, Offset, int, IntValue),
         c_enum_out(Value, M:Enum, IntValue)
-    ;   Type = *(PtrType)
+    ;   Plain = *(PtrType)
     ->  c_load(Ptr, Offset, pointer(PtrType), Value)
     ;   domain_error(type, Type)
     ).
