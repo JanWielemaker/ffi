@@ -1,3 +1,7 @@
+:- module(test_enum,
+          [ test_enum/0
+          ]).
+
 :- use_module(library(plunit)).
 :- use_module('../prolog/cinvoke').
 

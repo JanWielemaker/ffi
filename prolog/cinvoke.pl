@@ -649,9 +649,10 @@ c_init(_:Type, Data, Ptr) :-
     c_calloc(Ptr, Type, Size, 1),
     c_store(Ptr, 0, Type, Data).
 c_init(Type, Data, Ptr) :-                      % user types
+    Type = M:_,
     type_size(Type, Size),
     c_calloc(Ptr, Type, Size, 1),
-    c_store(Ptr, Data).
+    c_store(M:Ptr, Data).
 
 c_init_array(_:char, Data, Ptr) :-
     !,
@@ -694,16 +695,17 @@ c_load(Spec, Value) :-
     c_address(Spec, Ptr, Offset, Type),
     c_load_(Ptr, Offset, Type, Value).
 
-c_load_(M:Ptr, Offset, Type, Value) :-
-    (   atom(Type)
-    ->  c_load(Ptr, Offset, Type, Value)
-    ;   compound_type(Type)
-    ->  type_size(M:Type, Size),
+c_load_(Ptr, Offset, Type, Value) :-
+    Type = M:Plain,
+    (   atom(Plain)
+    ->  c_load(Ptr, Offset, Plain, Value)
+    ;   compound_type(Plain)
+    ->  type_size(Type, Size),
         c_offset(Ptr, Offset, Type, Size, 1, Value)
-    ;   Type = array(EType, Len)
-    ->  type_size(M:Type, ESize),
+    ;   Plain = array(EType, Len)
+    ->  type_size(Type, ESize),
         c_offset(Ptr, Offset, EType, ESize, Len, Value)
-    ;   Type = enum(Enum)
+    ;   Plain = enum(Enum)
     ->  c_load(Ptr, Offset, int, IntValue),
         c_enum_out(Value, M:Enum, IntValue)
     ;   Type = *(PtrType)
@@ -723,12 +725,13 @@ c_store(Spec, Value) :-
     c_address(Spec, Ptr, Offset, Type),
     c_store_(Ptr, Offset, Type, Value).
 
-c_store_(M:Ptr, Offset, Type, Value) :-
-    (   atom(Type)
-    ->  c_store(Ptr, Offset, Type, Value)
-    ;   Type = enum(Set)
+c_store_(Ptr, Offset, Type, Value) :-
+    Type = M:Plain,
+    (   atom(Plain)
+    ->  c_store(Ptr, Offset, Plain, Value)
+    ;   Plain = enum(Set)
     ->  c_enum_in(Value, M:Set, IntValue),
-        c_store_(Ptr, Offset, int, IntValue)
+        c_store_(Ptr, Offset, M:int, IntValue)
     ).
 
 %!  c_cast(:Type, +PtrIn, -PtrOut)
@@ -778,7 +781,7 @@ c_address(M:Spec[E], Ptr, Offset, M:Type) :-
     ->  c_array_element(M:Type0, E, Ptr0, Offset0, Ptr, Offset, M:Type)
     ;   type_error(member_selector, E)
     ).
-c_address(Ptr, Ptr, 0, user:Type) :-
+c_address(M:Ptr, Ptr, 0, M:Type) :-
     c_typeof(Ptr, Type).
 
 c_array_element(M:array(EType,Size), E, Ptr, Offset0, Ptr, Offset, EType) :-
