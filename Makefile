@@ -24,3 +24,10 @@ clean:
 
 tags:
 	etags c/*.[ch]
+
+check:
+	swipl -q -g test_cmem -t halt test/test_cmem.pl
+	swipl -q -g test_enum -t halt test/test_enum.pl
+	swipl -q -g test_libc -t halt test/test_libc.pl
+	swipl -q -g test_struct -t halt test/test_struct.pl
+	swipl -q -g test_union -t halt test/test_union.pl

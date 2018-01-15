@@ -1,11 +1,11 @@
-:- use_module(library(apply_macros)).
-:- use_module(library(statistics)).
-
+:- use_module(library(plunit)).
 :- use_module('../prolog/cinvoke').
 :- use_module('../prolog/cerror').
-:- use_module('../prolog/ctokens').
 :- use_module('../prolog/cparser').
 :- use_module('../prolog/cdecls').
+
+test_libc :-
+    run_tests([c_libc]).
 
 cpp_const('_STAT_VER').
 
@@ -31,6 +31,23 @@ cpp_const('_STAT_VER').
             [ toupper(+int, [-int])
             ]).
 
+:- begin_tests(c_libc).
+
+test(sin, Native == V) :-
+    sin(4.5, V),
+    Native is sin(4.5).
+test(stat, Native == Size) :-
+    once(source_file(_:stat(_,_), File)),
+    stat(File, Stat),
+    c_load(Stat[st_size], Size),
+    size_file(File, Native).
+test(upper, A == 0'A) :-
+    toupper(0'a, A).
+test(strupr, Upper == "HELLO") :-
+    strupr("hello", Upper).
+
+:- end_tests(c_libc).
+
 stat(File, Stat) :-
     '__xstat'('_STAT_VER', File, Stat, Status),
     posix_status(Status, stat, file, File).
@@ -50,53 +67,3 @@ strupr(In, Out) :-
             c_store(Ptr[I], U),
             fail
         ).
-
-tmath :-
-    c99_types("#include <math.h>",
-              [ sin,cos ], AST),
-    pp(AST).
-
-tstat :-
-    c99_types("#include <sys/types.h>
-               #include <sys/stat.h>
-               #include <unistd.h>",
-              [ stat ], AST),
-    pp(AST).
-
-tstatfs :-
-    c99_types("#include <sys/vfs.h>",
-              [ statfs ], AST),
-    pp(AST).
-
-testpt :-
-    c99_types("#include \"test/test.c\"",
-              [ get_point ], AST),
-    pp(AST).
-
-
-testpt_ast(AST) :-
-    c99_header_ast("#include \"test/test.c\"", AST).
-
-tpt_ast(AST) :-
-    c99_header_ast("#include \"t.c\"", AST).
-
-tstat_ast(AST) :-
-    c99_header_ast("#include <sys/types.h>
-                    #include <sys/stat.h>
-                    #include <unistd.h>",
-                   AST).
-
-tstrcpy :-
-    c99_types("#include <string.h>",
-              [ strcpy ], AST),
-    pp(AST).
-
-
-t(N) :-
-    p(N, P),
-    phrase(c99_parse(AST), P),
-    pp(AST).
-
-p(1, `
-double sin(double x);
-`).
