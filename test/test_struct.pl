@@ -1,10 +1,15 @@
+:- module(test_struct,
+          [ test_struct/0,
+            trip_points/1
+          ]).
+
 :- use_module(library(apply_macros), []).
-:- use_module(library(statistics)).
+:- use_module(library(plunit)).
 
 :- use_module('../prolog/cinvoke').
-:- use_module('../prolog/ctokens').
-:- use_module('../prolog/cparser').
-:- use_module('../prolog/cdecls').
+
+test_struct :-
+    run_tests([c_struct]).
 
 :- c_import("#include \"test/test_struct.c\"",
             [ 'test/test_struct' ],
@@ -15,50 +20,51 @@
               clear_points()
             ]).
 
-ptn(N) :-
-    time(forall(between(1, N, _), get_point(_,_))).
+:- begin_tests(c_struct).
 
-testpt :-
-    c99_types("#include \"test/test.c\"",
-              [ get_points,
-                add_point,
-                clear_points
-              ], AST),
-    pp(AST).
+test(get_point, pt(X,Y) == pt(42,4242)) :-
+    get_point(Pt, Rc),
+    assertion(Rc == 0),
+    c_load(Pt[x], X),
+    c_load(Pt[y], Y).
+test(set_point, pt(X,Y) == pt(4,7)) :-
+    c_alloc(Ptr, struct(point)),
+    set_point(Ptr, 4, 7),
+    c_load(Ptr[x], X),
+    c_load(Ptr[y], Y).
+test(trip) :-
+    trip_points(10).
 
-add_points([]).
-add_points([point(X,Y)|T]) :-
-    add_point(X, Y),
-    add_points(T).
+:- end_tests(c_struct).
 
-t(Len) :-
+trip_points(Len) :-
     clear_points,
     length(Points, Len),
     maplist(random_point, Points),
     reverse(Points, RevPoints),
     add_points(RevPoints),
-    p(L),
+    point_list(L),
     assertion(Points == L).
 
 random_point(point(X,Y)) :-
     random_between(0, 1 000 000, X),
     random_between(0, 1 000 000, Y).
 
-p1 :-
-    get_points(Pts),
-    c_load(Pts[0][pt][x], X),
-    writeln(X).
+add_points([]).
+add_points([point(X,Y)|T]) :-
+    add_point(X, Y),
+    add_points(T).
 
-p(L) :-
+point_list(L) :-
     get_points(Pts),
-    p(Pts, L).
+    point_list(Pts, L).
 
-p(Pts, L) :-
+point_list(Pts, L) :-
     c_nil(Pts),
     !,
     L = [].
-p(Pts, [point(X,Y)|T]) :-
+point_list(Pts, [point(X,Y)|T]) :-
     c_load(Pts[pt][x], X),
     c_load(Pts[pt][y], Y),
     c_load(Pts[next], Next),
-    p(Next, T).
+    point_list(Next, T).
