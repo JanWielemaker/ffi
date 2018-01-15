@@ -99,6 +99,6 @@ c_alignof(+Type, -Size)
 
   - Module awareness
   - Scalar output (-Type): make sure to have the right size
-  - Alloction using type aliases.
+  - Allocation using type aliases.
     - Make user types available
       - Map to final result: scalar, struct, union or enum
