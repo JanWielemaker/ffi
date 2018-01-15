@@ -635,11 +635,15 @@ c_init(Type[], Data, Ptr) :-
     !,
     c_init_array(Type, Data, Ptr).
 c_init(Type, Data, Ptr) :-
-    atom(Type),
+    atom(Type),                                 % primitive type
     !,
     type_size(Type, Size),
     c_calloc(Ptr, Type, Size, 1),
     c_store(Ptr, 0, Type, Data).
+c_init(Type, Data, Ptr) :-                      % user types
+    type_size(Type, Size),
+    c_calloc(Ptr, Type, Size, 1),
+    c_store(Ptr, Data).
 
 c_init_array(char, Data, Ptr) :-
     !,
