@@ -585,7 +585,7 @@ c_current_union(M:Name, Size, Align) :-
 %
 %   Fact to provide efficient access to fields
 
-c_current_union_field(M:Name, Field, Type) :-
+c_current_union_field(M:Name, Field, M:Type) :-
     current_predicate(M:'$c_union_field'/3),
     M:'$c_union_field'(Name, Field, Type).
 
