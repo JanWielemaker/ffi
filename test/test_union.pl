@@ -1,3 +1,4 @@
+:- use_module(library(plunit)).
 :- use_module('../prolog/cinvoke').
 
 :- c_import("#include \"test/test_union.c\"",

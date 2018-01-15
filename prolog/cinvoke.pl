@@ -773,19 +773,19 @@ c_nil(Ptr) :-
 %
 %   Translate a specification into a pointer, offset and type.
 
-c_address(M:Spec[E], Ptr, Offset, M:Type) :-
+c_address(M:Spec[E], Ptr, Offset, Type) :-
     !,
-    c_address(M:Spec, Ptr0, Offset0, M:Type0),
+    c_address(M:Spec, Ptr0, Offset0, Type0),
     (   atom(E)
-    ->  c_member(M:Type0, E, Ptr0, Offset0, Ptr, Offset, M:Type)
+    ->  c_member(Type0, E, Ptr0, Offset0, Ptr, Offset, Type)
     ;   integer(E)
-    ->  c_array_element(M:Type0, E, Ptr0, Offset0, Ptr, Offset, M:Type)
+    ->  c_array_element(Type0, E, Ptr0, Offset0, Ptr, Offset, Type)
     ;   type_error(member_selector, E)
     ).
 c_address(M:Ptr, Ptr, 0, M:Type) :-
     c_typeof(Ptr, Type).
 
-c_array_element(M:array(EType,Size), E, Ptr, Offset0, Ptr, Offset, EType) :-
+c_array_element(M:array(EType,Size), E, Ptr, Offset0, Ptr, Offset, M:EType) :-
     !,
     (   E >= 0,
         E < Size
