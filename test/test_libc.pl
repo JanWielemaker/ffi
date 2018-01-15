@@ -3,9 +3,9 @@
 
 :- use_module('../prolog/cinvoke').
 :- use_module('../prolog/cerror').
-:- use_module('../prolog/c99_tokens').
-:- use_module('../prolog/c99_phrase').
-:- use_module('../prolog/c99_decls').
+:- use_module('../prolog/ctokens').
+:- use_module('../prolog/cparser').
+:- use_module('../prolog/cdecls').
 
 cpp_const('_STAT_VER').
 

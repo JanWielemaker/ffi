@@ -9,7 +9,7 @@
 :- use_module(library(apply)).
 :- use_module(library(lists)).
 :- use_module(library(dcg/basics)).
-:- use_module(c99_phrase).
+:- use_module(cparser).
 :- use_module(cinvoke, [c_sizeof/2]).
 
 %!  c99_types(+Header, +Functions, -Types) is det.

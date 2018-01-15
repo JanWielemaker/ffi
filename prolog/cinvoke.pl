@@ -80,7 +80,7 @@
 :- use_module(library(apply)).
 :- use_module(library(pairs)).
 
-:- use_module(c99_decls).
+:- use_module(cdecls).
 :- use_module(clocations).
 
 /** <module> Bind Prolog predicates to C functions

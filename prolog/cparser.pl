@@ -37,7 +37,7 @@
             c99_parse_cont//1
           ]).
 :- use_module(library(debug)).
-:- use_module(c99_tokens).
+:- use_module(ctokens).
 
 c99_parse(AST) -->
     { init_state },
