@@ -91,7 +91,7 @@
     c_cast(:,+,-),
     c_load(:, -),
     c_store(:, +),
-    c_current_enum(:,?,?),
+    c_current_enum(?,:,?),
     c_enum_in(+,:,-),
     c_enum_out(+,:,+),
     c_current_struct(:),
@@ -838,8 +838,19 @@ get_field(Ptr, f(Name, Offset, Type), Name-Value) :-
 %   True when Id is a member of Enum with Value.
 
 c_current_enum(Id, M:Enum, Value) :-
-    current_predicate(M:'$c_struct'/3),
+    enum_module(M, '$enum'/3),
     M:'$enum'(Id, Enum, Value).
+
+enum_module(M, PI) :-
+    nonvar(M),
+    !,
+    current_predicate(M:PI).
+enum_module(M, PI) :-
+    PI = Name/Arity,
+    functor(Head, Name, Arity),
+    current_module(M),
+    current_predicate(M:PI),
+    \+ predicate_property(M:Head, imported_from(_)).
 
 %!  c_enum_in(+Name, :Enum, -Int) is det.
 %
