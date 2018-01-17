@@ -435,7 +435,7 @@ Prolog predicates. These definitions are local to the module that uses
 the c_import/3 statement.
 
 \input{cmem.tex}
-
 \input{clocations.tex}
+\input{cerror.tex}
 
 \end{document}

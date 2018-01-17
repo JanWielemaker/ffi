@@ -38,6 +38,29 @@
           ]).
 :- use_module(ffi).
 
+/** <module> C interface error handling
+
+This module provides common routines to  map error codes into apropriate
+actions in Prolog. Below  is  a   typical  example  mapping the statfs()
+function:
+
+  ```
+  :- module(libc_files,
+            [ statfs/2
+            ]).
+  :- use_module(library(cinvoke)).
+
+  :- c_import("#include <sys/vfs.h>",
+              [ libc ],
+              [ statfs(+string, -struct(statfs), [-int])
+              ]).
+
+  statfs(File, FsStat) :-
+      statfs(File, FsStat, Status),
+      posix_status(Status, statfs, file, File).
+  ```
+*/
+
 cpp_const('ENOENT').
 cpp_const('EPERM').
 cpp_const('EACCES').
@@ -47,6 +70,14 @@ cpp_const('ENOMEM').
              #include <errno.h>",
             [ 'libc.so.6' ],
             [ strerror(+int, [-string]) ]).
+
+%!  posix_status(+Code) is det.
+%!  posix_status(+Code, +Action, +Type, +Argument) is det.
+%
+%   These predicates may be used to map  POSIX `int` error return status
+%   into a suitable Prolog response. If Code is `0` the predicate simply
+%   succeeds.  For  other  cases  it  retrieves  the  error  code  using
+%   c_errno/1 and translates the error into a suitable Prolog exception.
 
 posix_status(0) :-
     !.

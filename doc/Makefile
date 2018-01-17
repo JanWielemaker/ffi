@@ -1,4 +1,4 @@
-ffi.pdf: ffi.tex cmem.tex clocations.tex
+ffi.pdf: ffi.tex cmem.tex clocations.tex cerror.tex
 	./runtex --pdf ffi
 
 ffi.tex: ffi.doc
@@ -9,6 +9,9 @@ cmem.tex: cmem.md ../prolog/ffi.pl
 clocations.tex: ../prolog/clocations.pl
 	mkdir -p summaries.d
 	swipl libtotex.pl --outdir=. ../prolog/clocations.pl
+cerror.tex: ../prolog/cerror.pl
+	mkdir -p summaries.d
+	swipl libtotex.pl --outdir=. ../prolog/cerror.pl
 
 clean:
 	rm -f *~
