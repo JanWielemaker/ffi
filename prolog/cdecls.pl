@@ -152,6 +152,9 @@ expand_type(type(Name, union, Fields0), Types) --> !,
     { phrase(expand_field(Fields0, Types), Fields) }.
 expand_type(type(Name, enum, Members), _Types) --> !,
     [ enum(Name, Members) ].
+expand_type(type(Name, typedef, Type0), Types) --> !,
+    { simplify_types(Type0, Types, Type) },
+    [ typedef(Name, Type) ].
 expand_type(_, _) --> [].
 
 expand_field([], _) --> [].
