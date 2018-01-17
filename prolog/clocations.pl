@@ -46,8 +46,20 @@
 
 /** <module> Define resource locations for cinvoke
 
+This module provides the mapping from   library  names to concrete files
+that can be loaded. This  is  used   by  c_import/3.  While  C compilers
+typically allow one to specify a library   as, e.g., =|-lm|=, the actual
+naming and physical location  of  the   file  providing  this library is
+compiler and system dependent.
+
 This module defines c_lib_path/2 to find  the concrete file implementing
-a C library.
+a C library.  Hooks may be used to extend this predicate:
+
+  - library_path_hook/2 is called first by c_lib_path/2 and may redefine
+    the entire process.
+  - cpu_alias/2 may be used if =ldconfig -p= is used to verify that a
+    library is compatible with the current architecture of the
+    SWI-Prolog process.
 */
 
 :- multifile

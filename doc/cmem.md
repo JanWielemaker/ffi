@@ -51,7 +51,10 @@ basic types are identified:
   $ Pointers :
   `pointer`
 
-The constructed types are struct(Name), union(Name) and enum(Name).
+In addition, the type =wchar_t= is recognised by the library to
+facilitate portable exchange of Unicode text represented as wide
+character strings. The constructed types are struct(Name), union(Name)
+and enum(Name).
 
 ## The high level interface
 

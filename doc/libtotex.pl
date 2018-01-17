@@ -77,12 +77,17 @@ libtotex(Options, TxtFile) :-
 		  | Options
 		  ]).
 libtotex(Options, LibAtom) :-
-	atom_to_term(LibAtom, Term, _),
-	must_be(ground, Term),
-	absolute_file_name(Term, File,
-			   [ file_type(prolog),
-			     access(read)
-			   ]),
+	(   atom(LibAtom),
+	    file_name_extension(_, pl, LibAtom),
+	    exists_file(LibAtom)
+	->  File = LibAtom
+	;   atom_to_term(LibAtom, Term, _),
+	    must_be(ground, Term),
+	    absolute_file_name(Term, File,
+			       [ file_type(prolog),
+				 access(read)
+			       ])
+	),
 	file_base_name(File, Local),
 	file_name_extension(Base0, _, Local),
 	strip(Base0, 0'_, Base),
@@ -122,6 +127,7 @@ main(Argv) :-
 	partition(is_option, Argv, OptArgs, Files),
 	maplist(to_option, OptArgs, AllOptions),
 	load_prolog(AllOptions, Options),
+	gtrace,
 	maplist(libtotex(Options), Files).
 
 is_option(Arg) :-
