@@ -393,10 +393,13 @@ given below:
 
 \begin{description}
     \termitem{int}{}
-The argument is to be mapped to a Prolog integer.  This is compatible
-with C integers of all supported sizes.  If the argument is an input
+The argument is to be mapped to a Prolog integer. This is compatible
+with C integers of all supported sizes. If the argument is an input
 argument a domain check is performed to validate that the (unbounded)
-Prolog integer can be represented by the bounded C integer.
+Prolog integer can be represented by the bounded C integer. If the
+argument is an output argument the C type must be a pointer to a C
+integer. A buffer of sufficient size is allocated and after completion
+of the function the result is extracted from the pointer.
     \termitem{float}{}
 Supports C floats and doubles.
     \termitem{string}{}
@@ -406,15 +409,22 @@ As input argument, transform the Prolog data into a C string.
 \arg{Encoding} defines the mapping from Prolog Unicode to the
 C representation.  The default is \const{text}, using the default
 encoding of the OS.  Other values are \const{iso_latin_1}, \const{utf8}
-and \const{wchar_t}.
+and \const{wchar_t}.  This Prolog type is compatible with the C~type
+\ctype{char*}, except when \arg{Encoding} is \ctype{wchar_t}.  In this
+case the C~type must be a pointer to an integer type of the same size
+as \ctype{wchar_t}.
     \termitem{struct}{Name}
-Argument is a structure of the given name.
+Argument is a structure of the given name. If this is an input argument,
+a pointer to a structure must be supplied.  If it is an output argument
+a pointer is allocated and returned.
     \termitem{union}{Name}
-Argument is an union of the given name.
+Argument is an union of the given name.  Otherwise this is handled the
+same way as \term{struct}{Name}.
     \termitem{enum}{Name}
 Argument is an enum of the given name. An enum member is mapped to a
 Prolog atom. The wrapper translates between the atom and C~integer that
-represent the enum encoding.
+represent the enum encoding.  Input and output arguments are handled the
+same way as \const{int}.
 \end{description}
 \end{description}
 
