@@ -539,6 +539,9 @@ c_load(term_t ptr, term_t offset, term_t type, term_t value)
       } else if ( ta == ATOM_uchar )
       { const unsigned char *p = vp;
 	return VALID(ref, off, char) && PL_unify_integer(value, *p);
+      } else if ( ta == ATOM_wchar_t )
+      { const wchar_t *p = vp;
+	return VALID(ref, off, wchar_t) && PL_unify_integer(value, *p);
       } else if ( ta == ATOM_short )
       { const short *p = vp;
 	return VALID(ref, off, short) && PL_unify_integer(value, *p);
@@ -621,6 +624,15 @@ i_ptr(c_ptr *whole, term_t value, void **vp)
 }
 
 
+static int
+PL_cvt_i_wchar(term_t t, void *vp)
+{ if ( sizeof(wchar_t) == sizeof(short) ) /* assume this is optimized */
+    return PL_cvt_i_short(t, vp);
+  else
+    return PL_cvt_i_int(t, vp);
+}
+
+
 static foreign_t
 c_store(term_t ptr, term_t offset, term_t type, term_t value)
 { c_ptr *ref;
@@ -636,6 +648,8 @@ c_store(term_t ptr, term_t offset, term_t type, term_t value)
 	return VALID(ref, off, char) && PL_cvt_i_char(value, vp);
       else if ( ta == ATOM_uchar )
 	return VALID(ref, off, char) && PL_cvt_i_uchar(value, vp);
+      else if ( ta == ATOM_wchar_t )
+	return VALID(ref, off, wchar_t) && PL_cvt_i_wchar(value, vp);
       else if ( ta == ATOM_short )
 	return VALID(ref, off, short) && PL_cvt_i_short(value, vp);
       else if ( ta == ATOM_ushort )
@@ -737,6 +751,7 @@ c_sizeof(term_t type, term_t bytes)
     else if ( ta == ATOM_float )     sz = sizeof(float);
     else if ( ta == ATOM_double )    sz = sizeof(double);
     else if ( ta == ATOM_pointer )   sz = sizeof(void*);
+    else if ( ta == ATOM_wchar_t )   sz = sizeof(wchar_t);
     else return FALSE;
 
     return PL_unify_integer(bytes, sz);
@@ -765,6 +780,7 @@ c_alignof(term_t type, term_t bytes)
     else if ( ta == ATOM_float )     sz = __alignof__(float);
     else if ( ta == ATOM_double )    sz = __alignof__(double);
     else if ( ta == ATOM_pointer )   sz = __alignof__(void*);
+    else if ( ta == ATOM_wchar_t )   sz = __alignof__(wchar_t);
     else return FALSE;
 
     return PL_unify_integer(bytes, sz);

@@ -309,14 +309,15 @@ compatible_arg(PlArg, _ArgName-CArg) :-
     compatible_arg(PlArg, CArg).
 compatible_arg(+Type, Type) :- !.
 compatible_arg(-Type, *(Type)) :- !.
-compatible_arg(-struct(Name),   *(struct(Name))).
-compatible_arg(+struct(Name),   *(struct(Name))).
-compatible_arg(*(struct(Name)), *(struct(Name))).
-compatible_arg(-union(Name),    *(union(Name))).
-compatible_arg(+union(Name),    *(union(Name))).
-compatible_arg(*(union(Name)),  *(union(Name))).
-compatible_arg(+string,         *(char)).
-compatible_arg(+string(_Enc),   *(char)).
+compatible_arg(-struct(Name),    *(struct(Name))).
+compatible_arg(+struct(Name),    *(struct(Name))).
+compatible_arg(*(struct(Name)),  *(struct(Name))).
+compatible_arg(-union(Name),     *(union(Name))).
+compatible_arg(+union(Name),     *(union(Name))).
+compatible_arg(*(union(Name)),   *(union(Name))).
+compatible_arg(+string,          *(char)).
+compatible_arg(+string(wchar_t), *(Type)) :- !, wchar_t_type(Type).
+compatible_arg(+string(Enc),     *(char)) :- Enc \== wchar_t.
 
 compatible_return(PlArg, CArg, RetParam) :-
     compatible_ret(PlArg, CArg, RetParam),
@@ -338,10 +339,11 @@ compatible_ret(float, CArg, CArg) :-
 compatible_ret(-PlArg, CArg) :-
     compatible_ret(PlArg, CArg).
 compatible_ret(Type, Type) :- !.
-compatible_ret(*(struct(Name)), *(struct(Name))).
-compatible_ret(*(union(Name)),  *(union(Name))).
-compatible_ret(-string,         *(char)).
-compatible_ret(-string(_Enc),   *(char)).
+compatible_ret(*(struct(Name)),  *(struct(Name))).
+compatible_ret(*(union(Name)),   *(union(Name))).
+compatible_ret(-string,          *(char)).
+compatible_ret(-string(wchar_t), *(Type)) :- !, wchar_t_type(Type).
+compatible_ret(-string(Enc),     *(char)) :- Enc \== wchar_t.
 
 int_type(char).
 int_type(uchar).
@@ -356,6 +358,10 @@ int_type(ulonglong).
 
 float_type(float).
 float_type(double).
+
+wchar_t_type(Type) :-
+    c_sizeof(Type, Size),
+    c_sizeof(wchar_t, Size).
 
 libs([], _) --> [].
 libs([H|T], Functions) --> [ '$c_lib'(H, Functions) ], libs(T, Functions).

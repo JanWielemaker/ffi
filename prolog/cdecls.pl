@@ -214,10 +214,14 @@ simplify_type(Type, _Types) -->
     simplify_type(Type).
 
 simplify_type(ulonglong) --> [type(unsigned),type(long),type(long),type(int)].
+simplify_type(ulonglong) --> [type(long),type(long),type(unsigned),type(int)].
+simplify_type(ulong)     --> [type(unsigned),type(long)].
 simplify_type(ulong)     --> [type(unsigned),type(long),type(int)].
+simplify_type(ulong)     --> [type(long),type(unsigned),type(int)].
 simplify_type(uint)      --> [type(unsigned),type(int)].
 simplify_type(ushort)    --> [type(unsigned),type(short)].
 simplify_type(ushort)    --> [type(unsigned),type(short),type(int)].
+simplify_type(ushort)    --> [type(short),type(unsigned),type(int)].
 simplify_type(uchar)     --> [type(unsigned),type(char)].
 simplify_type(Type)      --> [type(Type)].
 simplify_type(longlong)  --> [type(long),type(long),type(int)].

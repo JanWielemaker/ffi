@@ -29,6 +29,11 @@ cpp_const('_STAT_VER').
             [ toupper(+int, [-int])
             ]).
 
+:- c_import("#include <wchar.h>",
+            [ libc ],
+            [ wcslen(+string(wchar_t), [-int])
+            ]).
+
 :- begin_tests(c_libc).
 
 test(sin, Native == V) :-
@@ -43,6 +48,11 @@ test(upper, A == 0'A) :-
     toupper(0'a, A).
 test(strupr, Upper == "HELLO") :-
     strupr("hello", Upper).
+test(wcslen, Len == 5) :-
+    wcslen("hello", Len).
+test(wcslen, Len == 50) :-
+    numlist(1001, 1050, L),
+    wcslen(L, Len).
 
 :- end_tests(c_libc).
 
