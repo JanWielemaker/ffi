@@ -248,32 +248,32 @@ wrap_function(Signature, Types) -->
     { compound_name_arguments(Signature, Name, SigArgs),
       memberchk(function(Name, Ret, Params), Types),
       length(SigArgs, Arity),
-      matching_signature(Name, SigArgs, Ret, Params),
+      matching_signature(Name, SigArgs, Ret, Params, SigParams),
       functor(Head, Name, Arity),
       prolog_load_context(module, M)
     },
     [ cinvoke:c_function(M:Head, Params, Ret),
       (:- dynamic(Name/Arity)),
-      (Head :- cinvoke:define(M:Head, SigArgs))
+      (Head :- cinvoke:define(M:Head, SigParams))
     ].
 
-matching_signature(Name, SigArgs, Ret, Params) :-
-    append(RealArgs, [[_]], SigArgs),
+matching_signature(Name, SigArgs, Ret, Params, SigParams) :-
+    append(RealArgs, [[PlRet]], SigArgs),   % specified return
     !,
     (   same_length(RealArgs, Params)
-    ->  true
+    ->  maplist(compatible_argument, RealArgs, Params, SigRealParams)
     ;   print_message(error, cinvoke(nonmatching_params(SigArgs, Params))),
         fail
     ),
     (   Ret == void
     ->  print_message(error, cinvoke(void_function(Name))),
         fail
-    ;   true
+    ;   compatible_return(PlRet, Ret, RetParam),
+        append(SigRealParams, [[RetParam]], SigParams)
     ).
-matching_signature(Name, SigArgs, Ret, Params) :-
-    !,
+matching_signature(Name, SigArgs, Ret, Params, SigParams) :-
     (   same_length(SigArgs, Params)
-    ->  true
+    ->  maplist(compatible_argument, SigArgs, Params, SigParams)
     ;   print_message(error, cinvoke(nonmatching_params(SigArgs, Params))),
         fail
     ),
@@ -281,6 +281,81 @@ matching_signature(Name, SigArgs, Ret, Params) :-
     ->  true
     ;   print_message(warning, cinvoke(nonvoid_function(Name, Ret)))
     ).
+
+compatible_argument(PlArg, CArg, Param) :-
+    compatible_arg(PlArg, CArg, Param),
+    !.
+compatible_argument(PlArg, CArg, PlArg) :-
+    compatible_arg(PlArg, CArg),
+    !.
+compatible_argument(PlArg, CArg, PlArg) :-
+    print_message(error, cinvoke(incompatible_argument(PlArg, CArg))).
+
+% compatible_arg/3
+compatible_arg(PlArg, _ArgName-CArg, Param) :-
+    !,
+    compatible_arg(PlArg, CArg, Param).
+compatible_arg(+int, CType, +CType) :-
+    int_type(CType).
+compatible_arg(-int, *(CType), -CType) :-
+    int_type(CType).
+compatible_arg(+float, CType, +CType) :-
+    float_type(CType).
+compatible_arg(-float, CType, -CType) :-
+    float_type(CType).
+% compatible_arg/2
+compatible_arg(PlArg, _ArgName-CArg) :-
+    !,
+    compatible_arg(PlArg, CArg).
+compatible_arg(+Type, Type) :- !.
+compatible_arg(-Type, *(Type)) :- !.
+compatible_arg(-struct(Name),   *(struct(Name))).
+compatible_arg(+struct(Name),   *(struct(Name))).
+compatible_arg(*(struct(Name)), *(struct(Name))).
+compatible_arg(-union(Name),    *(union(Name))).
+compatible_arg(+union(Name),    *(union(Name))).
+compatible_arg(*(union(Name)),  *(union(Name))).
+compatible_arg(+string,         *(char)).
+compatible_arg(+string(_Enc),   *(char)).
+
+compatible_return(PlArg, CArg, RetParam) :-
+    compatible_ret(PlArg, CArg, RetParam),
+    !.
+compatible_return(PlArg, CArg, PlArg) :-
+    compatible_ret(PlArg, CArg),
+    !.
+compatible_return(PlArg, CArg, PlArg) :-
+    print_message(error, cinvoke(incompatible_return(PlArg, CArg))).
+
+% compatible_ret/3
+compatible_ret(-PlArg, CArg, Param) :-
+    compatible_ret(PlArg, CArg, Param).
+compatible_ret(int, CArg, CArg) :-
+    int_type(CArg).
+compatible_ret(float, CArg, CArg) :-
+    float_type(CArg).
+% compatible_ret/2
+compatible_ret(-PlArg, CArg) :-
+    compatible_ret(PlArg, CArg).
+compatible_ret(Type, Type) :- !.
+compatible_ret(*(struct(Name)), *(struct(Name))).
+compatible_ret(*(union(Name)),  *(union(Name))).
+compatible_ret(-string,         *(char)).
+compatible_ret(-string(_Enc),   *(char)).
+
+int_type(char).
+int_type(uchar).
+int_type(short).
+int_type(ushort).
+int_type(int).
+int_type(uint).
+int_type(long).
+int_type(ulong).
+int_type(longlong).
+int_type(ulonglong).
+
+float_type(float).
+float_type(double).
 
 libs([], _) --> [].
 libs([H|T], Functions) --> [ '$c_lib'(H, Functions) ], libs(T, Functions).
@@ -1056,3 +1131,18 @@ system:term_expansion(T0, T) :-
 %   True when Bytes is the mininal alignment for the C scalar type Type.
 %   Only supports basic C types. Fails   silently on user defined types.
 %   This value is used to compute the layout of structs.
+
+
+		 /*******************************
+		 *            MESSAGES		*
+		 *******************************/
+
+:- multifile prolog:message//1.
+
+prolog:message(cinvoke(Msg)) -->
+    message(Msg).
+
+message(incompatible_return(Prolog, C)) -->
+    [ 'Incompatible return type: ~p <- ~p'-[Prolog, C] ].
+message(incompatible_argument(Prolog, C)) -->
+    [ 'Incompatible parameter: ~p -> ~p'-[Prolog, C] ].
