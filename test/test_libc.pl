@@ -1,8 +1,6 @@
 :- use_module(library(plunit)).
 :- use_module('../prolog/cinvoke').
 :- use_module('../prolog/cerror').
-:- use_module('../prolog/cparser').
-:- use_module('../prolog/cdecls').
 
 test_libc :-
     run_tests([c_libc]).
