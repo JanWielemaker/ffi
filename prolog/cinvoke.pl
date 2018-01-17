@@ -197,14 +197,17 @@ c_import(Header, Libs, Functions) :-
 system:term_expansion((:- c_import(Header, Libs, Functions)),
                       Clauses) :-
     prolog_load_context(module, M),
-    maplist(functor_name, Functions, FunctionNames),
+    maplist(function_name, Functions, FunctionNames),
     add_constants(M, Header, HeaderConst),
     c99_types(HeaderConst, FunctionNames, Types, Constants),
     phrase(( c_constants(Constants),
              c_import(Libs, Functions, FunctionNames, Types)),
            Clauses).
 
-functor_name(Spec, Name) :-
+function_name(Spec as _Pred, Name) :-
+    !,
+    compound_name_arity(Spec, Name, _).
+function_name(Spec, Name) :-
     compound_name_arity(Spec, Name, _).
 
 c_import(Libs, Functions, FunctionNames, Types) -->
@@ -242,20 +245,26 @@ compile_types([_|T], Types) --> !,
 
 wrap_functions([], _) --> [].
 wrap_functions([H|T], Types) -->
-    wrap_function(H, Types), wrap_functions(T, Types).
+    wrap_function(H, Types),
+    wrap_functions(T, Types).
 
-wrap_function(Signature, Types) -->
-    { compound_name_arguments(Signature, Name, SigArgs),
-      memberchk(function(Name, Ret, Params), Types),
+wrap_function(Signature as PName, Types) -->
+    !,
+    { compound_name_arguments(Signature, FName, SigArgs),
+      memberchk(function(FName, Ret, Params), Types),
       length(SigArgs, Arity),
-      matching_signature(Name, SigArgs, Ret, Params, SigParams),
-      functor(Head, Name, Arity),
+      matching_signature(FName, SigArgs, Ret, Params, SigParams),
+      functor(Head, PName, Arity),
       prolog_load_context(module, M)
     },
     [ cinvoke:c_function(M:Head, Params, Ret),
-      (:- dynamic(Name/Arity)),
+      (:- dynamic(PName/Arity)),
       (Head :- cinvoke:define(M:Head, SigParams))
     ].
+wrap_function(Signature, Types) -->
+    { compound_name_arity(Signature, Name, _)
+    },
+    wrap_function(Signature as Name, Types).
 
 matching_signature(Name, SigArgs, Ret, Params, SigParams) :-
     append(RealArgs, [[PlRet]], SigArgs),   % specified return
