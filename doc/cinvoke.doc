@@ -67,7 +67,7 @@ is supported by the Quintus interface. Realising a Prolog wrapper for
 such an API typically consists of two parts: a C part that wraps the
 original interface into one which simple types and operations and a
 Prolog part that recreates a high-level interface that handles complex
-data structures, translating them to the multiple calls on the C~layer.
+data structures using multiple calls on the C~layer.
 
 With SWI-Prolog we took a different approach: a foreign predicate is a
 C~function that takes an array of \ctype{term_t} Prolog terms and can
@@ -216,7 +216,7 @@ for the user to provide rules that match the target.
 
 On Windows, \href{http://www.mingw.org/}{MinGW} can provide a compatible
 toolchain. On MacOS Xcode needs to be installed. Note that applications
-may provide precompiled \fileext{.qlf} files (see qcompile/1) which
+may provide precompiled \fileext{qlf} files (see qcompile/1) which
 allows a user to access the foreign code without access to a
 C~preprocessor and the header files.
 
@@ -236,9 +236,9 @@ an absolute path.
 
 The portability is notably limited by the low-level library doing the
 dynamic calling of C functions. This library is in part written in
-assembler and requires details on the target C~calling conventions, i.e.
-which parameters are placed where and where can the return value be
-found. The Prolog wrapper around that is only a new pages and thus
+assembler and requires details on the target C~calling conventions,
+i.e., which parameters are placed where and where can the return value
+be found. The Prolog wrapper around that is only a new pages and thus
 easily replaced to use another low-level library.
 
 
@@ -304,27 +304,25 @@ below.
 \paragraph{Struct layout}
 
 The Prolog library rewrites a struct type into a sequence of fields
-where each field is either a basic scalar type or a struct, union or
-enum. It first computes the layout, size and alignment of sub structs
-and unions. The layout of the struct is computed by placing the fields
-linearly in memory while adding padding fields required to satisfy the
-alignment restrictions (see c_alignof/2).
+where each field is either a basic scalar type, a struct, union or
+enum or an array of any of these. It first computes the layout, size and
+alignment of sub structs and unions. The layout of the struct is
+computed by placing the fields linearly in memory while adding padding
+fields required to satisfy the alignment restrictions (see c_alignof/2).
 
 This is the default algorithm used by C compilers, but many compilers
 support additional attributes to control the layout.  Such attributes
 are currently ignored.  Accessing a struct with such attributes will
-lead to incorrect values.
-
-Additional rules can be added to resolve this.
+lead to incorrect values. Additional rules can be added to resolve this.
 
 
 \paragraph{Inline functions and macros}
 
 Part of the C API of a library may look like functions but are in fact
-implemented as inline functions or macros. For example, the glibc
-function stat() to obtain information about an entry in the filesystem
-has the synopsis below.  Binding this as statfs() though results in an
-existence error.
+implemented as inline functions or macros. For example, the \file{glibc}
+(glibc is the standard C runtime library on Linux) function stat() to
+obtain information about an entry in the filesystem has the synopsis
+below. Binding this as stat() though results in an existence error.
 
 \begin{code}
 #include <sys/types.h>
@@ -361,13 +359,70 @@ disadvantage is that this only works for glibc. Other POSIX runtime
 libraries may provide stat() as a function or do something similar to,
 but incompatible with, glibc.
 
-\section{Calling C functions}
+\section{Making C functions available as predicates}
 
+The binding is realised using c_import/3
 
+\begin{description}
+    \predicate{c_import}{3}{+Header, +Libraries, +Functions}
+Import \arg{Functions} from \arg{Libraries}. The \arg{Header} is a
+string providing C source text that makes the types of the imported
+functions available. This text is handed to the configured
+C~preprocessor. Normally, this string contains a series of
+\verb$#include <header>$ statements.  For simple projects it is
+also possible to supply the actual C source file, e.g.,
+\verb$"#include \"my_c.c\""$ (note the escaped double quotes).
 
+\arg{Libraries} is a list of libraries that provide the implementation.
+Resolving the specification of a library to the actual library file is
+provided by c_lib_path/2 from library(clocations).
 
+\arg{Functions} is a list of functions that must be made available as
+Prolog predicates. Each specification is a compound term whose name is
+the name of the C~function to import. The arguments of the compound
+provide additional hints for this library for mapping the native C types
+to Prolog types. The compound has the same number of arguments as the C
+function or one more if the return value of the function is used. This
+last argument must be embedded in a list. Each argument is optionally
+wrapped in \exam{+type} or \exam{-type} to indicate an input or output
+argument. An output argument is realised by passing a pointer to an
+object of the required type and, upon completion of the function,
+reading the value from this pointer. Next, the argument may be wrapped
+in \exam{*(type)} to indicate it is a pointer. The supported types are
+given below:
 
+\begin{description}
+    \termitem{int}{}
+The argument is to be mapped to a Prolog integer.  This is compatible
+with C integers of all supported sizes.  If the argument is an input
+argument a domain check is performed to validate that the (unbounded)
+Prolog integer can be represented by the bounded C integer.
+    \termitem{float}{}
+Supports C floats and doubles.
+    \termitem{string}{}
+\nodescription
+    \termitem{string}{Encoding}
+As input argument, transform the Prolog data into a C string.
+\arg{Encoding} defines the mapping from Prolog Unicode to the
+C representation.  The default is \const{text}, using the default
+encoding of the OS.  Other values are \const{iso_latin_1}, \const{utf8}
+and \const{wchar_t}.
+    \termitem{struct}{Name}
+Argument is a structure of the given name.
+    \termitem{union}{Name}
+Argument is an union of the given name.
+    \termitem{enum}{Name}
+Argument is an enum of the given name. An enum member is mapped to a
+Prolog atom. The wrapper translates between the atom and C~integer that
+represent the enum encoding.
+\end{description}
+\end{description}
 
+\subsection{Module awareness}
+
+User defined types (structures, unions and enums) are compiled into
+Prolog predicates. These definitions are local to the module that uses
+the c_import/3 statement.
 
 \input{cmem.tex}
 
