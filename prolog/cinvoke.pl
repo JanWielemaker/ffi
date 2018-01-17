@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2017, VU University Amsterdam
+    Copyright (c)  2018, VU University Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -61,6 +61,7 @@
             c_current_union/1,          % :Name
             c_current_union/3,          % :Name, -Size, -Alignment
             c_current_union_field/3,    % :Name, ?Field, ?Type
+            c_current_typedef/2,        % :Name, -Type
 
             c_struct_dict/2,            % ?Ptr,  ?Dict
 
@@ -100,6 +101,7 @@
     c_current_union(:),
     c_current_union(:,?,?),
     c_current_union_field(:,?,?),
+    c_current_typedef(:,?),
     c_struct_dict(:,?),
     type_size(:,-),
     type_size_align(:,-,-),
@@ -214,7 +216,13 @@ c_import(Libs, Functions, FunctionNames, Types) -->
 decls(_) -->
     [ (:- discontiguous(('$c_lib'/2,
                          '$c_struct'/3,
-                         '$c_struct_field'/4))) ].
+                         '$c_struct_field'/4,
+                         '$c_union'/3,
+                         '$c_union_field'/4,
+                         '$c_enum'/3,
+                         '$c_typedef'/2
+                        )))
+    ].
 
 compile_types([], _) --> [].
 compile_types([struct(Name,Fields)|T], Types) --> !,
@@ -225,6 +233,9 @@ compile_types([union(Name,Fields)|T], Types) --> !,
     compile_types(T, Types).
 compile_types([enum(Name, Values)|T], Types) --> !,
     compile_enum(Name, Values),
+    compile_types(T, Types).
+compile_types([typedef(Name, Type)|T], Types) --> !,
+    compile_typedef(Name, Type),
     compile_types(T, Types).
 compile_types([_|T], Types) --> !,
     compile_types(T, Types).
@@ -547,6 +558,10 @@ type_size_align(_:(*(_)), Size, Alignment, _) :-
     !,
     c_alignof(pointer, Alignment),
     c_sizeof(pointer, Size).
+type_size_align(Type, Size, Alignment) :-
+    c_current_typedef(Type, Def),
+    !,
+    type_size_align(Def, Size, Alignment).
 type_size_align(Type, _Size, _Alignment, _) :-
     existence_error(type, Type).
 
@@ -842,8 +857,8 @@ get_field(Ptr, f(Name, Offset, Type), Name-Value) :-
 %   True when Id is a member of Enum with Value.
 
 c_current_enum(Id, M:Enum, Value) :-
-    enum_module(M, '$enum'/3),
-    M:'$enum'(Id, Enum, Value).
+    enum_module(M, '$c_enum'/3),
+    M:'$c_enum'(Id, Enum, Value).
 
 enum_module(M, PI) :-
     nonvar(M),
@@ -878,7 +893,7 @@ c_enum_out(_Id, Enum, Value) :-
 
 %!  compile_enum(+Name, +Values)// is det.
 %
-%   Compile an enum declaration into clauses for '$enum'/3.
+%   Compile an enum declaration into clauses for '$c_enum'/3.
 
 compile_enum(Name, Values) -->
     enum_clauses(Values, 0, Name).
@@ -886,14 +901,30 @@ compile_enum(Name, Values) -->
 enum_clauses([], _, _) --> [].
 enum_clauses([enum_value(Id, -)|T], I, Name) -->
     !,
-    [ '$enum'(Id, Name, I) ],
+    [ '$c_enum'(Id, Name, I) ],
     { I2 is I + 1 },
     enum_clauses(T, I2, Name).
 enum_clauses([enum_value(Id, C)|T], _, Name) -->
     { ast_constant(C, I) },
-    [ '$enum'(Id, Name, I) ],
+    [ '$c_enum'(Id, Name, I) ],
     { I2 is I + 1 },
     enum_clauses(T, I2, Name).
+
+
+		 /*******************************
+		 *            TYPEDEF		*
+		 *******************************/
+
+%!  c_current_typedef(?Name, ?Type)
+%
+%   True when Name is a typedef name for Type.
+
+c_current_typedef(M:Name, Type) :-
+    enum_module(M, '$c_typedef'/2),
+    M:'$c_typedef'(Name, Type).
+
+compile_typedef(Name, Type) -->
+    [ '$c_typedef'(Name, Type) ].
 
 
 		 /*******************************
