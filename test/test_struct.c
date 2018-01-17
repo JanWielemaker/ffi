@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdint.h>
 
 typedef int dim;
 
@@ -6,6 +7,11 @@ typedef struct point
 { dim x;
   dim y;
 } point;
+
+void
+dim_dim(dim in, long *out)
+{ *out = in;
+}
 
 int
 get_point(point *p)

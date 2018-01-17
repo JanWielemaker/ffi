@@ -101,7 +101,7 @@
     c_current_union(:),
     c_current_union(:,?,?),
     c_current_union_field(:,?,?),
-    c_current_typedef(:,?),
+    c_current_typedef(:,:),
     c_struct_dict(:,?),
     type_size(:,-),
     type_size_align(:,-,-),
@@ -558,10 +558,10 @@ type_size_align(_:(*(_)), Size, Alignment, _) :-
     !,
     c_alignof(pointer, Alignment),
     c_sizeof(pointer, Size).
-type_size_align(Type, Size, Alignment) :-
+type_size_align(Type, Size, Alignment, All) :-
     c_current_typedef(Type, Def),
     !,
-    type_size_align(Def, Size, Alignment).
+    type_size_align(Def, Size, Alignment, All).
 type_size_align(Type, _Size, _Alignment, _) :-
     existence_error(type, Type).
 
@@ -915,11 +915,11 @@ enum_clauses([enum_value(Id, C)|T], _, Name) -->
 		 *            TYPEDEF		*
 		 *******************************/
 
-%!  c_current_typedef(?Name, ?Type)
+%!  c_current_typedef(:Name, :Type) is nondet.
 %
 %   True when Name is a typedef name for Type.
 
-c_current_typedef(M:Name, Type) :-
+c_current_typedef(M:Name, M:Type) :-
     enum_module(M, '$c_typedef'/2),
     M:'$c_typedef'(Name, Type).
 
