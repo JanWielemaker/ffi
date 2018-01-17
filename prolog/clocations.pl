@@ -57,7 +57,7 @@ a C library.  Hooks may be used to extend this predicate:
 
   - library_path_hook/2 is called first by c_lib_path/2 and may redefine
     the entire process.
-  - cpu_alias/2 may be used if =ldconfig -p= is used to verify that a
+  - cpu_alias/2 may be used if =|ldconfig -p|= is used to verify that a
     library is compatible with the current architecture of the
     SWI-Prolog process.
 */
