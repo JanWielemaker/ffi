@@ -35,19 +35,23 @@
 #define PL_ARITY_AS_SIZE 1
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
-#include <cinvoke.h>
+#include <ffi.h>
+#include <dlfcn.h>
+#include <errno.h>
 #include <string.h>
 #include <assert.h>
+
+#define MAX_ARGC 100
 
 static unsigned int debug = 0;
 
 #define DEBUG(l, g) if ( (l) <= debug ) do { g; } while(0)
 
-static atom_t ATOM_ci_context;
-static atom_t ATOM_ci_library;
-static atom_t ATOM_ci_entrypoint;
-static atom_t ATOM_ci_function;
+static atom_t ATOM_c_library;
+static atom_t ATOM_c_symbol;
+static atom_t ATOM_c_function;
 
+static atom_t ATOM_default;
 static atom_t ATOM_cdecl;
 static atom_t ATOM_stdcall;
 static atom_t ATOM_fastcall;
@@ -62,15 +66,13 @@ static atom_t ATOM_void;			/* void */
 		 *******************************/
 
 static int
-get_cc(term_t cc, cinv_callconv_t *v)
+get_abi(term_t cc, ffi_abi *v)
 { atom_t a;
 
   if ( PL_get_atom_ex(cc, &a) )
-  { if      ( a == ATOM_cdecl )    *v = CINV_CC_CDECL;
-    else if ( a == ATOM_stdcall )  *v = CINV_CC_STDCALL;
-    else if ( a == ATOM_fastcall ) *v = CINV_CC_STDCALL;
+  { if      ( a == ATOM_default )  *v = FFI_DEFAULT_ABI;
     else
-    { PL_domain_error("ic_calling_convention", cc);
+    { PL_domain_error("ffi_abi", cc);
       return FALSE;
     }
 
@@ -81,76 +83,54 @@ get_cc(term_t cc, cinv_callconv_t *v)
 }
 
 
-/*
-static int
-get_type(term_t type, cinv_type_t *v)
-{ atom_t a;
-
-  if ( PL_get_atom_ex(type, &a) )
-  { if      ( a == ATOM_char )     *v = CINV_T_CHAR;
-    else if ( a == ATOM_short )    *v = CINV_T_SHORT;
-    else if ( a == ATOM_int )      *v = CINV_T_INT;
-    else if ( a == ATOM_long )     *v = CINV_T_LONG;
-    else if ( a == ATOM_longlong ) *v = CINV_T_EXTRALONG;
-    else if ( a == ATOM_float )    *v = CINV_T_FLOAT;
-    else if ( a == ATOM_double )   *v = CINV_T_DOUBLE;
-    else if ( a == ATOM_pointer )  *v = CINV_T_PTR;
-    else return PL_domain_error("ic_type", type);
-
-    return TRUE;
-  }
-
-  return FALSE;
-}
-*/
-
-
 		 /*******************************
 		 *	      ERRORS		*
 		 *******************************/
 
 static int
-ci_error(CInvContext *cictx)
-{ Sdprintf("Error!\n");
+dl_error(const char *op, const char *obj)
+{ Sdprintf("Error: *s: %s: %s\n", op, obj, dlerror());
+
   return FALSE;
 }
 
 static int
-ci_status(cinv_status_t status, CInvContext *cictx)
-{ if ( status == CINV_SUCCESS )
-  { return TRUE;
-  } else
-  { return ci_error(cictx);
+ffi_error(ffi_status rc)
+{ switch(rc)
+  { case FFI_OK:
+      return TRUE;
+    case FFI_BAD_TYPEDEF:
+      Sdprintf("Bad typedef\n");
+      return FALSE;
+    case FFI_BAD_ABI:
+      Sdprintf("Bad ABI\n");
+      return FALSE;
+    default:
+      Sdprintf("FFI: unknown error %d\n", (int)rc);
+      return FALSE;
   }
 }
-
 
 		 /*******************************
 		 *	   CONTEXT TYPES	*
 		 *******************************/
 
-typedef struct ctx_context
-{ CInvContext  *cictx;
-  atom_t	symbol;
-} ctx_context;
-
 typedef struct ctx_library
-{ ctx_context  *cictx;
-  CInvLibrary  *lib;
+{ char	       *name;			/* name of the library */
+  void	       *lib;			/* handle */
 } ctx_library;
 
-typedef struct ctx_entrypoint
-{ ctx_context  *cictx;
-  void         *func;
-} ctx_entrypoint;
+typedef struct ctx_symbol
+{ void         *func;
+} ctx_symbol;
 
 typedef struct ctx_prototype
-{ ctx_context  *cictx;
-  CInvFunction *func;
-  void         *entrypoint;
+{ ffi_cif	cif;			/* libffi cif */
+  void         *func;
   int		argc;
   const char   *rformat;
   const char   *pformat;
+  ffi_type    **atypes;
 } ctx_prototype;
 
 
@@ -159,15 +139,10 @@ typedef struct ctx_prototype
 		 *******************************/
 
 static int
-unify_part_ptr(term_t t, ctx_context *ctx,
+unify_part_ptr(term_t t,
 	       void *ptr, size_t size, atom_t type,
 	       freefunc free)
-{ if ( unify_ptr(t, ptr, 1, size, type, Q_STRUCT, free) )
-  { PL_register_atom(ctx->symbol);
-    return TRUE;
-  }
-
-  return FALSE;
+{ return unify_ptr(t, ptr, 1, size, type, Q_STRUCT, free);
 }
 
 
@@ -177,85 +152,50 @@ unify_part_ptr(term_t t, ctx_context *ctx,
 		 *******************************/
 
 static void
-ci_context_free(void *ptr)
-{ ctx_context *ctx = ptr;
-
-  cinv_context_delete(ctx->cictx);
-  free(ctx);
-}
-
-
-static foreign_t
-ci_context_create(term_t context)
-{ CInvContext *cictx;
-
-  if ( (cictx=cinv_context_create()) )
-  { ctx_context *ctx = malloc(sizeof(*ctx));
-
-    if ( ctx )
-    { ctx->cictx = cictx;
-
-      if ( unify_ptr(context, ctx, 1, sizeof(*ctx),
-		     ATOM_ci_context, Q_STRUCT, ci_context_free) )
-	return PL_get_atom(context, &ctx->symbol);
-
-      free(ctx);
-    }
-    cinv_context_delete(cictx);
-    if ( !PL_exception(0) )
-      PL_resource_error("memory");
-  }
-
-  return FALSE;
-}
-
-
-static void
-ci_library_free(void *ptr)
+ffi_library_free(void *ptr)
 { ctx_library *libh = ptr;
 
   if ( libh->lib )
-    cinv_library_delete(libh->cictx->cictx, libh->lib);
-  PL_unregister_atom(libh->cictx->symbol);
+    dlclose(libh->lib);
+  if ( libh->name )
+    free(libh->name);
 
   free(ptr);
 }
 
 
 static foreign_t
-ci_library_create(term_t context, term_t path, term_t lib)
+ffi_library_create(term_t path, term_t lib, term_t options)
 { char *name;
-  ctx_context *ctx;
 
-  if ( get_ptr(context, &ctx, ATOM_ci_context) &&
-       PL_get_file_name(path, &name,
+  if ( PL_get_file_name(path, &name,
 			PL_FILE_OSPATH|PL_FILE_SEARCH|PL_FILE_READ) )
-  { CInvLibrary *h;
+  { int flags = RTLD_LAZY;
+    void *h;
 
     DEBUG(1, Sdprintf("Opening %s\n", name));
 
-    if ( (h=cinv_library_create(ctx->cictx, name)) )
+    if ( (h=dlopen(name, flags)) )
     { ctx_library *libh = malloc(sizeof(*libh));
 
       if ( libh )
-      { libh->cictx = ctx;
-	libh->lib   = h;
+      { libh->lib  = h;
+	libh->name = strdup(name);
 
-	if ( unify_part_ptr(lib, ctx,
-			    libh, sizeof(*libh), ATOM_ci_library,
-			    ci_library_free) )
+	if ( unify_part_ptr(lib, libh, sizeof(*libh), ATOM_c_library,
+			    ffi_library_free) )
 	  return TRUE;
 
 	free(libh);
       }
 
-      cinv_library_delete(ctx->cictx, h);
+      dlclose(h);
       if ( !PL_exception(0) )
 	PL_resource_error("memory");
       return FALSE;
     }
 
-    return ci_error(ctx->cictx);
+    return dl_error("dlopen", name);
   }
 
   return FALSE;
@@ -263,16 +203,15 @@ ci_library_create(term_t context, term_t path, term_t lib)
 
 
 static foreign_t
-ci_free_library(term_t lib)
+pl_ffi_library_free(term_t lib)
 { ctx_library *libh;
 
-  if ( get_ptr(lib, &libh, ATOM_ci_library) )
-  { cinv_status_t rc;
-    CInvLibrary *h = libh->lib;
+  if ( get_ptr(lib, &libh, ATOM_c_library) )
+  { void *h = libh->lib;
 
     if ( h &&__sync_bool_compare_and_swap(&libh->lib, h, NULL) )
-    { rc = cinv_library_delete(libh->cictx->cictx, h);
-      return ci_status(rc, libh->cictx->cictx);
+    { if ( dlclose(h) )
+	return dl_error("dlclose", libh->name);
     }
 
     return TRUE;
@@ -283,35 +222,35 @@ ci_free_library(term_t lib)
 
 
 static void
-ci_entrypoint_free(void *ptr)
-{ ctx_entrypoint *ep = ptr;
+ffi_symbol_free(void *ptr)
+{ ctx_symbol *ep = ptr;
 
-  PL_unregister_atom(ep->cictx->symbol);
-  free(ptr);
+  free(ep);
 }
 
 
 static foreign_t
-ci_library_load_entrypoint(term_t lib, term_t name, term_t func)
+ffi_lookup_symbol(term_t lib, term_t name, term_t func)
 { ctx_library *libh;
   char *fname;
 
-  if ( get_ptr(lib, &libh, ATOM_ci_library) &&
+  if ( get_ptr(lib, &libh, ATOM_c_library) &&
        PL_get_chars(name, &fname, CVT_ATOM|CVT_EXCEPTION) )
   { void *f;
 
-    DEBUG(1, Sdprintf("Find %s in %p\n", fname, libh));
+    DEBUG(1, Sdprintf("Find %s in %p ...\n", fname, libh));
 
-    if ( (f=cinv_library_load_entrypoint(libh->cictx->cictx, libh->lib, fname)) )
-    { ctx_entrypoint *ep = malloc(sizeof(*ep));
+    if ( (f=dlsym(libh->lib, fname)) )
+    { ctx_symbol *ep = malloc(sizeof(*ep));
 
       if ( ep )
-      { ep->cictx = libh->cictx;
-	ep->func  = f;
+      { ep->func  = f;
 
-	if ( unify_part_ptr(func, libh->cictx,
-			    ep, sizeof(*ep), ATOM_ci_entrypoint,
-			    ci_entrypoint_free) )
+	DEBUG(1, Sdprintf("Found %s at %p ...\n", fname, f));
+
+	if ( unify_part_ptr(func,
+			    ep, sizeof(*ep), ATOM_c_symbol,
+			    ffi_symbol_free) )
 	  return TRUE;
 
 	free(ep);
@@ -319,7 +258,8 @@ ci_library_load_entrypoint(term_t lib, term_t name, term_t func)
       }
 
       return PL_resource_error("memory");
-    }
+    } else
+      return dl_error("dlsym", fname);
   }
 
   return FALSE;
@@ -327,13 +267,16 @@ ci_library_load_entrypoint(term_t lib, term_t name, term_t func)
 
 
 static int
-ci_signature(const char *s, char *buf)
-{ char *o = buf;
+ci_signature(const char *s, ffi_type **types)
+{ ffi_type **o = types;
   int size = 0;					/* -2..2 */
+  int u = FALSE;
 
   for(; *s; s++)
   { switch(*s)
     { case 'u':					/* modifiers */
+	u = TRUE;
+        /*FALLTHROUGH*/
       case '+':
       case '-':
 	continue;
@@ -346,32 +289,53 @@ ci_signature(const char *s, char *buf)
 
       case 'i':
 	switch(size)
-	{ case -2: *o++ = 'c'; break;
-          case -1: *o++ = 's'; break;
-	  case  0: *o++ = 'i'; break;
-	  case  1: *o++ = 'l'; break;
-	  case  2: *o++ = 'e'; break;
-	  default: return PL_syntax_error("invalid signature", NULL);
+	{ case -2: *o++ = u ? &ffi_type_uchar  : &ffi_type_schar;  break;
+          case -1: *o++ = u ? &ffi_type_ushort : &ffi_type_sshort; break;
+	  case  0: *o++ = u ? &ffi_type_uint   : &ffi_type_sint;   break;
+	  case  1: *o++ = u ? &ffi_type_ulong  : &ffi_type_slong;  break;
+	  case  2: *o++ = u ? &ffi_type_uint64 : &ffi_type_sint64; break;
+	  default:
+	    PL_syntax_error("invalid signature", NULL);
+	    return -1;
 	}
         break;
       case 'f':
 	switch(size)
-	{ case  0: *o++ = 'f'; break;
-	  case  1: *o++ = 'd'; break;
-	  default: return PL_syntax_error("invalid signature", NULL);
+	{ case  0: *o++ = &ffi_type_float; break;
+	  case  1: *o++ = &ffi_type_double; break;
+	  case  2: *o++ = &ffi_type_longdouble; break;
+	  default:
+	    PL_syntax_error("invalid signature", NULL);
+	    return -1;
 	}
         break;
       case 'p':
-	*o++ = 'p';
+	switch(size)
+	{ case 0: *o++ = &ffi_type_pointer; break;
+	  default:
+	    PL_syntax_error("invalid signature", NULL);
+	    return -1;
+	}
         break;
       default:
-	return PL_syntax_error("invalid signature", NULL);
+	PL_syntax_error("invalid signature", NULL);
+        return -1;
     }
 
     size = 0;
+    u = FALSE;
   }
 
-  *o = '\0';
+  return o-types;
+}
+
+
+static int
+ret_signature(const char *rformat, ffi_type **r_type)
+{ if ( rformat[0] )
+    return ci_signature(rformat, r_type);
+
+  *r_type = &ffi_type_void;
   return TRUE;
 }
 
@@ -380,64 +344,73 @@ static void
 ci_function_free(void *ptr)
 { ctx_prototype *p = ptr;
 
-  cinv_function_delete(p->cictx->cictx, p->func);
-  PL_unregister_atom(p->cictx->symbol);
+  if ( p->atypes )
+    free(p->atypes);
 
   free(p);
 }
 
 
 static foreign_t
-ci_function_create(term_t entry, term_t cc, term_t ret, term_t parms, term_t func)
-{ ctx_entrypoint *ep;
-  cinv_callconv_t ccv;
+ffi_prototype_create(term_t entry, term_t cc,
+		     term_t ret, term_t parms,
+		     term_t func)
+{ ctx_symbol *ep;
+  ffi_abi abi;
   char *rformat;
   char *pformat;
-  char ci_rformat[16];
-  char ci_pformat[100];
+  ffi_type *r_type;
+  ffi_type *a_types[MAX_ARGC];
+  int argc;
 
-  if ( get_ptr(entry, &ep, ATOM_ci_entrypoint) &&
-       get_cc(cc, &ccv) &&
+  if ( get_ptr(entry, &ep, ATOM_c_symbol) &&
+       get_abi(cc, &abi) &&
        PL_get_chars(ret, &rformat, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) &&
        PL_get_chars(parms, &pformat, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) &&
-       ci_signature(rformat, ci_rformat) &&
-       ci_signature(pformat, ci_pformat) )
-  { CInvFunction *f;
+       ret_signature(rformat, &r_type) &&
+       (argc=ci_signature(pformat, a_types)) >= 0 )
+  { ctx_prototype *p = malloc(sizeof(*p));
+    ffi_type    **at = malloc(argc*sizeof(*at));
 
-    DEBUG(1, Sdprintf("Created function with (%s)%s\n", ci_pformat, ci_rformat));
+    DEBUG(1, Sdprintf("Prototype args ok (argc=%d)\n", argc));
 
-    if ( (f=cinv_function_create(ep->cictx->cictx, ccv, ci_rformat, ci_pformat)) )
-    { ctx_prototype *p = malloc(sizeof(*p));
+    if ( p && at )
+    { ffi_status rc;
 
-      if ( p )
-      { memset(p, 0, sizeof(*p));
-	p->cictx      = ep->cictx;
-	p->entrypoint = ep->func;
-	p->func	      = f;
-	p->argc	      = strlen(ci_pformat);
-	p->rformat    = strdup(rformat);
-	p->pformat    = strdup(pformat);
+      memset(p, 0, sizeof(*p));
+      memcpy(at, a_types, argc*sizeof(*at));
 
-	if ( unify_part_ptr(func, ep->cictx,
-			    p, sizeof(*p), ATOM_ci_function,
-			    ci_function_free) )
-	  return TRUE;
-
-	free(p);
+      rc = ffi_prep_cif(&p->cif, abi, argc, r_type, at);
+      if ( rc != FFI_OK )
+      { free(p);
+	return ffi_error(rc);
       }
 
-      cinv_function_delete(ep->cictx->cictx, f);
-      if ( !PL_exception(0) )
-	PL_resource_error("memory");
+      p->func	 = ep->func;
+      p->argc	 = argc;
+      p->rformat = strdup(rformat);
+      p->pformat = strdup(pformat);
+      p->atypes  = at;
 
-      return FALSE;
+      DEBUG(1, Sdprintf("Created prototype\n"));
+
+      if ( unify_part_ptr(func,
+			  p, sizeof(*p), ATOM_c_function,
+			  ci_function_free) )
+	return TRUE;
     }
-    return ci_error(ep->cictx->cictx);
+
+    if (  p ) free(p);
+    if ( at ) free(at);
+
+    if ( !PL_exception(0) )
+      PL_resource_error("memory");
+
+    return FALSE;
   }
 
   return FALSE;
 }
-
 
 typedef union argstore
 { char c;
@@ -455,38 +428,12 @@ typedef union argstore
   void *p;
 } argstore;
 
-/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-What do we want to know about an argument?
-
-  - Scalars
-    - Float/Int
-    - Size
-    - Unsigned (int)
-  - Pointers
-    - Input, output (both?)
-    - Strings
-      - Encoding
-      - If output, free?
-    - Structs
-
-Encoding:
-
-  - Primary type: i, f, p (integer, float, pointer)
-  - Integer
-    - size: hh (char), h (short), l (long), ll (long long)
-    - signed: u (unsigned) s (signed)
-  - Float size: l (double)
-  - Pointer:
-    - +,-: input/output
-    - s (string), w (wide string)
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-
 
 static foreign_t
-ci_function_invoke(term_t prototype, term_t goal)
+pl_ffi_call(term_t prototype, term_t goal)
 { ctx_prototype *ctx;
 
-  if ( get_ptr(prototype, &ctx, ATOM_ci_function) )
+  if ( get_ptr(prototype, &ctx, ATOM_c_function) )
   { void *argv[ctx->argc];
     argstore as[ctx->argc];
     argstore rv;
@@ -619,8 +566,7 @@ ci_function_invoke(term_t prototype, term_t goal)
       }
     }
 
-    cinv_function_invoke(ctx->cictx->cictx, ctx->func, ctx->entrypoint,
-			 &rv.p, argv);
+    ffi_call(&ctx->cif, ctx->func, &rv.p, argv);
 
     if ( ctx->rformat && ctx->rformat[0] )
     { unsig = FALSE;
@@ -717,11 +663,11 @@ c_errno(term_t t)
 
 install_t
 install(void)
-{ MKATOM(ci_context);
-  MKATOM(ci_library);
-  MKATOM(ci_entrypoint);
-  MKATOM(ci_function);
+{ MKATOM(c_library);
+  MKATOM(c_symbol);
+  MKATOM(c_function);
 
+  MKATOM(default);
   MKATOM(cdecl);
   MKATOM(stdcall);
   MKATOM(fastcall);
@@ -730,14 +676,12 @@ install(void)
 
   install_c_memory();
 
-  PL_register_foreign("ci_context_create",  1, ci_context_create,  0);
-  PL_register_foreign("ci_library_create",  3, ci_library_create,  0);
-  PL_register_foreign("ci_free_library",    1, ci_free_library,    0);
-  PL_register_foreign("ci_library_load_entrypoint",
-					    3, ci_library_load_entrypoint, 0);
-  PL_register_foreign("ci_function_create", 5, ci_function_create, 0);
-  PL_register_foreign("ci_function_invoke", 2, ci_function_invoke, 0);
+  PL_register_foreign("ffi_library_create",   2, ffi_library_create,   0);
+  PL_register_foreign("ffi_library_free",     1, pl_ffi_library_free,  0);
+  PL_register_foreign("ffi_lookup_symbol",    3, ffi_lookup_symbol,    0);
+  PL_register_foreign("ffi_prototype_create", 5, ffi_prototype_create, 0);
+  PL_register_foreign("ffi_call",	      2, pl_ffi_call,	       0);
 
-  PL_register_foreign("ci_debug",           1, ci_debug,           0);
-  PL_register_foreign("c_errno",            1, c_errno,            0);
+  PL_register_foreign("ci_debug",	      1, ci_debug,	       0);
+  PL_register_foreign("c_errno",	      1, c_errno,	       0);
 }

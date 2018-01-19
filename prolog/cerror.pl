@@ -36,7 +36,7 @@
           [ posix_status/1,                     % +Status
             posix_status/4                      % +Status, +Op, +Type, +Arg
           ]).
-:- use_module(cinvoke).
+:- use_module(ffi).
 
 cpp_const('ENOENT').
 cpp_const('EPERM').

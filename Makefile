@@ -5,27 +5,19 @@ CC=gcc
 MAKE=make
 ARCH=$(shell $(SWIPL) -arch)
 PACKSODIR=lib/$(ARCH)
-C4PL=lib/$(ARCH)/cinvoke4pl.so
-CIFLAGS=-Icinvoke-1.0/lib
-LIBS=-Lcinvoke-1.0/lib -lcinvoke
-CILIB=cinvoke-1.0/lib/libcinvoke.a
+FFI4PL=lib/$(ARCH)/ffi4pl.so
+LIBS=-lffi
 CFLAGS=-shared -fPIC
 SOEXT=so
 TESTSO=	test/test_struct.$(SOEXT) \
 	test/test_union.$(SOEXT) \
 	test/test_enum.$(SOEXT)
 
-all:	$(C4PL)
+all:	$(FFI4PL)
 
-$(C4PL): c/cinvoke4pl.c c/cmemory.c Makefile $(CILIB)
+$(FFI4PL): c/ffi4pl.c c/cmemory.c Makefile
 	mkdir -p $(PACKSODIR)
-	$(LD) $(LDSOFLAGS) $(CIFLAGS) -o $@ c/cinvoke4pl.c $(LIBS)
-
-$(CILIB): cinvoke-1.0/Makefile
-	$(MAKE) -C cinvoke-1.0
-
-cinvoke-1.0/Makefile: cinvoke-1.0/Makefile.templ
-	(cd cinvoke-1.0 && ./configure.pl)
+	$(LD) $(LDSOFLAGS) -o $@ c/ffi4pl.c $(LIBS)
 
 test/test.$(SOEXT): test/test.c
 	$(CC) $(CFLAGS) -o $@ $<
@@ -49,11 +41,9 @@ check:	$(TESTSO)
 install::
 
 clean:
-	rm -f $(C4PL) *~
+	rm -f *~
 	rm -f test/*.$(SOEXT)
-	if [ -r cinvoke-1.0/Makefile ]; then $(MAKE) -C cinvoke-1.0 clean; fi
 
 distclean: clean
-	rm -f $(C4PL) *~
-	(cd cinvoke-1.0 && ./configure.pl --distclean)
+	rm -f $(FFI4PL)
 

@@ -1,4 +1,4 @@
-:- use_module('../prolog/cinvoke').
+:- use_module('../prolog/ffi').
 :- use_module('../prolog/cdecls').
 :- use_module(library(pprint)).
 

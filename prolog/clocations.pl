@@ -44,7 +44,7 @@
 :- use_module(library(apply)).
 :- use_module(library(dcg/basics)).
 
-/** <module> Define resource locations for cinvoke
+/** <module> Define resource locations for the ffi library
 
 This module provides the mapping from   library  names to concrete files
 that can be loaded. This  is  used   by  c_import/3.  While  C compilers

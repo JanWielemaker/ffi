@@ -32,7 +32,7 @@
     POSSIBILITY OF SUCH DAMAGE.
 */
 
-:- module(cinvoke,
+:- module(ffi,
           [ c_import/3,                 % +Header, +Libs, +Functions
 
                                         % Memory access predicates
@@ -108,7 +108,7 @@
     type_size_align(:,-,-, +).
 
 
-:- use_foreign_library(foreign(cinvoke4pl)).
+:- use_foreign_library(foreign(ffi4pl)).
 
 :- multifile
     user:file_search_path/2,
@@ -133,29 +133,6 @@
 %
 %   True when FuncPtr is a pointer to Name in the library Handle
 
-%!  ic_context(-Context)
-%
-%   Global context for the cinvoke library
-
-:- dynamic  ci_context_cache/1.
-:- volatile ci_context_cache/1.
-
-ci_context(Ctx) :-
-    ci_context_cache(Ctx0),
-    !,
-    Ctx = Ctx0.
-ci_context(Ctx) :-
-    with_mutex(cinvoke, ci_context_sync(Ctx0)),
-    Ctx = Ctx0.
-
-ci_context_sync(Ctx) :-
-    ci_context_cache(Ctx),
-    !.
-ci_context_sync(Ctx) :-
-    ci_context_create(Ctx),
-    asserta(ci_context_cache(Ctx)).
-
-
 %!  ci_library(+Base, -FHandle)
 %
 %   Find a file handle for a foreign library
@@ -176,8 +153,7 @@ ci_library_sync(Base, FHandle) :-
     FHandle = FHandle0.
 ci_library_sync(Base, FHandle) :-
     c_lib_path(Base, Path),
-    ci_context(Ctx),
-    ci_library_create(Ctx, Path, FHandle),
+    ffi_library_create(Path, FHandle),
     assertz(ci_library_cache(Base, FHandle)).
 
 
@@ -257,9 +233,9 @@ wrap_function(Signature as PName, Types) -->
       functor(Head, PName, Arity),
       prolog_load_context(module, M)
     },
-    [ cinvoke:c_function(M:Head, Params, Ret),
+    [ ffi:c_function(M:Head, Params, Ret),
       (:- dynamic(PName/Arity)),
-      (Head :- cinvoke:define(M:Head, SigParams))
+      (Head :- ffi:define(M:Head, SigParams))
     ].
 wrap_function(Signature, Types) -->
     { compound_name_arity(Signature, Name, _)
@@ -271,11 +247,11 @@ matching_signature(Name, SigArgs, Ret, Params, SigParams) :-
     !,
     (   same_length(RealArgs, Params)
     ->  maplist(compatible_argument, RealArgs, Params, SigRealParams)
-    ;   print_message(error, cinvoke(nonmatching_params(SigArgs, Params))),
+    ;   print_message(error, ffi(nonmatching_params(SigArgs, Params))),
         fail
     ),
     (   Ret == void
-    ->  print_message(error, cinvoke(void_function(Name))),
+    ->  print_message(error, ffi(void_function(Name))),
         fail
     ;   compatible_return(PlRet, Ret, RetParam),
         append(SigRealParams, [[RetParam]], SigParams)
@@ -283,12 +259,12 @@ matching_signature(Name, SigArgs, Ret, Params, SigParams) :-
 matching_signature(Name, SigArgs, Ret, Params, SigParams) :-
     (   same_length(SigArgs, Params)
     ->  maplist(compatible_argument, SigArgs, Params, SigParams)
-    ;   print_message(error, cinvoke(nonmatching_params(SigArgs, Params))),
+    ;   print_message(error, ffi(nonmatching_params(SigArgs, Params))),
         fail
     ),
     (   Ret == void
     ->  true
-    ;   print_message(warning, cinvoke(nonvoid_function(Name, Ret)))
+    ;   print_message(warning, ffi(nonvoid_function(Name, Ret)))
     ).
 
 compatible_argument(PlArg, CArg, Param) :-
@@ -298,7 +274,7 @@ compatible_argument(PlArg, CArg, PlArg) :-
     compatible_arg(PlArg, CArg),
     !.
 compatible_argument(PlArg, CArg, PlArg) :-
-    print_message(error, cinvoke(incompatible_argument(PlArg, CArg))).
+    print_message(error, ffi(incompatible_argument(PlArg, CArg))).
 
 % compatible_arg/3
 compatible_arg(PlArg, _ArgName-CArg, Param) :-
@@ -335,7 +311,7 @@ compatible_return(PlArg, CArg, PlArg) :-
     compatible_ret(PlArg, CArg),
     !.
 compatible_return(PlArg, CArg, PlArg) :-
-    print_message(error, cinvoke(incompatible_return(PlArg, CArg))).
+    print_message(error, ffi(incompatible_return(PlArg, CArg))).
 
 % compatible_ret/3
 compatible_ret(-PlArg, CArg, Param) :-
@@ -405,13 +381,13 @@ link_clause(M:Goal, SigArgs,
     (   M:'$c_lib'(Lib, Funcs),
         memberchk(Name, Funcs),
         ci_library(Lib, FH),
-        ci_library_load_entrypoint(FH, Name, FuncPtr)
+        ffi_lookup_symbol(FH, Name, FuncPtr)
     ->  debug(ctypes, 'Binding ~p (Ret=~p, Params=~p)', [Name, Ret, Params]),
-        ci_function_create(FuncPtr, cdecl, Ret, Params, Prototype)
+        ffi_prototype_create(FuncPtr, default, Ret, Params, Prototype)
     ;   existence_error(c_function, Name)
     ),
     convert_args(SigArgs, 1, Arity, Head, Head1, PreConvert, PostConvert),
-    Invoke = cinvoke:ci_function_invoke(Prototype, Head1),
+    Invoke = ffi:ffi_call(Prototype, Head1),
     mkconj(PreConvert, Invoke, Body0),
     mkconj(Body0, PostConvert, Body).
 
@@ -1154,7 +1130,7 @@ system:term_expansion(T0, T) :-
 
 :- multifile prolog:message//1.
 
-prolog:message(cinvoke(Msg)) -->
+prolog:message(ffi(Msg)) -->
     message(Msg).
 
 message(incompatible_return(Prolog, C)) -->

@@ -6,7 +6,7 @@
 :- use_module(library(apply_macros), []).
 :- use_module(library(plunit)).
 
-:- use_module('../prolog/cinvoke').
+:- use_module('../prolog/ffi').
 
 test_struct :-
     run_tests([c_struct]).

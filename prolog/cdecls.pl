@@ -44,7 +44,7 @@
 :- use_module(library(lists)).
 :- use_module(library(dcg/basics)).
 :- use_module(cparser).
-:- use_module(cinvoke, [c_sizeof/2]).
+:- use_module(ffi, [c_sizeof/2]).
 
 %!  c99_types(+Header, +Functions, -Types) is det.
 %!  c99_types(+Header, +Functions, -Types, Consts) is det.

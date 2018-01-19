@@ -11,7 +11,7 @@
 \htmlmainfile{clib}			% Main document file
 \bodycolor{white}			% Page colour
 
-\renewcommand{\runningtitle}{cinvoke -- call C functions dynamically}
+\renewcommand{\runningtitle}{ffi -- call C functions dynamically}
 
 \begin{document}
 
@@ -24,7 +24,7 @@
 \maketitle
 
 \begin{abstract}
-This document describes library(cinvoke), a library to wrap calls to C
+This document describes library(ffi), a library to wrap calls to C
 functions in shared objects (DLLs) dynamically. The library uses an
 external C~preprocessor and the C header files to create the calling
 template, register types such as structures and enums and make the
@@ -44,7 +44,7 @@ data structures.
 \newpage
 
 \section{Introduction}
-\label{sec:cinvoke-intro}
+\label{sec:ffi-intro}
 
 One of the oldest foreign interfaces for Prolog was provided by Quintus
 Prolog. In this interface the C~functions that are to be made available
@@ -259,7 +259,7 @@ far less work than doing this in C, the result generally performs less.
 
 \paragraph{Struct pointers, but no struct}
 
-The underlying \href{http://www.nongnu.org/cinvoke/}{cinvoke} library
+The underlying \href{https://sourceware.org/libffi/}{libffi} library
 cannot create dynamic calls to functions that have a structure as
 argument, nor deal with functions that return a struct. For example we
 cannot wrap mallinfo() with the synopsis as below.

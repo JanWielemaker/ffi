@@ -6,7 +6,7 @@
 *.log
 *.out
 *.pdf
-cinvoke.tex
+ffi.tex
 clocations.tex
 cmem.tex
 summaries.d

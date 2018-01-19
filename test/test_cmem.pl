@@ -2,7 +2,7 @@
           [ test_cmem/0
           ]).
 
-:- use_module('../prolog/cinvoke').
+:- use_module('../prolog/ffi').
 :- use_module(library(plunit)).
 
 test_cmem :-

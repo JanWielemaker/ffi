@@ -3,7 +3,7 @@
           ]).
 
 :- use_module(library(plunit)).
-:- use_module('../prolog/cinvoke').
+:- use_module('../prolog/ffi').
 
 test_enum :-
     run_tests([c_enum]).
