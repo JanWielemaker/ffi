@@ -1,0 +1,7 @@
+Makefile
+bindings/java/Makefile
+bindings/lua/Makefile
+lib/Makefile
+lib/cinvoke-archspec.h
+test/Makefile
+test/runtests
