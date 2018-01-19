@@ -33,9 +33,14 @@
 */
 
 #define PL_ARITY_AS_SIZE 1
+#include "../config.h"
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
+#ifdef HAVE_FFI_FFI_H
+#include <ffi/ffi.h>
+#else
 #include <ffi.h>
+#endif
 #include <dlfcn.h>
 #include <errno.h>
 #include <string.h>
