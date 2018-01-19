@@ -646,9 +646,15 @@ gcc_attribute_name(H) --> [H], {atom(H)}.
 gcc_attribute_param_list([]), [')'] -->
     [')'], !.
 gcc_attribute_param_list([H|T]) -->
-    gcc_attribute_param(H),
+    gcc_attribute_param(Name),
     (   [',']
-    ->  gcc_attribute_param_list(T)
+    ->  {H = Name},
+        gcc_attribute_param_list(T)
+    ;   {atom(Name)},
+        [=],
+        constant_expression(V)
+    ->  {H = (Name=V)},
+        gcc_attribute_param_list(T)
     ;   {T=[]}
     ).
 

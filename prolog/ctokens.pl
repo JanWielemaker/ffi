@@ -195,8 +195,8 @@ hex_quad(V) -->
     { V is (X1<<12) + (X2<<8) + (X3<<4) + X4 }.
 
 
-constant(C) --> integer_constant(C).
 constant(C) --> floating_constant(C).
+constant(C) --> integer_constant(C).
 constant(C) --> enumeration_constant(C).
 constant(C) --> character_constant(C).
 
@@ -357,10 +357,12 @@ hexadecimal_fractional_part(I, V0, V) -->
 hexadecimal_fractional_part(_, V, V) --> [].
 
 opt_exponent_part(M) -->
-    exp_e,
+    exp_e, !,
     sign(S),
     digit_sequence_value(V),
     { M is 10**(S*V) }.
+opt_exponent_part(1) -->
+    [].
 
 binary_exponent_part(M) -->
     bin_e,
