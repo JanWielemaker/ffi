@@ -1,19 +1,25 @@
 SWIPL=swipl
+LD=$(SWIPL)-ld
+LDSOFLAGS=-Wall -shared -O2
 CC=gcc
 MAKE=make
 ARCH=$(shell $(SWIPL) -arch)
+PACKSODIR=lib/$(ARCH)
 C4PL=lib/$(ARCH)/cinvoke4pl.so
 CIFLAGS=-Icinvoke-1.0/lib
 LIBS=-Lcinvoke-1.0/lib -lcinvoke
 CILIB=cinvoke-1.0/lib/libcinvoke.a
 CFLAGS=-shared -fPIC
-SO=so
+SOEXT=so
+TESTSO=	test/test_struct.$(SOEXT) \
+	test/test_union.$(SOEXT) \
+	test/test_enum.$(SOEXT)
 
-all: $(C4PL) test/test_struct.$(SO) test/test_union.$(SO) test/test_enum.$(SO)
+all:	$(C4PL)
 
 $(C4PL): c/cinvoke4pl.c c/c_memory.c Makefile $(CILIB)
-	mkdir -p lib/$(ARCH)
-	$(SWIPL)-ld -Wall -g -shared $(CIFLAGS) -o $@ $< $(LIBS)
+	mkdir -p $(PACKSODIR)
+	$(LD) $(LDSOFLAGS) $(CIFLAGS) -o $@ c/cinvoke4pl.c $(LIBS)
 
 $(CILIB): cinvoke-1.0/Makefile
 	$(MAKE) -C cinvoke-1.0
@@ -21,18 +27,18 @@ $(CILIB): cinvoke-1.0/Makefile
 cinvoke-1.0/Makefile: cinvoke-1.0/Makefile.templ
 	(cd cinvoke-1.0 && ./configure.pl)
 
-test/test.$(SO): test/test.c
+test/test.$(SOEXT): test/test.c
 	$(CC) $(CFLAGS) -o $@ $<
-test/test_struct.$(SO): test/test_struct.c
+test/test_struct.$(SOEXT): test/test_struct.c
 	$(CC) $(CFLAGS) -o $@ $<
-test/test_union.$(SO): test/test_union.c
+test/test_union.$(SOEXT): test/test_union.c
 	$(CC) $(CFLAGS) -o $@ $<
-test/test_enum.$(SO): test/test_enum.c
+test/test_enum.$(SOEXT): test/test_enum.c
 	$(CC) $(CFLAGS) -o $@ $<
 
 clean:
 	rm -f $(C4PL) *~
-	rm test/*.$(SO)
+	rm test/*.$(SOEXT)
 	$(MAKE) -C cinvoke-1.0 clean
 
 distclean: clean
@@ -42,7 +48,7 @@ distclean: clean
 tags:
 	etags c/*.[ch]
 
-check:
+check:	$(TESTSO)
 	$(SWIPL) -q -g test_cmem -t halt test/test_cmem.pl
 	$(SWIPL) -q -g test_enum -t halt test/test_enum.pl
 	$(SWIPL) -q -g test_libc -t halt test/test_libc.pl
