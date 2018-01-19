@@ -7,3 +7,6 @@
 *.out
 *.pdf
 cinvoke.tex
+clocations.tex
+cmem.tex
+summaries.d
