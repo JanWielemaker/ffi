@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2017, VU University Amsterdam
+    Copyright (c)  2017-2018, VU University Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -54,7 +54,7 @@ static atom_t ATOM_fastcall;
 
 static atom_t ATOM_void;			/* void */
 
-#include "c_memory.c"
+#include "cmemory.c"
 
 
 		 /*******************************

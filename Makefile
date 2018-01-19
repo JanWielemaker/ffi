@@ -17,7 +17,7 @@ TESTSO=	test/test_struct.$(SOEXT) \
 
 all:	$(C4PL)
 
-$(C4PL): c/cinvoke4pl.c c/c_memory.c Makefile $(CILIB)
+$(C4PL): c/cinvoke4pl.c c/cmemory.c Makefile $(CILIB)
 	mkdir -p $(PACKSODIR)
 	$(LD) $(LDSOFLAGS) $(CIFLAGS) -o $@ c/cinvoke4pl.c $(LIBS)
 
