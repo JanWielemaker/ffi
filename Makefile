@@ -36,15 +36,6 @@ test/test_union.$(SOEXT): test/test_union.c
 test/test_enum.$(SOEXT): test/test_enum.c
 	$(CC) $(CFLAGS) -o $@ $<
 
-clean:
-	rm -f $(C4PL) *~
-	rm test/*.$(SOEXT)
-	$(MAKE) -C cinvoke-1.0 clean
-
-distclean: clean
-	rm -f $(C4PL) *~
-	(cd cinvoke-1.0 && ./configure.pl --distclean)
-
 tags:
 	etags c/*.[ch]
 
@@ -54,3 +45,15 @@ check:	$(TESTSO)
 	$(SWIPL) -q -g test_libc -t halt test/test_libc.pl
 	$(SWIPL) -q -g test_struct -t halt test/test_struct.pl
 	$(SWIPL) -q -g test_union -t halt test/test_union.pl
+
+install::
+
+clean:
+	rm -f $(C4PL) *~
+	rm -f test/*.$(SOEXT)
+	if [ -r cinvoke-1.0/Makefile ]; then $(MAKE) -C cinvoke-1.0 clean; fi
+
+distclean: clean
+	rm -f $(C4PL) *~
+	(cd cinvoke-1.0 && ./configure.pl --distclean)
+
