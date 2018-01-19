@@ -12,4 +12,4 @@ $(SHARED): lib.o
 	[BUILDSHARED] $(SHARED) lib.o
 
 runtests: runtests.c $(SHARED) ../lib/libcinvoke.a
-	gcc [CFLAGS] -o runtests runtests.c -L../lib -I../lib [LIBDL] -lcinvoke -lm
+	gcc [CFLAGS] -o runtests runtests.c -L../lib -I../lib -lcinvoke -lm [LIBDL]
