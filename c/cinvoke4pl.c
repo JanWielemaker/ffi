@@ -69,7 +69,10 @@ get_cc(term_t cc, cinv_callconv_t *v)
   { if      ( a == ATOM_cdecl )    *v = CINV_CC_CDECL;
     else if ( a == ATOM_stdcall )  *v = CINV_CC_STDCALL;
     else if ( a == ATOM_fastcall ) *v = CINV_CC_STDCALL;
-    else return PL_domain_error("ic_calling_convention", cc);
+    else
+    { PL_domain_error("ic_calling_convention", cc);
+      return FALSE;
+    }
 
     return TRUE;
   }
