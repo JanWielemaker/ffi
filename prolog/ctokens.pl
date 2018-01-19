@@ -141,6 +141,7 @@ keyword(inline) --> "__inline".
 keyword('__builtin_va_list') --> "__builtin_va_list".
 keyword('__gnuc_va_list') --> "__gnuc_va_list".
 keyword('__asm__') --> "__asm__".
+keyword('__asm__') --> "__asm".
 keyword('__alignof__') --> "__alignof__".
 
 identifier(Id) --> identifier_nondigit(H), identifier_cont(T),
