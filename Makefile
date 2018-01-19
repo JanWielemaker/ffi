@@ -5,10 +5,9 @@ CC=gcc
 MAKE=make
 ARCH=$(shell $(SWIPL) -arch)
 PACKSODIR=lib/$(ARCH)
-FFI4PL=lib/$(ARCH)/ffi4pl.so
+FFI4PL=lib/$(ARCH)/ffi4pl.$(SOEXT)
 LIBS=-lffi
 CFLAGS=-shared -fPIC
-SOEXT=so
 TESTSO=	test/test_struct.$(SOEXT) \
 	test/test_union.$(SOEXT) \
 	test/test_enum.$(SOEXT)
