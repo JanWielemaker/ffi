@@ -37,7 +37,7 @@ system we can make the  call  below.  Note   that  we  did  not make any
 declarations about the structure or the involved integer types.
 
 ```{prolog}
-statfs(".", FsStat), c_load(FsStat[f_bavail], A).
+?- statfs(".", FsStat), c_load(FsStat[f_bavail], A).
 FsStat = <C struct statfs[1]>(0x55a2c9d5bae0),
 A = 66197957.
 ```
