@@ -127,7 +127,6 @@ main(Argv) :-
 	partition(is_option, Argv, OptArgs, Files),
 	maplist(to_option, OptArgs, AllOptions),
 	load_prolog(AllOptions, Options),
-	gtrace,
 	maplist(libtotex(Options), Files).
 
 is_option(Arg) :-
