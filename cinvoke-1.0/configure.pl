@@ -30,8 +30,8 @@ my $LIBDL;
 # even those compiled in static libraries, must
 # have -fpic set if they will eventually be linked
 # by shared libraries
-if ($SOLARIS) {
-	$CFLAGS .= " -fpic";
+if ($SOLARIS || $LINUX) {
+	$CFLAGS .= " -fPIC";
 }
 
 # Linux and OSX have libdl, *BSD doesn't
@@ -94,7 +94,7 @@ sub find_jni {
 
 sub determine_platform {
 	my $processor;
-	
+
 	my $gccout = `gcc -dumpmachine`;
 	if ($? != 0) { die "error executing gcc -dumpmachine: $!"; }
 	if ($gccout =~ m/i[3456]86/) {
