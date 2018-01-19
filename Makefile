@@ -33,9 +33,9 @@ tags:
 check:	$(TESTSO)
 	$(SWIPL) -q -g test_cmem -t halt test/test_cmem.pl
 	$(SWIPL) -q -g test_enum -t halt test/test_enum.pl
-	$(SWIPL) -q -g test_libc -t halt test/test_libc.pl
 	$(SWIPL) -q -g test_struct -t halt test/test_struct.pl
 	$(SWIPL) -q -g test_union -t halt test/test_union.pl
+	$(SWIPL) -q -g test_libc -t halt test/test_libc.pl
 
 install::
 
