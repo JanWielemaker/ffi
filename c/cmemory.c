@@ -814,7 +814,7 @@ c_alloc_string(term_t ptr, term_t data, term_t encoding)
       { if ( unify_ptr(ptr, ws, (len+1), sizeof(pl_wchar_t),
 		       ATOM_wchar_t, Q_PLAIN, PL_free) )
 	  return TRUE;
-	PL_free(s);
+	PL_free(ws);
       }
     } else
       return PL_domain_error("encoding", encoding);
