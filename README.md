@@ -41,3 +41,22 @@ declarations about the structure or the involved integer types.
 FsStat = <C struct statfs[1]>(0x55a2c9d5bae0),
 A = 66197957.
 ```
+
+## Installation
+
+  - Make sure [libffi](https://sourceware.org/libffi/) is installed.
+    This is available as package on various systems.
+  - Clone this repo
+  - Make a link from the `.../swipl/pack/ffi` to the cloned directory
+  - Run in Prolog: `?- pack_rebuild(ffi).`
+
+## Documentation
+
+There is not yet public documentation.   With all proper tools installed
+(Prolog, LaTeX) and a Linux machine you should be able to type `make` in
+the `doc` directory to build the (incomplete) documentation.
+
+
+## Status
+
+Proof of concept.  Tests pass on Linux.
