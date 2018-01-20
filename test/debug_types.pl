@@ -13,3 +13,7 @@ t :-
               ],
               Types),
     print_term(Types, []).
+
+ast(Header) :-
+    c99_header_ast(Header, AST),
+    pp(AST).
