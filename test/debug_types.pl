@@ -2,6 +2,9 @@
 :- use_module('../prolog/cdecls').
 :- use_module(library(pprint)).
 
+du :-
+    debug(c99(unit)).
+
 :- c_import("#include \"test/test_struct.c\"",
             [ 'test/test_struct' ],
             [ dim_dim(+int, -int)
@@ -12,6 +15,15 @@ t :-
               [ set_point
               ],
               Types),
+    print_term(Types, []).
+
+te :-
+    c99_types("#include <string.h>
+               #include <errno.h>",
+	      [ strerror,
+                strncmp
+	      ],
+	      Types),
     print_term(Types, []).
 
 ast(Header) :-
