@@ -105,13 +105,12 @@ c_lib_path(Name, Path) :-
 c_lib_path(Spec, Path) :-
     compound(Spec),
     !,
-    current_prolog_flag(shared_object_extension, Ext),
-    absolute_file_name(Spec, Path,
-                       [ access(execute),
-                         extensions(['',Ext])
-                       ]).
+    find_on_path(c_lib(Spec), Path).
 c_lib_path(Name, Path) :-
     ldconfig(Name, Path),
+    !.
+c_lib_path(Spec, Path) :-
+    find_on_path(c_lib(Spec), Path),
     !.
 c_lib_path(Name, _Path) :-
     existence_error(c_library, Name).
@@ -121,6 +120,15 @@ add_extension(Base, Name) :-
     current_prolog_flag(shared_object_extension, Ext),
     file_name_extension(Base, Ext, Name).
 
+find_on_path(Spec, Path) :-
+    current_prolog_flag(shared_object_extension, Ext),
+    absolute_file_name(Spec, Path,
+                       [ access(execute),
+                         extensions(['',Ext])
+                       ]).
+
+
+user:file_search_path(c_lib, '/usr/lib').
 
 
 		 /*******************************
