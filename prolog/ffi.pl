@@ -370,7 +370,7 @@ define(Signature, SigArgs) :-
 link_clause(M:Goal, SigArgs,
             (Head :- !, Body)) :-
     c_function(M:Goal, ParamSpec, RetType),
-    pairs_values(ParamSpec, ParamTypes),
+    maplist(param_type, ParamSpec, ParamTypes),
     phrase(signature_string(ParamTypes), ParamChars),
     atom_codes(Params, ParamChars),
     (   RetType == void
@@ -393,6 +393,9 @@ link_clause(M:Goal, SigArgs,
     Invoke = ffi:ffi_call(Prototype, Head1),
     mkconj(PreConvert, Invoke, Body0),
     mkconj(Body0, PostConvert, Body).
+
+param_type(_Name-Type, Type) :- !.
+param_type(Type, Type).
 
 convert_args([], _, _, _, _, true, true).
 convert_args([H|T], I, Arity, Head0, Head1, GPre, GPost) :-
