@@ -226,17 +226,20 @@ wrap_functions([H|T], Types) -->
 
 wrap_function(Signature as PName, Types) -->
     !,
-    { compound_name_arguments(Signature, FName, SigArgs),
-      memberchk(function(FName, Ret, Params), Types),
-      length(SigArgs, Arity),
-      matching_signature(FName, SigArgs, Ret, Params, SigParams),
-      functor(Head, PName, Arity),
-      prolog_load_context(module, M)
-    },
-    [ ffi:c_function(M:Head, Params, Ret),
-      (:- dynamic(PName/Arity)),
-      (Head :- ffi:define(M:Head, SigParams))
-    ].
+    (   { compound_name_arguments(Signature, FName, SigArgs),
+          memberchk(function(FName, Ret, Params), Types)
+        }
+    ->  { length(SigArgs, Arity),
+          matching_signature(FName, SigArgs, Ret, Params, SigParams),
+          functor(Head, PName, Arity),
+          prolog_load_context(module, M)
+        },
+        [ ffi:c_function(M:Head, Params, Ret),
+          (:- dynamic(PName/Arity)),
+          (Head :- ffi:define(M:Head, SigParams))
+        ]
+    ;   []	% Already warned by c99_types
+    ).
 wrap_function(Signature, Types) -->
     { compound_name_arity(Signature, Name, _)
     },
