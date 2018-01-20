@@ -75,8 +75,7 @@ prototype(Func, AST) -->
     type_opt(RType, AST, [], Resolved),
     types(Params, AST, Resolved, _).
 prototype(Func, _) -->
-    { print_message(error, ffi(existence_error(function, Func))),
-      fail
+    { print_message(error, ffi(existence_error(function_declaration, Func)))
     }.
 
 %!  skeleton(+Type, +Id, -Skeleton)
@@ -431,5 +430,5 @@ open_gcc_cpp(Header, Out) :-
 prolog:message(ffi(Msg)) -->
     message(Msg).
 
-message(existence_error(function, Func)) -->
-    [ 'FFI: cannot find function ~q'-[Func] ].
+message(existence_error(function_declaration, Func)) -->
+    [ 'FFI: No declaration for function ~q'-[Func] ].
