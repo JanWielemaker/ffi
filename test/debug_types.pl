@@ -26,6 +26,13 @@ te :-
 	      Types),
     print_term(Types, []).
 
+tw :-
+    c99_types("#include <wchar.h>",
+	      [ wcslen
+	      ],
+	      Types),
+    print_term(Types, []).
+
 ast(Header) :-
     c99_header_ast(Header, AST),
     pp(AST).
