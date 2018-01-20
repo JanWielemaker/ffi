@@ -242,7 +242,7 @@ simplify_types(Type0, Types, Type) :-
 expand_user_type([], _) --> [].
 expand_user_type([type(user_type(TypeName))|T], Types) --> !,
     { memberchk(type(TypeName, typedef, Expanded), Types) },
-    string(Expanded),
+    expand_user_type(Expanded, Types),          % recursive
     expand_user_type(T, Types).
 expand_user_type([H|T], Types) -->
     [H],
