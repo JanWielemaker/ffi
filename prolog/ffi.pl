@@ -172,6 +172,7 @@ c_import(Header, Libs, Functions) :-
 
 system:term_expansion((:- c_import(Header, Libs, Functions)),
                       Clauses) :-
+    \+ current_prolog_flag(xref, true),
     prolog_load_context(module, M),
     maplist(function_name, Functions, FunctionNames),
     add_constants(M, Header, HeaderConst),
