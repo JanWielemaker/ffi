@@ -305,14 +305,16 @@ floating_constant(F) --> hexadecimal_floating_constant(F).
 
 decimal_floating_constant(F) -->
     fractional_constant(FC),
-    opt_exponent_part(E),
-    floating_suffix(FS),
+    opt_exponent_part(E, _),
+    floating_suffix(FS, _),
     { mkf(FS, FC, E, F) }.
 decimal_floating_constant(F) -->
     digit_sequence_value(FC),
-    opt_exponent_part(E),
-    floating_suffix(FS),
-    { mkf(FS, FC, E, F) }.
+    opt_exponent_part(E, Expl),
+    floating_suffix(FS, Expl),
+    { Expl == true,
+      mkf(FS, FC, E, F)
+    }.
 
 hexadecimal_floating_constant(F) -->
     hexadecimal_prefix,
@@ -324,7 +326,7 @@ hexadecimal_floating_constant(F) -->
         { FC is IC+FCP }
     ),
     binary_exponent_part(E),
-    floating_suffix(FS),
+    floating_suffix(FS, _),
     { mkf(FS, FC, E, F) }.
 
 mkf(float, FC, E, float(V)) :- V is FC*E.
@@ -357,12 +359,12 @@ hexadecimal_fractional_part(I, V0, V) -->
     hexadecimal_fractional_part(I2, V1, V).
 hexadecimal_fractional_part(_, V, V) --> [].
 
-opt_exponent_part(M) -->
+opt_exponent_part(M, true) -->
     exp_e, !,
     sign(S),
     digit_sequence_value(V),
     { M is 10**(S*V) }.
-opt_exponent_part(1) -->
+opt_exponent_part(1, _) -->
     [].
 
 binary_exponent_part(M) -->
@@ -381,11 +383,11 @@ sign(-1) --> "-", !.
 sign(1)  --> "+", !.
 sign(1)  --> "".
 
-floating_suffix(float)  --> "f", !.
-floating_suffix(float)  --> "F", !.
-floating_suffix(double) --> "l", !.
-floating_suffix(double) --> "L", !.
-floating_suffix(double) --> "".         % TBD: correct?
+floating_suffix(float, true)  --> "f", !.
+floating_suffix(float, true)  --> "F", !.
+floating_suffix(double, _) --> "l", !.
+floating_suffix(double, _) --> "L", !.
+floating_suffix(double, _) --> "".         % TBD: correct?
 
 %!  enumeration_constant(-Enum)//
 
