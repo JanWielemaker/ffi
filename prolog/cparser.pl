@@ -532,13 +532,33 @@ type_name(type_name(QL, D)) -->
     specifier_qualifier_list(QL), abstract_declarator_opt(D).
 
 abstract_declarator(ad(AD,DAD)) -->
-    pointer(AD), !,
+    pointer_or_block(AD), !,
     (   direct_abstract_declarator(DAD)
     ->  []
     ;   {DAD = (-)}
     ).
 abstract_declarator(ad(-,DAD)) -->
     direct_abstract_declarator(DAD).
+
+pointer_or_block(AD) -->
+    pointer(AD), !.
+pointer_or_block(AD) -->
+    block(AD).
+
+%!  block(-Block)// is semidet.
+%
+%   Deal with Objective C block  references   that  appear in the MacOSX
+%   headers. We assume they follow the  same   rules  as (*) in function
+%   pointers.
+
+block([block(TQL)|T]) -->
+    [^], type_qualifier_list_opt(TQL),
+    blocks(T).
+
+blocks([block(TQL)|T]) -->
+    [^], type_qualifier_list_opt(TQL), !,
+    blocks(T).
+blocks([]) --> [].
 
 abstract_declarator_opt(AD) -->
     abstract_declarator(AD), !.
