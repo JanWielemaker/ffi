@@ -74,6 +74,10 @@ prototype(Func, AST) -->
     [ function(Func, RType, Params) ],
     type_opt(RType, AST, [], Resolved),
     types(Params, AST, Resolved, _).
+prototype(Func, _) -->
+    { print_message(error, ffi(existence_error(function, Func))),
+      fail
+    }.
 
 %!  skeleton(+Type, +Id, -Skeleton)
 %
@@ -97,6 +101,10 @@ parameters(Params0, Params) :-
     maplist(param, Params0, Params).
 
 param(param(Specifiers, declarator(Decl, dd(Name,_))), Name-Type) :-
+    !,
+    memberchk(type(BasicType), Specifiers),
+    pointers(Decl, BasicType, Type).
+param(param(Specifiers, ad(Decl, dad(-, -))), Type) :-
     memberchk(type(BasicType), Specifiers),
     pointers(Decl, BasicType, Type).
 
@@ -412,3 +420,16 @@ open_gcc_cpp(Header, Out) :-
             (   close(HIn),
                 close(In)
             )), _, [detached(true)]).
+
+
+		 /*******************************
+		 *             MESSAGES		*
+		 *******************************/
+
+:- multifile prolog:message//1.
+
+prolog:message(ffi(Msg)) -->
+    message(Msg).
+
+message(existence_error(function, Func)) -->
+    [ 'FFI: cannot find function ~q'-[Func] ].
