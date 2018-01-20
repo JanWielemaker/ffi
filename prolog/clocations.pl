@@ -222,7 +222,7 @@ ld_config_path(Path) :-
     Path = '/sbin/ldconfig'.
 ld_config_path(Path) :-
     absolute_file_name(path(ldconfig), Path,
-                       [ file_type(executable),
+                       [ access(execute),
                          file_errors(fail)
                        ]).
 
