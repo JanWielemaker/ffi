@@ -40,7 +40,7 @@ cpp_const('_STAT_VER').
 test(sin, Native == V) :-
     sin(4.5, V),
     Native is sin(4.5).
-test(stat, Native == Size) :-
+test(stat, Size == Native) :-
     once(source_file(_:stat(_,_), File)),
     stat(File, Stat),
     c_load(Stat[st_size], Size),
