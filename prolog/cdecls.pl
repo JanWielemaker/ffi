@@ -51,6 +51,10 @@
 %
 %   True when Types contains the   necessary declarations for Functions.
 %   Types are expanded to scalar types, structs, unions and enums.
+%
+%   @arg Functions is a list of function _names_. Optionally, a name may
+%   be embedded in a list to indicate it  is not an error if the funtion
+%   is not present.
 
 c99_types(Header, Functions, Types) :-
     c99_types(Header, Functions, Types, -).
@@ -62,9 +66,12 @@ c99_types(Header, Functions, Types, Consts) :-
     constants(AST, Consts).
 
 prototypes([], _) --> [].
-prototypes([H|T], AST) --> prototype(H, AST), prototypes(T, AST).
+prototypes([H|T], AST) -->
+    { optional(H, Func, Optional) },
+    prototype(Func, Optional, AST),
+    prototypes(T, AST).
 
-prototype(Func, AST) -->
+prototype(Func, _, AST) -->
     { skeleton(prototype(Return, RDecl, Params0), Func, FuncDecl),
       memberchk(FuncDecl, AST), !,
       parameters(Params0, Params),
@@ -74,9 +81,14 @@ prototype(Func, AST) -->
     [ function(Func, RType, Params) ],
     type_opt(RType, AST, [], Resolved),
     types(Params, AST, Resolved, _).
-prototype(Func, _) -->
+prototype(_, optional, _) --> !.
+prototype(Func, required, _) -->
     { print_message(error, ffi(existence_error(function_declaration, Func)))
     }.
+
+optional([Func], Func, optional) :- !.
+optional(Func,   Func, required).
+
 
 %!  skeleton(+Type, +Id, -Skeleton)
 %

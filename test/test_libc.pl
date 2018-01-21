@@ -11,7 +11,8 @@ cpp_const('_STAT_VER').
              #include <sys/stat.h>
              #include <unistd.h>",
             [ libc ],
-            [ '__xstat'(+int,+string,-struct(stat),[-int])
+            [ ['__xstat'(+int,+string,-struct(stat),[-int])],
+              [stat(+string,-struct(stat),[-int])]
             ]).
 
 :- c_import("#include <sys/vfs.h>",
@@ -56,9 +57,15 @@ test(wcslen, Len == 50) :-
 
 :- end_tests(c_libc).
 
+:- if(current_predicate('__xstat'/4)).
 stat(File, Stat) :-
     '__xstat'('_STAT_VER', File, Stat, Status),
     posix_status(Status, stat, file, File).
+:- elif(current_predicate(stat/3)).
+stat(File, Stat) :-
+    stat(File, Stat, Status),
+    posix_status(Status, stat, file, File).
+:- endif.
 
 statfs(File, FsStat) :-
     statfs(File, FsStat, Status),

@@ -79,7 +79,6 @@
 :- use_module(library(debug)).
 :- use_module(library(error)).
 :- use_module(library(apply)).
-:- use_module(library(pairs)).
 
 :- use_module(cdecls).
 :- use_module(clocations).
@@ -181,10 +180,16 @@ system:term_expansion((:- c_import(Header, Libs, Functions)),
              c_import(Libs, Functions, FunctionNames, Types)),
            Clauses).
 
-function_name(Spec as _Pred, Name) :-
+function_name([Spec], [Name]) :-
+    !,
+    function_name_(Spec, Name).
+function_name(Spec, Name) :-
+    function_name_(Spec, Name).
+
+function_name_(Spec as _Pred, Name) :-
     !,
     compound_name_arity(Spec, Name, _).
-function_name(Spec, Name) :-
+function_name_(Spec, Name) :-
     compound_name_arity(Spec, Name, _).
 
 c_import(Libs, Functions, FunctionNames, Types) -->
@@ -222,10 +227,15 @@ compile_types([_|T], Types) --> !,
 
 wrap_functions([], _) --> [].
 wrap_functions([H|T], Types) -->
-    wrap_function(H, Types),
+    { optional(H, Func, Optional)
+    },
+    wrap_function(Func, Optional, Types),
     wrap_functions(T, Types).
 
-wrap_function(Signature as PName, Types) -->
+optional([Func], Func, optional) :- !.
+optional(Func,   Func, required).
+
+wrap_function(Signature as PName, _Optional, Types) -->
     !,
     (   { compound_name_arguments(Signature, FName, SigArgs),
           memberchk(function(FName, Ret, Params), Types)
@@ -241,10 +251,10 @@ wrap_function(Signature as PName, Types) -->
         ]
     ;   []	% Already warned by c99_types
     ).
-wrap_function(Signature, Types) -->
+wrap_function(Signature, Optional, Types) -->
     { compound_name_arity(Signature, Name, _)
     },
-    wrap_function(Signature as Name, Types).
+    wrap_function(Signature as Name, Optional, Types).
 
 matching_signature(Name, SigArgs, Ret, Params, SigParams) :-
     append(RealArgs, [[PlRet]], SigArgs),   % specified return
@@ -383,7 +393,8 @@ link_clause(M:Goal, SigArgs,
     functor(Head, Name, Arity),
     functor(Head1, Name, Arity),
     (   M:'$c_lib'(Lib, Funcs),
-        memberchk(Name, Funcs),
+        member(Func, Funcs),
+        optional(Func, Name, _Optional),
         ci_library(Lib, FH),
         ffi_lookup_symbol(FH, Name, FuncPtr)
     ->  debug(ctypes, 'Binding ~p (Ret=~p, Params=~p)', [Name, Ret, Params]),
