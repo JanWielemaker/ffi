@@ -33,6 +33,13 @@ tw :-
 	      Types),
     print_term(Types, []).
 
+ts :-
+    c99_types("#include <sys/stat.h>",
+	      [ stat
+	      ],
+	      Types),
+    print_term(Types, []).
+
 ast(Header) :-
     c99_header_ast(Header, AST),
     pp(AST).
