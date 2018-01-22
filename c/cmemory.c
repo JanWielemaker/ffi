@@ -856,6 +856,9 @@ c_load_string(term_t ptr, term_t data, term_t type, term_t encoding)
     else
       return PL_domain_error("text_type", type);
 
+    if ( aenc == ATOM_wchar_t )
+      return PL_unify_wchars(data, flags, (size_t)-1, ref->ptr);
+
     if ( aenc == ATOM_iso_latin_1 )
     { flags |= REP_ISO_LATIN_1;
     } else if ( aenc == ATOM_utf8 )
@@ -864,8 +867,6 @@ c_load_string(term_t ptr, term_t data, term_t type, term_t encoding)
     { flags |= REP_MB;
     } else
       return PL_domain_error("encoding", encoding);
-
-						/* TBD: wchar_t */
 
     return PL_unify_chars(data, flags, (size_t)-1, ref->ptr);
   }
