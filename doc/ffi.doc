@@ -369,7 +369,7 @@ Import \arg{Functions} from \arg{Libraries}. The \arg{Header} is a
 string providing C source text that makes the types of the imported
 functions available. This text is handed to the configured
 C~preprocessor. Normally, this string contains a series of
-\verb$#include <header>$ statements.  For simple projects it is
+\exam{\#include <header>} statements.  For simple projects it is
 also possible to supply the actual C source file, e.g.,
 \verb$"#include \"my_c.c\""$ (note the escaped double quotes).
 
@@ -381,7 +381,7 @@ provided by c_lib_path/2 from library(clocations).
 Prolog predicates. Each specification is a compound term whose name is
 the name of the C~function to import. The arguments of the compound
 provide additional hints for this library for mapping the native C types
-to Prolog types. The compound has the same number of arguments as the C
+to Prolog types.  The compound has the same number of arguments as the C
 function or one more if the return value of the function is used. This
 last argument must be embedded in a list. Each argument is optionally
 wrapped in \exam{+type} or \exam{-type} to indicate an input or output
@@ -426,6 +426,24 @@ Prolog atom. The wrapper translates between the atom and C~integer that
 represent the enum encoding.  Input and output arguments are handled the
 same way as \const{int}.
 \end{description}
+
+In addition, the following constructs are supported:
+
+\begin{description}
+    \definition{\arg{Function}(\arg{Arg}, ...) as \arg{PredicateName}}
+Link the C~function \arg{Function} to the Prolog predicate
+\arg{PredicateName} (an atom) rather than using the same name for
+the predicate and C~function. This can be used to avoid conflicts
+with, e.g., built-in predicates or to allow for wrapper predicate that
+is named after the original C function.
+
+    \definition{[\arg{Specification}]}
+If the specifiation is wrapped in a list, it is \emph{optional}, i.e.,
+if the target function cannot be found in the supplied headers it is
+silently ignored. This can be used together with \exam{:-
+if(current_predicate(Name/Arity)).} to deal with portability issues.
+\end{description}
+
 \end{description}
 
 \subsection{Module awareness}
