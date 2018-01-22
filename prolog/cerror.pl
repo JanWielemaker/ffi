@@ -68,7 +68,7 @@ cpp_const('ENOMEM').
 
 :- c_import("#include <string.h>
              #include <errno.h>",
-            [ 'libc.so.6' ],
+            [ libc ],
             [ strerror(+int, [-string]) ]).
 
 %!  posix_status(+Code) is det.
