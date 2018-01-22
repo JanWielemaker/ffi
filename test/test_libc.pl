@@ -15,9 +15,11 @@ cpp_const('_STAT_VER').
               [stat(+string,-struct(stat),[-int])]
             ]).
 
-:- c_import("#include <sys/vfs.h>",
+:- c_import("#if __has_include(<sys/vfs.h>)
+             #include <sys/vfs.h>
+             #endif",
             [ libc ],
-            [ statfs(+string, -struct(statfs), [-int])
+            [ [statfs(+string, -struct(statfs), [-int])]
             ]).
 
 :- c_import("#include <math.h>",
