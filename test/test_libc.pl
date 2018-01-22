@@ -15,6 +15,7 @@ cpp_const('_STAT_VER').
               [stat(+string,-struct(stat),[-int])]
             ]).
 
+% __has_include(Header) is gcc 5
 :- c_import("#if __has_include(<sys/vfs.h>)
              #include <sys/vfs.h>
              #endif",
