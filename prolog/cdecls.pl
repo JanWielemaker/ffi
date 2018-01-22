@@ -33,21 +33,21 @@
 */
 
 :- module(c99_decls,
-          [ c99_header_ast/2,           % +Header, -AST
-            c99_types/3,                % +Header, +Functions, -AST
-            c99_types/4,                % +Header, +Functions, -AST, -Consts
+          [ c99_header_ast/3,           % +Header, +Flags, -AST
+            c99_types/4,                % +Header, +Flags, +Functions, -AST
+            c99_types/5,                % +Header, +Flags, +Functions, -AST,
+                                        % -Consts
             ast_constant/2		% +AST, -Constant
           ]).
 :- use_module(library(process)).
 :- use_module(library(pure_input)).
 :- use_module(library(apply)).
 :- use_module(library(lists)).
-:- use_module(library(dcg/basics)).
 :- use_module(cparser).
 :- use_module(ffi, [c_sizeof/2]).
 
-%!  c99_types(+Header, +Functions, -Types) is det.
-%!  c99_types(+Header, +Functions, -Types, Consts) is det.
+%!  c99_types(+Header, +Flags, +Functions, -Types) is det.
+%!  c99_types(+Header, +Flags, +Functions, -Types, Consts) is det.
 %
 %   True when Types contains the   necessary declarations for Functions.
 %   Types are expanded to scalar types, structs, unions and enums.
@@ -56,10 +56,10 @@
 %   be embedded in a list to indicate it  is not an error if the funtion
 %   is not present.
 
-c99_types(Header, Functions, Types) :-
-    c99_types(Header, Functions, Types, -).
-c99_types(Header, Functions, Types, Consts) :-
-    c99_header_ast(Header, AST),
+c99_types(Header, Flags, Functions, Types) :-
+    c99_types(Header, Flags, Functions, Types, -).
+c99_types(Header, Flags, Functions, Types, Consts) :-
+    c99_header_ast(Header, Flags, AST),
     phrase(prototypes(Functions, AST), Types0),
     list_to_set(Types0, Types1),
     phrase(expand_types(Types1, Types1), Types),
@@ -414,16 +414,17 @@ constant(AST, Name, Value) :-
 		 *       CALL PREPROCESSOR	*
 		 *******************************/
 
-%!  c99_header_ast(+Header, -AST)
+%!  c99_header_ast(+Header, +Flags, -AST)
 
-c99_header_ast(Header, AST) :-
+c99_header_ast(Header, Flags, AST) :-
     setup_call_cleanup(
-        open_gcc_cpp(Header, In),
+        open_gcc_cpp(Header, Flags, In),
         phrase_from_stream(c99_parse(AST), In),
         close(In)).
 
-open_gcc_cpp(Header, Out) :-
-    process_create(path(gcc), ['-E', '-xc', -],
+open_gcc_cpp(Header, Flags, Out) :-
+    append(Flags, ['-E', '-xc', -], CPPFlags),
+    process_create(path(gcc), CPPFlags,
                    [ stdin(pipe(In)),
                      stdout(pipe(Out))
                    ]),

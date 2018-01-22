@@ -33,7 +33,7 @@
 */
 
 :- module(ffi,
-          [ c_import/3,                 % +Header, +Libs, +Functions
+          [ c_import/3,                 % +Header, +Flags, +Functions
 
                                         % Memory access predicates
             c_calloc/4,                 % -Ptr, +Type, +Size, +Count
@@ -160,24 +160,25 @@ ci_library_sync(Base, FHandle) :-
 		 *             IMPORT		*
 		 *******************************/
 
-%!  c_import(+Header, +Libs, +Functions)
+%!  c_import(+Header, +Flags, +Functions)
 %
 %   Import Functions as predicates from Libs   based  on the declaration
 %   from Header.
 
-c_import(Header, Libs, Functions) :-
+c_import(Header, Flags, Functions) :-
         throw(error(context_error(nodirective,
-                                  c_import(Header, Libs, Functions)), _)).
+                                  c_import(Header, Flags, Functions)), _)).
 
-system:term_expansion((:- c_import(Header, Libs, Functions)),
+system:term_expansion((:- c_import(Header, Flags, Functions)),
                       Clauses) :-
     \+ current_prolog_flag(xref, true),
     prolog_load_context(module, M),
     maplist(function_name, Functions, FunctionNames),
     add_constants(M, Header, HeaderConst),
-    c99_types(HeaderConst, FunctionNames, Types, Constants),
+    partition(is_lib_flag, Flags, LibFlags, InclFlags),
+    c99_types(HeaderConst, InclFlags, FunctionNames, Types, Constants),
     phrase(( c_constants(Constants),
-             c_import(Libs, Functions, FunctionNames, Types)),
+             c_import(Functions, LibFlags, FunctionNames, Types)),
            Clauses).
 
 function_name([Spec], [Name]) :-
@@ -192,11 +193,11 @@ function_name_(Spec as _Pred, Name) :-
 function_name_(Spec, Name) :-
     compound_name_arity(Spec, Name, _).
 
-c_import(Libs, Functions, FunctionNames, Types) -->
+c_import(Functions, Flags, FunctionNames, Types) -->
     decls(Types),
     compile_types(Types, Types),
     wrap_functions(Functions, Types),
-    libs(Libs, FunctionNames).
+    libs(Flags, FunctionNames).
 
 decls(_) -->
     [ (:- discontiguous(('$c_lib'/2,
@@ -362,8 +363,28 @@ wchar_t_type(Type) :-
     c_sizeof(Type, Size),
     c_sizeof(wchar_t, Size).
 
+%!  libs(+Flags, +Functions)// is det.
+%
+%   Create '$c_lib'(Lib, Functions) facts that describe which functions
+%   are provided by which library.
+
 libs([], _) --> [].
-libs([H|T], Functions) --> [ '$c_lib'(H, Functions) ], libs(T, Functions).
+libs([H|T], Functions) -->
+    (   {flag_lib(H, Lib)}
+    ->  [ '$c_lib'(Lib, Functions) ]
+    ;   []
+    ),
+    libs(T, Functions).
+
+is_lib_flag(Flag) :-
+    flag_lib(Flag, _).
+
+flag_lib(Flag, Lib) :-
+    atom_concat('-l', Rest, Flag),
+    !,
+    atom_concat('lib', Rest, Lib).
+flag_lib(Lib, Lib) :-
+    \+ sub_atom(Lib, 0, _, _, '-').
 
 %!  define(:Signature, +Params, +Ret)
 %
