@@ -264,7 +264,11 @@ simplify_type(struct(Name,Fields), Types) -->
     !,
     { phrase(expand_field(Fields0, Types), Fields) }.
 simplify_type(Type, _Types) -->
+    opt_const,
     simplify_type(Type).
+
+opt_const --> [const], !.
+opt_const --> [].
 
 simplify_type(ulonglong) --> [type(unsigned),type(long),type(long),type(int)].
 simplify_type(ulonglong) --> [type(long),type(long),type(unsigned),type(int)].
