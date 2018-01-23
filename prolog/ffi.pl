@@ -242,7 +242,7 @@ wrap_function(Signature as PName, _Optional, Types) -->
           memberchk(function(FName, Ret, Params), Types)
         }
     ->  { length(SigArgs, Arity),
-          matching_signature(FName, SigArgs, Ret, Params, SigParams),
+          matching_signature(FName, SigArgs, Ret, Params, SigParams, Types),
           functor(Head, PName, Arity),
           prolog_load_context(module, M)
         },
@@ -257,23 +257,23 @@ wrap_function(Signature, Optional, Types) -->
     },
     wrap_function(Signature as Name, Optional, Types).
 
-matching_signature(Name, SigArgs, Ret, Params, SigParams) :-
+matching_signature(Name, SigArgs, Ret, Params, SigParams, Types) :-
     append(RealArgs, [[PlRet]], SigArgs),   % specified return
     !,
     (   same_length(RealArgs, Params)
-    ->  maplist(compatible_argument, RealArgs, Params, SigRealParams)
+    ->  maplist(compatible_argument(Types), RealArgs, Params, SigRealParams)
     ;   print_message(error, ffi(nonmatching_params(SigArgs, Params))),
         fail
     ),
     (   Ret == void
     ->  print_message(error, ffi(void_function(Name))),
         fail
-    ;   compatible_return(PlRet, Ret, RetParam),
+    ;   compatible_return(PlRet, Ret, RetParam, Types),
         append(SigRealParams, [[RetParam]], SigParams)
     ).
-matching_signature(Name, SigArgs, Ret, Params, SigParams) :-
+matching_signature(Name, SigArgs, Ret, Params, SigParams, Types) :-
     (   same_length(SigArgs, Params)
-    ->  maplist(compatible_argument, SigArgs, Params, SigParams)
+    ->  maplist(compatible_argument(Types), SigArgs, Params, SigParams)
     ;   print_message(error, ffi(nonmatching_params(SigArgs, Params))),
         fail
     ),
@@ -282,68 +282,77 @@ matching_signature(Name, SigArgs, Ret, Params, SigParams) :-
     ;   print_message(warning, ffi(nonvoid_function(Name, Ret)))
     ).
 
-compatible_argument(PlArg, CArg, Param) :-
-    compatible_arg(PlArg, CArg, Param),
+compatible_argument(Types, PlArg, CArg, Param) :-
+    compatible_arg(PlArg, CArg, Param, Types),
     !.
-compatible_argument(PlArg, CArg, PlArg) :-
-    compatible_arg(PlArg, CArg),
+compatible_argument(Types, PlArg, CArg, PlArg) :-
+    compatible_arg(PlArg, CArg, Types),
     !.
-compatible_argument(PlArg, CArg, PlArg) :-
+compatible_argument(_, PlArg, CArg, PlArg) :-
     print_message(error, ffi(incompatible_argument(PlArg, CArg))).
 
+% compatible_arg/4
+compatible_arg(PlArg, _ArgName-CArg, Param, Types) :-
+    !,
+    compatible_arg(PlArg, CArg, Param, Types).
+compatible_arg(+int, CType, +CType, _) :-
+    int_type(CType).
+compatible_arg(-int, *(CType), -CType, _) :-
+    int_type(CType).
+compatible_arg(+float, CType, +CType, _) :-
+    float_type(CType).
+compatible_arg(-float, CType, -CType, _) :-
+    float_type(CType).
 % compatible_arg/3
-compatible_arg(PlArg, _ArgName-CArg, Param) :-
+compatible_arg(PlArg, _ArgName-CArg, Types) :-
     !,
-    compatible_arg(PlArg, CArg, Param).
-compatible_arg(+int, CType, +CType) :-
-    int_type(CType).
-compatible_arg(-int, *(CType), -CType) :-
-    int_type(CType).
-compatible_arg(+float, CType, +CType) :-
-    float_type(CType).
-compatible_arg(-float, CType, -CType) :-
-    float_type(CType).
-% compatible_arg/2
-compatible_arg(PlArg, _ArgName-CArg) :-
+    compatible_arg(PlArg, CArg, Types).
+compatible_arg(+Type, Type, _) :- !.
+compatible_arg(-Type, *(Type), _) :- !.
+compatible_arg(-struct(Name),    *(struct(Name)), _).
+compatible_arg(+struct(Name),    *(struct(Name)), _).
+compatible_arg(*(struct(Name)),  *(struct(Name)), _).
+compatible_arg(-union(Name),     *(union(Name)), _).
+compatible_arg(+union(Name),     *(union(Name)), _).
+compatible_arg(*(union(Name)),   *(union(Name)), _).
+compatible_arg(+string,          *(char), _).
+compatible_arg(+string(wchar_t), *(Type), _) :- !, wchar_t_type(Type).
+compatible_arg(+string(Enc),     *(char), _) :- Enc \== wchar_t.
+compatible_arg(+TypeName,        CType, Types) :-
+    memberchk(typedef(TypeName, Type), Types),
     !,
-    compatible_arg(PlArg, CArg).
-compatible_arg(+Type, Type) :- !.
-compatible_arg(-Type, *(Type)) :- !.
-compatible_arg(-struct(Name),    *(struct(Name))).
-compatible_arg(+struct(Name),    *(struct(Name))).
-compatible_arg(*(struct(Name)),  *(struct(Name))).
-compatible_arg(-union(Name),     *(union(Name))).
-compatible_arg(+union(Name),     *(union(Name))).
-compatible_arg(*(union(Name)),   *(union(Name))).
-compatible_arg(+string,          *(char)).
-compatible_arg(+string(wchar_t), *(Type)) :- !, wchar_t_type(Type).
-compatible_arg(+string(Enc),     *(char)) :- Enc \== wchar_t.
+    compatible_arg(+Type, CType, Types).
+compatible_arg(-TypeName,        CType, Types) :-
+    memberchk(typedef(TypeName, Type), Types),
+    !,
+    compatible_arg(-Type, CType, Types).
 
-compatible_return(PlArg, CArg, RetParam) :-
-    compatible_ret(PlArg, CArg, RetParam),
+
+compatible_return(PlArg, CArg, RetParam, Types) :-
+    compatible_ret(PlArg, CArg, RetParam, Types),
     !.
-compatible_return(PlArg, CArg, PlArg) :-
-    compatible_ret(PlArg, CArg),
+compatible_return(PlArg, CArg, PlArg, Types) :-
+    compatible_ret(PlArg, CArg, Types),
     !.
-compatible_return(PlArg, CArg, PlArg) :-
+compatible_return(PlArg, CArg, PlArg, _) :-
     print_message(error, ffi(incompatible_return(PlArg, CArg))).
 
-% compatible_ret/3
-compatible_ret(-PlArg, CArg, Param) :-
-    compatible_ret(PlArg, CArg, Param).
-compatible_ret(int, CArg, CArg) :-
+% compatible_ret/4
+compatible_ret(-PlArg, CArg, Param, Types) :-
+    compatible_ret(PlArg, CArg, Param, Types).
+compatible_ret(int, CArg, CArg, _) :-
     int_type(CArg).
-compatible_ret(float, CArg, CArg) :-
+compatible_ret(float, CArg, CArg, _) :-
     float_type(CArg).
-% compatible_ret/2
-compatible_ret(-PlArg, CArg) :-
-    compatible_ret(PlArg, CArg).
-compatible_ret(Type, Type) :- !.
-compatible_ret(*(struct(Name)),  *(struct(Name))).
-compatible_ret(*(union(Name)),   *(union(Name))).
-compatible_ret(-string,          *(char)).
-compatible_ret(-string(wchar_t), *(Type)) :- !, wchar_t_type(Type).
-compatible_ret(-string(Enc),     *(char)) :- Enc \== wchar_t.
+% compatible_ret/3
+compatible_ret(-PlArg, CArg, Types) :-
+    compatible_ret(PlArg, CArg, Types).
+compatible_ret(Type, Type, _) :- !.
+compatible_ret(*(struct(Name)),  *(struct(Name)), _).
+compatible_ret(*(union(Name)),   *(union(Name)), _).
+compatible_ret(-string,          *(char), _).
+compatible_ret(-string(wchar_t), *(Type), _) :- !, wchar_t_type(Type).
+compatible_ret(-string(Enc),     *(char), _) :- Enc \== wchar_t.
 
 int_type(char).
 int_type(uchar).
