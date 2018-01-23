@@ -15,7 +15,9 @@
               'Py_SetProgramName'(+string(wchar_t)),
               'Py_Initialize'(),
               'PyRun_SimpleStringFlags'(+string, +'PyCompilerFlags', [-int]),
-              'Py_FinalizeEx'([-int])
+              'Py_FinalizeEx'([-int]),
+
+              'PyUnicode_FromString'(+string(utf8), [-'PyObject'])
             ]).
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -27,10 +29,13 @@ Issues:
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 
-today :-
+py_init :-
     current_prolog_flag(os_argv, [Program|_]),
     'Py_SetProgramName'(Program),
-    'Py_Initialize'(),
+    'Py_Initialize'().
+
+today :-
+    py_init,
     'PyRun_SimpleStringFlags'("from time import time,ctime\n\c
                                print('Today is', ctime(time()))\n",
                               null, Rc),
