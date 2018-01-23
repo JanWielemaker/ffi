@@ -177,6 +177,10 @@ system:term_expansion((:- c_import(Header, Flags, Functions)),
     add_constants(M, Header, HeaderConst),
     partition(is_lib_flag, Flags, LibFlags, InclFlags),
     c99_types(HeaderConst, InclFlags, FunctionNames, Types, Constants),
+    (   debugging(ffi(types))
+    ->  print_term(Types, [])
+    ;   true
+    ),
     phrase(( c_constants(Constants),
              c_import(Functions, LibFlags, FunctionNames, Types)),
            Clauses).
