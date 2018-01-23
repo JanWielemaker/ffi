@@ -67,6 +67,7 @@ static atom_t ATOM_atom;
 static atom_t ATOM_string;
 static atom_t ATOM_codes;
 static atom_t ATOM_chars;
+static atom_t ATOM_null;
 
 static functor_t FUNCTOR_struct1;
 static functor_t FUNCTOR_union1;
@@ -344,12 +345,17 @@ get_ptr_direct(term_t t, void *ptrp, atom_t ptrtype)
 static int
 get_ptr(term_t t, void *ptrp, atom_t ptrtype)
 { int rc;
+  atom_t null;
 
   if ( (rc=get_ptr_direct(t, ptrp, ptrtype)) == TRUE )
     return TRUE;
   else if ( rc < 0 )
     return FALSE;
-  else if ( PL_is_functor(t, FUNCTOR_array2) )
+  else if ( PL_get_atom(t, &null) && null == ATOM_null )
+  { void **ptrpp = ptrp;
+    *ptrpp = NULL;
+    return TRUE;
+  } else if ( PL_is_functor(t, FUNCTOR_array2) )
   { c_ptr *ref;
     term_t arg = PL_new_term_ref();
 
@@ -908,6 +914,7 @@ install_c_memory(void)
   MKATOM(struct);
   MKATOM(union);
   MKATOM(enum);
+  MKATOM(null);
 
   MKFUNCTOR(struct, 1);
   MKFUNCTOR(union, 1);
