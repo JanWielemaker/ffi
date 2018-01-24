@@ -249,11 +249,12 @@ wrap_function(Signature as PName, _Optional, Types) -->
     ->  { length(SigArgs, Arity),
           matching_signature(FName, SigArgs, Ret, Params, SigParams, Types),
           functor(Head, PName, Arity),
+          CSignature =.. [FName|SigParams],
           prolog_load_context(module, M)
         },
         [ ffi:c_function(M:Head, Params, Ret),
           (:- dynamic(PName/Arity)),
-          (Head :- ffi:define(M:Head, SigParams))
+          (Head :- ffi:define(M:Head, CSignature))
         ]
     ;   []	% Already warned by c99_types
     ).
@@ -420,20 +421,20 @@ flag_lib(Flag, Lib) :-
 flag_lib(Lib, Lib) :-
     \+ sub_atom(Lib, 0, _, _, '-').
 
-%!  define(:Signature, +Params, +Ret)
+%!  define(:Head, +CSignature)
 %
 %   Actually link the C function
 
 :- public
     define/2.
 
-define(Signature, SigArgs) :-
-    Signature = M:_Head,
-    link_clause(Signature, SigArgs, Clause),
+define(QHead, CSignature) :-
+    QHead = M:_Head,
+    link_clause(QHead, CSignature, Clause),
     asserta(M:Clause),
-    call(Signature).
+    call(QHead).
 
-link_clause(M:Goal, SigArgs,
+link_clause(M:Goal, CSignature,
             (Head :- !, Body)) :-
     c_function(M:Goal, ParamSpec, RetType),
     maplist(param_type, ParamSpec, ParamTypes),
@@ -447,11 +448,12 @@ link_clause(M:Goal, SigArgs,
     functor(Goal, Name, Arity),
     functor(Head, Name, Arity),
     functor(Head1, Name, Arity),
+    CSignature =.. [FName|SigArgs],
     (   M:'$c_lib'(Lib, Funcs),
         member(Func, Funcs),
-        optional(Func, Name, _Optional),
+        optional(Func, FName, _Optional),
         ci_library(Lib, FH),
-        ffi_lookup_symbol(FH, Name, FuncPtr)
+        ffi_lookup_symbol(FH, FName, FuncPtr)
     ->  debug(ctypes, 'Binding ~p (Ret=~p, Params=~p)', [Name, Ret, Params]),
         ffi_prototype_create(FuncPtr, default, Ret, Params, Prototype)
     ;   existence_error(c_function, Name)
