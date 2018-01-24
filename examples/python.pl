@@ -6,13 +6,13 @@
 @see https://docs.python.org/3/extending/embedding.html
 */
 
-:- c_import("#include <Python.h>",
+:- c_import("//#define Py_LIMITED_API 1
+	     #include <Python.h>",
             [ '-lpython3.6m',
               '-I/usr/include/python3.6m',
               '-I/usr/include/x86_64-linux-gnu/python3.6m'
             ],
-            [ 'Py_DecodeLocale'(+string, -int, [-string(wchar_t)]),
-              'Py_SetProgramName'(+string(wchar_t)),
+            [ 'Py_SetProgramName'(+string(wchar_t)),
               'Py_Initialize'(),
               'PyRun_SimpleStringFlags'(+string, +'PyCompilerFlags', [-int]),
               'Py_FinalizeEx'([-int]),
@@ -29,14 +29,14 @@
               'PyTuple_New'(int, [*'PyObject']),
               'PyTuple_SetItem'(*'PyObject', int, *'PyObject', [int]),
               'PyObject_CallObject'(*'PyObject', *'PyObject', [*'PyObject'])
+
+%              , 'Py_DECREF'(*'PyObject')
             ]).
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Issues:
 
-  - 'Py_DecodeLocale' accepts a NULL pointer
-  - 'Py_DecodeLocale' returns a pointer that must be freed using
-    PyMem_RawFree()
+  - Handle deallocation.  Py_DECREF() is a macro
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 multiply(X,Y,Z) :-
