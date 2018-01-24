@@ -1,6 +1,7 @@
-typedef int (*testf)(int);
+typedef long rtype;
+typedef rtype (*testf)(int);
 
-int
+rtype
 test(testf func, int i)
 { return (func)(i);
 }
