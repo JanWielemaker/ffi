@@ -38,7 +38,10 @@
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Issues:
 
-  - Handle deallocation.  Py_DECREF() is a macro
+  - Handle deallocation.  Py_DECREF() is a macro.  Now resolved using
+    a simple wrapper function.  We need:
+    - A way to avoid the c_cast/3 on a return type
+    - A way to set a free function on the returned pointer
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 multiply(X,Y,Z) :-
