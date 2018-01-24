@@ -344,7 +344,7 @@ compatible_return(PlArg, CArg, RetParam, Types) :-
 compatible_return(PlArg, CArg, PlArg, Types) :-
     compatible_ret(PlArg, CArg, Types),
     !.
-compatible_return(PlArg, CArg, PlArg, _) :-
+compatible_return(PlArg, CArg, PlArg, _Types) :-
     print_message(error, ffi(incompatible_return(PlArg, CArg))).
 
 % compatible_ret/4
@@ -354,15 +354,19 @@ compatible_ret(int, CArg, CArg, _) :-
     int_type(CArg).
 compatible_ret(float, CArg, CArg, _) :-
     float_type(CArg).
+compatible_ret(*(TypeName), *(CType), *(CType), Types) :-
+    memberchk(typedef(TypeName, Type), Types),
+    !,
+    compatible_ret(*(Type), *(CType), Types).
 % compatible_ret/3
 compatible_ret(-PlArg, CArg, Types) :-
     compatible_ret(PlArg, CArg, Types).
 compatible_ret(Type, Type, _) :- !.
 compatible_ret(*(struct(Name)),  *(struct(Name)), _).
 compatible_ret(*(union(Name)),   *(union(Name)), _).
-compatible_ret(-string,          *(char), _).
-compatible_ret(-string(wchar_t), *(Type), _) :- !, wchar_t_type(Type).
-compatible_ret(-string(Enc),     *(char), _) :- Enc \== wchar_t.
+compatible_ret(string,           *(char), _).
+compatible_ret(string(wchar_t),  *(Type), _) :- !, wchar_t_type(Type).
+compatible_ret(string(Enc),      *(char), _) :- Enc \== wchar_t.
 
 int_type(char).
 int_type(uchar).
