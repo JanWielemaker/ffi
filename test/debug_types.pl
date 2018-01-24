@@ -11,7 +11,7 @@ du :-
             ]).
 
 t :-
-    c99_types("#include \"test/test_struct.c\"",
+    c99_types("#include \"test/test_struct.c\"", [],
               [ set_point
               ],
               Types),
@@ -19,7 +19,7 @@ t :-
 
 te :-
     c99_types("#include <string.h>
-               #include <errno.h>",
+               #include <errno.h>", [],
 	      [ strerror,
                 strncmp
 	      ],
@@ -27,19 +27,19 @@ te :-
     print_term(Types, []).
 
 tw :-
-    c99_types("#include <wchar.h>",
+    c99_types("#include <wchar.h>", [],
 	      [ wcslen
 	      ],
 	      Types),
     print_term(Types, []).
 
 ts :-
-    c99_types("#include <sys/stat.h>",
+    c99_types("#include <sys/stat.h>", [],
 	      [ stat
 	      ],
 	      Types),
     print_term(Types, []).
 
 ast(Header) :-
-    c99_header_ast(Header, AST),
+    c99_header_ast(Header, [], AST),
     pp(AST).
