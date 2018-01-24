@@ -264,7 +264,7 @@ ffi_lookup_symbol(term_t lib, term_t name, term_t func)
 
       return PL_resource_error("memory");
     } else
-      return dl_error("dlsym", fname);
+      return FALSE;
   }
 
   return FALSE;
