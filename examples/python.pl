@@ -7,8 +7,9 @@
 */
 
 :- c_import("//#define Py_LIMITED_API 1
-	     #include <Python.h>",
+	     #include \"examples/mypython.c\"",
             [ '-lpython3.6m',
+              'examples/mypython',
               '-I/usr/include/python3.6m',
               '-I/usr/include/x86_64-linux-gnu/python3.6m'
             ],
@@ -28,9 +29,10 @@
 
               'PyTuple_New'(int, [*'PyObject']),
               'PyTuple_SetItem'(*'PyObject', int, *'PyObject', [int]),
-              'PyObject_CallObject'(*'PyObject', *'PyObject', [*'PyObject'])
+              'PyObject_CallObject'(*'PyObject', *'PyObject', [*'PyObject']),
 
-%              , 'Py_DECREF'(*'PyObject')
+              'MyPy_DECREF'(*'PyObject') as 'Py_DECREF',
+              'MyPy_INCREF'(*'PyObject') as 'Py_INCREF'
             ]).
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -63,7 +65,8 @@ py_call(Module, Call, Return) :-
     'PyTuple_New'(Argc, Argv),
     fill_args(PlArgs, 0, Argv),
     'PyObject_CallObject'(Function, Argv, PyReturn),
-    python_to_prolog(PyReturn, Return).
+    python_to_prolog(PyReturn, Return),
+    'Py_DECREF'(PyReturn).
 
 fill_args([], _, _).
 fill_args([H|T], I, Argv) :-
