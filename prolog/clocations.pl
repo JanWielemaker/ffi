@@ -165,6 +165,8 @@ latest_version([H1,H2|T], Latest) :-
     ),
     latest_version([H|T], Latest).
 
+version_list(l(_,-1,_), [-1]) :-
+    !.
 version_list(l(_,V,_), L) :-
     split_string(V, ".", "", L0),
     maplist(try_number, L0, L).
