@@ -252,9 +252,11 @@ simplify_types(Type0, Types, Type) :-
 
 expand_user_type([], _) --> [].
 expand_user_type([type(user_type(TypeName))|T], Types) --> !,
-    { memberchk(type(TypeName, typedef, Expanded), Types) },
-    expand_user_type(Expanded, Types),          % recursive
-    expand_user_type(T, Types).
+    (   { memberchk(type(TypeName, typedef, Expanded), Types) }
+    ->  expand_user_type(Expanded, Types),          % recursive
+        expand_user_type(T, Types)
+    ;   { print_message(error, ffi(existence_error(user_type, TypeName))) }
+    ).
 expand_user_type([H|T], Types) -->
     [H],
     expand_user_type(T, Types).
@@ -452,3 +454,5 @@ prolog:message(ffi(Msg)) -->
 
 message(existence_error(function_declaration, Func)) -->
     [ 'FFI: No declaration for function ~q'-[Func] ].
+message(existence_error(user_type, Type)) -->
+    [ 'FFI: No declaration for type ~q'-[Type] ].
