@@ -10,7 +10,8 @@ LIBS=-lffi
 CFLAGS=-shared -fPIC
 TESTSO=	test/test_struct.$(SOEXT) \
 	test/test_union.$(SOEXT) \
-	test/test_enum.$(SOEXT)
+	test/test_enum.$(SOEXT) \
+	test/test_funcptr.$(SOEXT)
 
 all:	$(FFI4PL)
 
@@ -25,6 +26,8 @@ test/test_struct.$(SOEXT): test/test_struct.c
 test/test_union.$(SOEXT): test/test_union.c
 	$(CC) $(CFLAGS) -o $@ $<
 test/test_enum.$(SOEXT): test/test_enum.c
+	$(CC) $(CFLAGS) -o $@ $<
+test/test_funcptr.$(SOEXT): test/test_funcptr.c
 	$(CC) $(CFLAGS) -o $@ $<
 
 tags:
