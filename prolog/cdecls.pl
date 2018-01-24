@@ -175,7 +175,7 @@ type(type(_, enum, _Members), _AST, R, R) -->
 type(f(Types, _Declarator, _Attrs), AST, R0, R) -->
     types(Types, AST, R0, R).
 type(type(funcptr(RType, Parms)), AST, R0, R) -->
-    type_opt(RType, AST, R0, R1),
+    types(RType, AST, R0, R1),
     types(Parms, AST, R1, R).
 type(type(_, typedef, Types), AST, R0, R) -->
     types(Types, AST, R0, R).
