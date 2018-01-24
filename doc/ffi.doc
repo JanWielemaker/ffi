@@ -425,6 +425,11 @@ Argument is an enum of the given name. An enum member is mapped to a
 Prolog atom. The wrapper translates between the atom and C~integer that
 represent the enum encoding.  Input and output arguments are handled the
 same way as \const{int}.
+    \termitem{function}{Arg, \ldots}
+Argument is a \jargon{closure}. The arguments of the function term are
+the predicate arguments for the predicate to which the closure is mapped
+and is subject to the same rules as the predicate arguments described in
+this list.
 \end{description}
 
 In addition, the following constructs are supported:
