@@ -332,6 +332,7 @@ simplify_type(ushort)    --> [type(unsigned),type(short)].
 simplify_type(ushort)    --> [type(unsigned),type(short),type(int)].
 simplify_type(ushort)    --> [type(short),type(unsigned),type(int)].
 simplify_type(uchar)     --> [type(unsigned),type(char)].
+simplify_type(char)      --> [type(signed),type(char)].
 simplify_type(Type)      --> [type(Type)].
 simplify_type(longlong)  --> [type(long),type(long),type(int)].
 simplify_type(longlong)  --> [type(long),type(long)].
