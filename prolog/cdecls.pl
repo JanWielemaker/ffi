@@ -46,6 +46,18 @@
 :- use_module(cparser).
 :- use_module(ffi, [c_sizeof/2]).
 
+/** <module> Extract information from the C AST
+
+This module parses the header string, produces an AST for the C code and
+extracts type information for a requested set of functions. This implies
+it finds the function prototypes and  recursively unwraps typedefs until
+it reaches types defined by the  C   language.  This process is split in
+two:
+
+  1. Find involved declarations from the AST (prototypes//2)
+  2. Unwrap the types (expand_types//1)
+*/
+
 %!  c99_types(+Header, +Flags, +Functions, -Types) is det.
 %!  c99_types(+Header, +Flags, +Functions, -Types, Consts) is det.
 %
@@ -62,7 +74,7 @@ c99_types(Header, Flags, Functions, Types, Consts) :-
     c99_header_ast(Header, Flags, AST),
     phrase(prototypes(Functions, AST), Types0),
     list_to_set(Types0, Types1),
-    phrase(expand_types(Types1, Types1), Types),
+    phrase(expand_types(Types1), Types),
     constants(AST, Consts).
 
 prototypes([], _) --> [].
@@ -106,7 +118,7 @@ skeleton(prototype(Return, RDecl, Params), Func,
                   _Block)).
 
 
-parameters([param([type(void)], _)], []) :- %fail,
+parameters([param([type(void)], _)], []) :-
     !.
 parameters(Params0, Params) :-
     maplist(param, Params0, Params).
@@ -162,6 +174,9 @@ type(type(_, enum, _Members), _AST, R, R) -->
     [].
 type(f(Types, _Declarator, _Attrs), AST, R0, R) -->
     types(Types, AST, R0, R).
+type(type(funcptr(RType, Parms)), AST, R0, R) -->
+    type_opt(RType, AST, R0, R1),
+    types(Parms, AST, R1, R).
 type(type(_, typedef, Types), AST, R0, R) -->
     types(Types, AST, R0, R).
 
@@ -177,15 +192,39 @@ ast_type(type(enum(Name, Members)), _, type(Name, enum, Members)).
 ast_type(user_type(Name), AST, type(Name, typedef, Primitive)) :-
     typedef(Name, AST, Primitive).
 
+%!  typedef(+UserType, +AST, -DefinedType) is semidet.
+%
+%   Extract typedef declaration for UserType from  the AST. First clause
+%   handles with ordinary types. Second handles defined function pointer
+%   types.
+
 typedef(Name, AST, Primitive) :-
     member(decl(Specifier,
                 [ declarator(_, dd(Name, _))], _Attrs), AST),
     selectchk(storage(typedef), Specifier, Primitive), !.
+typedef(Name, AST, Primitive) :-        % typedef rtype (*type)(param, ...);
+    member(decl(Specifier,
+                [ declarator(_, dd(declarator([ptr([])], dd(Name,_)),
+                                   dds(Params0)))
+                ], _Attrs), AST),
+    selectchk(storage(typedef), Specifier, RType), !,
+    parameters(Params0, Params),
+    Primitive = [type(funcptr(RType, Params))].
 
 
 		 /*******************************
 		 *          EXPAND TYPES	*
 		 *******************************/
+
+%!  expand_types(+Types)//
+%
+%   Translate the relevant types into   a simplified representation that
+%   provides us with the functions,  structures   and  typedefs that are
+%   required for generating the wrappers and reading/writing structures,
+%   etc.
+
+expand_types(Types) -->
+    expand_types(Types, Types).
 
 expand_types([], _) --> [].
 expand_types([H|T], Types) -->
@@ -265,6 +304,15 @@ simplify_type(struct(Name,Fields), Types) -->
     [ type(struct(Name, Fields0)) ],
     !,
     { phrase(expand_field(Fields0, Types), Fields) }.
+simplify_type(union(Name,Fields), Types) -->
+    [ type(union(Name, Fields0)) ],
+    !,
+    { phrase(expand_field(Fields0, Types), Fields) }.
+simplify_type(funcptr(Ret,Params), Types) -->
+    [ type(funcptr(Ret0,Params)) ],
+    !,
+    { simplify_types(Ret0, Types, Ret)
+    }.
 simplify_type(Type, _Types) -->
     opt_const,
     simplify_type(Type).
