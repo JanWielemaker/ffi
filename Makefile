@@ -13,7 +13,15 @@ TESTSO=	test/test_struct.$(SOEXT) \
 	test/test_enum.$(SOEXT) \
 	test/test_funcptr.$(SOEXT)
 
-all:	$(FFI4PL)
+all:	env $(FFI4PL)
+
+ifeq ($(SOEXT),)
+env::
+	@echo "Please use . buildenv.sh to setup the environment"
+	@exit 1
+else
+env::
+endif
 
 $(FFI4PL): c/ffi4pl.c c/cmemory.c Makefile
 	mkdir -p $(PACKSODIR)
