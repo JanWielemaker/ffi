@@ -682,6 +682,10 @@ type_size_align(_:(*(_)), Size, Alignment, _) :-
     !,
     c_alignof(pointer, Alignment),
     c_sizeof(pointer, Size).
+type_size_align(_:funcptr(_Ret,_Params), Size, Alignment, _) :-
+    !,
+    c_alignof(pointer, Alignment),
+    c_sizeof(pointer, Size).
 type_size_align(Type, Size, Alignment, All) :-
     c_current_typedef(Type, Def),
     !,
