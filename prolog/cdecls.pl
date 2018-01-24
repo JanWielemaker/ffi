@@ -253,18 +253,18 @@ expand_type(_, _) --> [].
 
 expand_field([], _) --> [].
 expand_field([f(Type0, Declarators, _)|T], Types) -->
-    { maplist(declarator_name, Declarators, Names),
+    { maplist(declarator_name(Types), Declarators, Names),
       simplify_types(Type0, Types, Type)
     },
     repeat_fields(Names, Type),
     expand_field(T, Types).
 
-declarator_name(d(declarator(Ptr,dd(Name,dds([],AST)))),
+declarator_name(Types, d(declarator(Ptr,dd(Name,dds([],AST)))),
                 array(Name, N, Ptr)) :-
     ast \== (-),
-    ast_constant(AST, N),
+    ast_constant(AST, N, Types),
     !.
-declarator_name(d(declarator(Ptr,dd(Name,_))),
+declarator_name(_Types, d(declarator(Ptr,dd(Name,_))),
                 plain(Name, Ptr)).
 
 repeat_fields([], _) --> [].
@@ -363,34 +363,38 @@ type_reference(Type,                  Type).
 		 *******************************/
 
 %!  ast_constant(+AST, -Constant) is det.
+%!  ast_constant(+AST, -Constant, +Types) is det.
 %
 %   Evaluate an AST expression to a constant.
 %
 %   @tbd: complete operators. Clarify what  to   do  with  limited range
 %   integers and overflows.
 
-ast_constant(i(V), V).
-ast_constant(l(Int), Int).
-ast_constant(ll(Int), Int).
-ast_constant(u(Int), Int).
-ast_constant(ul(Int), Int).
-ast_constant(ull(Int), Int).
-ast_constant(float(Float), Float).
-ast_constant(double(Float), Float).
-ast_constant(char(Codes), Codes).
-ast_constant(wchar(Codes), Codes).
-ast_constant(sizeof(Type), Size) :-
-    (   ast_sizeof(Type, Size)
+ast_constant(AST, Constant) :-
+    ast_constant(AST, Constant, []).
+
+ast_constant(i(V), V, _).
+ast_constant(l(Int), Int, _).
+ast_constant(ll(Int), Int, _).
+ast_constant(u(Int), Int, _).
+ast_constant(ul(Int), Int, _).
+ast_constant(ull(Int), Int, _).
+ast_constant(float(Float), Float, _).
+ast_constant(double(Float), Float, _).
+ast_constant(char(Codes), Codes, _).
+ast_constant(wchar(Codes), Codes, _).
+ast_constant(sizeof(Type), Size, Types) :-
+    (   ast_sizeof(Type, Size, Types)
     ->  true
-    ;   print_message(warning, c(failed, sizeof(Type))),
+    ;   print_message(warning, ffi(noconst(sizeof(Type)))),
         fail
     ).
-ast_constant(o(Op, L), C) :-
-    ast_constant(L, LC),
+ast_constant(o(Op, L), C, Types) :-
+    ast_constant(L, LC, Types),
     c_op(Op, LC, C).
-ast_constant(o(Op, L, R), C) :-
-    ast_constant(L, LC),
-    ast_constant(R, RC),
+ast_constant(o(Op, L, R), C, Types) :-
+    ast_constant(L, LC, Types),
+    ast_constant(R, RC, Types),
     c_op(Op, LC, RC, C).
 
 c_op(+, A, A).
@@ -431,15 +435,27 @@ or(0, 1, 1) :- !.
 or(1, 0, 1) :- !.
 or(0, 0, 0) :- !.
 
-%!  ast_sizeof(+Type, -Size)
+%!  ast_sizeof(+Type, -Size, +Types)
 %
 %   Determine the size of an AST type expression.
 %
 %   @tbd: complete with user defined types, general expressions.
 
-ast_sizeof(type(type_name([type(Primitive)],ad(-,dad(-,-)))), Size) :-
-    c_sizeof(Primitive, Size).
-
+ast_sizeof(type(type_name([type(Primitive)],ad(-,dad(-,-)))), Size, _) :-
+    c_sizeof(Primitive, Size),
+    !.
+ast_sizeof(type(type_name(_,ad([ptr(_)|_],dad(-,-)))), Size, _) :-
+    c_sizeof(pointer, Size),
+    !.
+ast_sizeof(TypeName, Size, Types) :-
+    simplify_types([type(user_type(TypeName))], Types, Simple),
+    c_sizeof(Simple, Size).
+/*
+ast_sizeof(Type, Size, Types) :-
+    debugging(ffi(sizeof)),
+    gtrace,
+    ast_sizeof(Type, Size, Types).
+*/
 
 		 /*******************************
 		 *            CONSTANTS		*
@@ -505,3 +521,5 @@ message(existence_error(function_declaration, Func)) -->
     [ 'FFI: No declaration for function ~q'-[Func] ].
 message(existence_error(user_type, Type)) -->
     [ 'FFI: No declaration for type ~q'-[Type] ].
+message(noconst(What)) -->
+    [ 'FFI: Could not evaluate ~p to a constant'-[What] ].
