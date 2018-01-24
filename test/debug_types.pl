@@ -40,6 +40,14 @@ ts :-
 	      Types),
     print_term(Types, []).
 
+tf :-
+    c99_types("#include \"test/test_funcptr.c\"", [],
+              [ test
+              ],
+              Types),
+    print_term(Types, []).
+
+
 ast(Header) :-
     c99_header_ast(Header, [], AST),
     pp(AST).
