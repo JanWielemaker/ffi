@@ -73,6 +73,7 @@
 
             c_errno/1,                  % -Integer
 
+            op(200, fy, *),             % for pointer type declarations
             op(20, yf, [])
           ]).
 :- use_module(library(lists)).
