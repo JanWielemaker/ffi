@@ -2,5 +2,5 @@
 
 :- c_import("#include \"test/test_funcptr.c\"",
             [ 'test/test_funcptr' ],
-            [ test(*(int), +int)
+            [ test(+function(+int, [-int]), +int, [-int])
             ]).

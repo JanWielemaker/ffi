@@ -307,6 +307,12 @@ compatible_arg(+float, CType, +CType, _) :-
     float_type(CType).
 compatible_arg(-float, CType, -CType, _) :-
     float_type(CType).
+compatible_arg(+Func0, funcptr(Ret, Params), +Func, Types) :-
+    compound(Func0),
+    compound_name_arguments(Func0, function, SigArgs),
+    !,
+    matching_signature(-, SigArgs, Ret, Params, SigParams, Types),
+    compound_name_arguments(Func, function, SigParams).
 % compatible_arg/3
 compatible_arg(PlArg, _ArgName-CArg, Types) :-
     !,
@@ -1189,3 +1195,5 @@ message(incompatible_return(Prolog, C)) -->
     [ 'Incompatible return type: ~p <- ~p'-[Prolog, C] ].
 message(incompatible_argument(Prolog, C)) -->
     [ 'Incompatible parameter: ~p -> ~p'-[Prolog, C] ].
+message(nonvoid_function(Func, Ret)) -->
+    [ 'Return of "~w" from function "~w" is ignored'-[Ret, Func] ].
