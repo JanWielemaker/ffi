@@ -300,15 +300,18 @@ compatible_argument(_, PlArg, CArg, PlArg) :-
 compatible_arg(PlArg, _ArgName-CArg, Param, Types) :-
     !,
     compatible_arg(PlArg, CArg, Param, Types).
-compatible_arg(+int, CType, +CType, _) :-
+compatible_arg(+PlArg, CArg, Param, Types) :-
+    !,
+    compatible_arg(PlArg, CArg, Param, Types).
+compatible_arg(int, CType, +CType, _) :-
     int_type(CType).
 compatible_arg(-int, *(CType), -CType, _) :-
     int_type(CType).
-compatible_arg(+float, CType, +CType, _) :-
+compatible_arg(float, CType, +CType, _) :-
     float_type(CType).
 compatible_arg(-float, CType, -CType, _) :-
     float_type(CType).
-compatible_arg(+Func0, funcptr(Ret, Params), +Func, Types) :-
+compatible_arg(Func0, funcptr(Ret, Params), +Func, Types) :-
     compound(Func0),
     compound_name_arguments(Func0, function, SigArgs),
     !,
@@ -318,21 +321,28 @@ compatible_arg(+Func0, funcptr(Ret, Params), +Func, Types) :-
 compatible_arg(PlArg, _ArgName-CArg, Types) :-
     !,
     compatible_arg(PlArg, CArg, Types).
-compatible_arg(+Type, Type, _) :- !.
+compatible_arg(+PlArg, CArg, Types) :-
+    !,
+    compatible_arg(PlArg, CArg, Types).
+compatible_arg(Type, Type, _) :- !.
 compatible_arg(-Type, *(Type), _) :- !.
-compatible_arg(-struct(Name),    *(struct(Name)), _).
-compatible_arg(+struct(Name),    *(struct(Name)), _).
-compatible_arg(*(struct(Name)),  *(struct(Name)), _).
-compatible_arg(-union(Name),     *(union(Name)), _).
-compatible_arg(+union(Name),     *(union(Name)), _).
-compatible_arg(*(union(Name)),   *(union(Name)), _).
-compatible_arg(+string,          *(char), _).
-compatible_arg(+string(wchar_t), *(Type), _) :- !, wchar_t_type(Type).
-compatible_arg(+string(Enc),     *(char), _) :- Enc \== wchar_t.
-compatible_arg(+TypeName,        CType, Types) :-
+compatible_arg(-struct(Name),   *(struct(Name)), _).
+compatible_arg(struct(Name),    *(struct(Name)), _).
+compatible_arg(*struct(Name),   *(struct(Name)), _).
+compatible_arg(-union(Name),    *(union(Name)), _).
+compatible_arg(union(Name),     *(union(Name)), _).
+compatible_arg(*union(Name),    *(union(Name)), _).
+compatible_arg(string,          *(char), _).
+compatible_arg(string(wchar_t), *(Type), _) :- !, wchar_t_type(Type).
+compatible_arg(string(Enc),     *(char), _) :- Enc \== wchar_t.
+compatible_arg(*TypeName,       CType, Types) :-
     memberchk(typedef(TypeName, Type), Types),
     !,
-    compatible_arg(+Type, CType, Types).
+    compatible_arg(*Type, CType, Types).
+compatible_arg(TypeName,        CType, Types) :-
+    memberchk(typedef(TypeName, Type), Types),
+    !,
+    compatible_arg(Type, CType, Types).
 compatible_arg(-TypeName,        CType, Types) :-
     memberchk(typedef(TypeName, Type), Types),
     !,
