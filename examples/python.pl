@@ -17,7 +17,7 @@
               'PyRun_SimpleStringFlags'(+string, +'PyCompilerFlags', [-int]),
               'Py_FinalizeEx'([-int]),
 
-              'PyUnicode_FromString'(+string(utf8), [-'PyObject'])
+              'PyUnicode_FromString'(+string(utf8), [*'PyObject'])
             ]).
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
