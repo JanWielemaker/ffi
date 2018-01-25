@@ -62,4 +62,4 @@ created at Jan 25, 2018
 
 ## Status
 
-Proof of concept.  Tests pass on Linux.
+Proof of concept. Used on Linux (Fedora 26 and Ubuntu 17.10) and MacOS.
