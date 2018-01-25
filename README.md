@@ -56,6 +56,9 @@ There is not yet public documentation.   With all proper tools installed
 (Prolog, LaTeX) and a Linux machine you should be able to type `make` in
 the `doc` directory to build the (incomplete) documentation.
 
+Here is a [PDF
+version](https://github.com/JanWielemaker/ffi/wiki/files/ffi.pdf),
+created at Jan 25, 2018
 
 ## Status
 
