@@ -18,18 +18,18 @@
               'PyRun_SimpleStringFlags'(+string, +'PyCompilerFlags', [-int]),
               'Py_FinalizeEx'([-int]),
 
-              'PyUnicode_FromString'(+string(utf8), [*'PyObject']),
-              'PyLong_FromLong'(int, [*'PyObject']),
+              'PyUnicode_FromString'(+string(utf8), [*('PyObject', 'MyPy_DECREF')]),
+              'PyLong_FromLong'(int, [*('PyObject', 'MyPy_DECREF')]),
 
               'PyLong_AsLong'(*'PyObject', [-int]),
 
-              'PyImport_Import'(*'PyObject', [*'PyObject']),
+              'PyImport_Import'(*'PyObject', [*('PyObject', 'MyPy_DECREF')]),
 
-              'PyObject_GetAttrString'(*'PyObject', +string, [*'PyObject']),
+              'PyObject_GetAttrString'(*'PyObject', +string, [*('PyObject', 'MyPy_DECREF')]),
 
-              'PyTuple_New'(int, [*'PyObject']),
+              'PyTuple_New'(int, [*('PyObject', 'MyPy_DECREF')]),
               'PyTuple_SetItem'(*'PyObject', int, *'PyObject', [int]),
-              'PyObject_CallObject'(*'PyObject', *'PyObject', [*'PyObject']),
+              'PyObject_CallObject'(*'PyObject', *'PyObject', [*('PyObject', 'MyPy_DECREF')]),
 
               'MyPy_DECREF'(*'PyObject') as 'Py_DECREF',
               'MyPy_INCREF'(*'PyObject') as 'Py_INCREF'
@@ -74,6 +74,7 @@ py_call(Module, Call, Return) :-
 fill_args([], _, _).
 fill_args([H|T], I, Argv) :-
     prolog_to_python(H, Py),
+    'Py_INCREF'(Py),                            % 'PyTuple_SetItem' decrements
     'PyTuple_SetItem'(Argv, I, Py, _Rc),
     I2 is I+1,
     fill_args(T, I2, Argv).
