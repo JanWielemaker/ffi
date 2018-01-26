@@ -70,6 +70,7 @@
 
             c_alloc_string/3,           % -Ptr, +Data, +Encoding
             c_load_string/4,            % +Ptr, -Data, +Type, +Encoding
+            c_load_string/4,            % +Ptr, +Len, -Data, +Type, +Encoding
 
             c_errno/1,                  % -Integer
 
@@ -308,6 +309,8 @@ compatible_arg(int, CType, +CType, _) :-
     int_type(CType).
 compatible_arg(-int, *(CType), -CType, _) :-
     int_type(CType).
+compatible_arg(*int, *(CType), *CType, _) :-
+    int_type(CType).
 compatible_arg(float, CType, +CType, _) :-
     float_type(CType).
 compatible_arg(-float, CType, -CType, _) :-
@@ -506,18 +509,21 @@ convert_args([H|T], I, Arity, Head0, Head1, GPre, GPost) :-
     mkconj(GPost1, GPost2, GPost).
 
 % parameter values
+convert_arg(+Type, Prolog, C, Pre, Post) :-
+    !,
+    convert_arg(Type, Prolog, C, Pre, Post).
 convert_arg(-struct(Name), Ptr, Ptr,
             c_alloc(Ptr, struct(Name)),
             true).
 convert_arg(-union(Name), Ptr, Ptr,
             c_alloc(Ptr, union(Name)),
             true).
-convert_arg(+string(Enc),  String, Ptr,
+convert_arg(string(Enc),  String, Ptr,
             c_alloc_string(Ptr, String, Enc),
             true).
-convert_arg(+string, String, Ptr, Pre, Post) :-
-    convert_arg(+string(text), String, Ptr, Pre, Post).
-convert_arg(+enum(Enum), Id, Int,
+convert_arg(string, String, Ptr, Pre, Post) :-
+    convert_arg(string(text), String, Ptr, Pre, Post).
+convert_arg(enum(Enum), Id, Int,
             c_enum_in(Id, Enum, Int),
             true).
 convert_arg(-enum(Enum), Id, Ptr,
