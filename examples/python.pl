@@ -75,6 +75,10 @@
 %
 %   Initialise Python. Normally this is  called lazily. Applications may
 %   wish to set `PYTHONPATH` before calling a Python interface function.
+%
+%   @tbd Currently disables the  Prolog  GC   thread  as  objects cannot
+%   receive  a  Py_DECREF()  from  another    thread  that  created  the
+%   reference.
 
 py_init :-
     py_init_done,
@@ -88,6 +92,7 @@ py_init_sync :-
     current_prolog_flag(os_argv, [Program|_]),
     'Py_SetProgramName'(Program),
     'Py_Initialize'(),
+    set_prolog_gc_thread(false),
     asserta(py_init_done).
 
 %!  py_module(+Name, -Module) is det.
