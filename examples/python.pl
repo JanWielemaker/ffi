@@ -36,6 +36,7 @@
               'MyPyLong_Check'(*'PyObject', [-int]) as 'PyLong_Check',
               'MyPyFloat_Check'(*'PyObject', [-int]) as 'PyFloat_Check',
               'MyPyUnicode_Check'(*'PyObject', [-int]) as 'PyUnicode_Check',
+              'MyPyList_Check'(*'PyObject', [-int]) as 'PyList_Check',
 
               'PyLong_AsLongLong'(*'PyObject', [-int]),
               'PyFloat_AsDouble'(*'PyObject', [-float]),
@@ -49,6 +50,12 @@
 
               'PyTuple_New'(int, [*('PyObject', 'MyPy_DECREF')]),
               'PyTuple_SetItem'(*'PyObject', int, *'PyObject', [int]),
+
+              'PyList_New'(int, [*('PyObject', 'MyPy_DECREF')]),
+              'PyList_Append'(*'PyObject', *'PyObject', [int]),
+              'PyList_GetItem'(*'PyObject', int, [*('PyObject')]),
+              'PyList_Size'(*'PyObject', [int]),
+
               'PyObject_CallObject'(*'PyObject', *'PyObject',
                                     [*('PyObject', 'MyPy_DECREF')]),
 
@@ -160,6 +167,9 @@ prolog_to_python(Prolog, Py) :-
     ->  prolog_string_to_python(Prolog, Py)
     ;   atom(Prolog)
     ->  prolog_string_to_python(Prolog, Py)
+    ;   is_list(Prolog)
+    ->  'PyList_New'(0, Py),
+        maplist(list_append(Py), Prolog)
     ;   type_error(python, Prolog)
     ).
 
@@ -169,6 +179,14 @@ prolog_string_to_python(Text, Py) :-
     'PyUnicode_FromWideChar'(Text, Len, Py).
 prolog_string_to_python(Text, Py) :-
     'PyUnicode_FromString'(Text, Py).
+
+list_append(List, Prolog) :-
+    prolog_to_python(Prolog, Py),
+    'PyList_Append'(List, Py, RC),
+    (   RC == 0
+    ->  true
+    ;   py_check_exception
+    ).
 
 %!  python_to_prolog(+Python, -Prolog) is det.
 
@@ -185,8 +203,20 @@ python_to_prolog(Py, Value) :-
     !,
     'PyUnicode_AsWideCharString'(Py, Len, WString),
     c_load_string(WString, Len, Value, string, wchar_t).
+python_to_prolog(Py, Value) :-
+    'PyList_Check'(Py, 1), !,
+    'PyList_Size'(Py, Len),
+    py_list(0, Len, Py, Value).
 python_to_prolog(Py, _Value) :-
     throw(error(python_convert_error(python(Py)), _)).
+
+py_list(I, Len, List, [H|T]) :-
+    I < Len, !,
+    'PyList_GetItem'(List, I, Item),
+    python_to_prolog(Item, H),
+    I2 is I+1,
+    py_list(I2, Len, List, T).
+py_list(Len, Len, _, []).
 
 %!  py_check_exception is det.
 %

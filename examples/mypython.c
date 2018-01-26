@@ -26,3 +26,9 @@ int
 MyPyUnicode_Check(PyObject *o)
 { return PyUnicode_Check(o);
 }
+
+int
+MyPyList_Check(PyObject *o)
+{ return PyList_Check(o);
+}
+
