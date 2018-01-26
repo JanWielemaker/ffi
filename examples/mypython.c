@@ -1,8 +1,10 @@
 #include <Python.h>
+#include <stdio.h>
 
 void
 MyPy_DECREF(PyObject *o)
-{ Py_DECREF(o);
+{ //fprintf(stderr, "Py_DECREF(%p)\n", o);
+  Py_DECREF(o);
 }
 
 void

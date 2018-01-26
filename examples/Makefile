@@ -4,5 +4,5 @@ LIBS=$(shell pkg-config --libs python3)
 all: mypython.$(SOEXT)
 
 mypython.$(SOEXT): mypython.c
-	gcc -shared -o $@ $(CFLAGS) $< $(LIBS)
+	gcc -fPIC -shared -o $@ $(CFLAGS) $< $(LIBS)
 

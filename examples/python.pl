@@ -1,8 +1,16 @@
-% :- module(python, []).
+:- module(python,
+          [ py_call/2,                          % +Module:Call, -Return
+
+            py_init/0,
+            py_module/2,                        % +Name, -Handle
+            py_function/3                       % +Module, +FuncName, -Function
+          ]).
 :- use_module(library(ffi)).
+:- use_module(library(error)).
 
 /** <module> Embed Python
 
+@see https://docs.python.org/3/c-api/index.html
 @see https://docs.python.org/3/extending/embedding.html
 */
 
@@ -35,49 +43,94 @@
               'MyPy_INCREF'(*'PyObject') as 'Py_INCREF'
             ]).
 
-/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-Issues:
+:- dynamic
+    py_init_done/0,
+    py_module_done/2,
+    py_function_done/3.
 
-  - Handle deallocation.  Py_DECREF() is a macro.  Now resolved using
-    a simple wrapper function.  We need:
-    - A way to avoid the c_cast/3 on a return type
-    - A way to set a free function on the returned pointer
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-
-multiply(X,Y,Z) :-
-    source_file(multiply(_,_,_), File),
-    file_directory_name(File, Dir),
-    setenv('PYTHONPATH', Dir),
-    py_init,
-    py_import("multiply", Module),
-    py_call(Module, multiply(X,Y), Z).
+%!  py_init is det.
+%
+%   Initialise Python. Normally this is  called lazily. Applications may
+%   wish to set `PYTHONPATH` before calling a Python interface function.
 
 py_init :-
+    py_init_done,
+    !.
+py_init :-
+    with_mutex(python, py_init_sync).
+
+py_init_sync :-
+    py_init_done.
+py_init_sync :-
     current_prolog_flag(os_argv, [Program|_]),
     'Py_SetProgramName'(Program),
-    'Py_Initialize'().
+    'Py_Initialize'(),
+    asserta(py_init_done).
 
-py_import(File, Module) :-
-    'PyUnicode_FromString'(File, PyString),
-    'PyImport_Import'(PyString, Module).
+%!  py_module(+Name, -Module) is det.
+%
+%   Module is a Python object holding the executable module Name.
 
-py_call(Module, Call, Return) :-
-    compound_name_arguments(Call, FuncName, PlArgs),
-    'PyObject_GetAttrString'(Module, FuncName, Function),
-    length(PlArgs, Argc),
+py_module(Name, Module) :-
+    py_module_done(Name, Module0),
+    !,
+    Module = Module0.
+py_module(Name, Module) :-
+    with_mutex(python, py_module_sync(Name, Module0)),
+    Module = Module0.
+
+py_module_sync(Name, Module) :-
+    py_module_done(Name, Module),
+    !.
+py_module_sync(Name, Module) :-
+    py_init,
+    'PyUnicode_FromString'(Name, PyString),
+    'PyImport_Import'(PyString, Module),
+    asserta(py_module_done(Name, Module)).
+
+%!  py_function(+Module, +Name, -Function) is det.
+%
+%   Get a handle to a Python function in a module.
+
+py_function(Module, Name, Function) :-
+    py_function_done(Module, Name, Function0),
+    !,
+    Function = Function0.
+py_function(Module, Name, Function) :-
+    with_mutex(python, py_function_sync(Module, Name, Function0)),
+    Function = Function0.
+
+py_function_sync(Module, Name, Function) :-
+    py_function_done(Module, Name, Function),
+    !.
+py_function_sync(Module, Name, Function) :-
+    py_module(Module, Handle),
+    'PyObject_GetAttrString'(Handle, Name, Function),
+    asserta(py_function_done(Module, Name, Function)).
+
+%!  py_call(+Call, -Return) is det.
+
+py_call(Module:Call, Return) :-
+    compound_name_arity(Call, Func, Argc),
+    py_function(Module, Func, Function),
     'PyTuple_New'(Argc, Argv),
-    fill_args(PlArgs, 0, Argv),
+    fill_tuple(0, Argc, Call, Argv),
     'PyObject_CallObject'(Function, Argv, PyReturn),
-    python_to_prolog(PyReturn, Return),
-    'Py_DECREF'(PyReturn).
+    python_to_prolog(PyReturn, Return).
 
-fill_args([], _, _).
-fill_args([H|T], I, Argv) :-
-    prolog_to_python(H, Py),
-    'Py_INCREF'(Py),                            % 'PyTuple_SetItem' decrements
-    'PyTuple_SetItem'(Argv, I, Py, _Rc),
+fill_tuple(I, Argc, Term, Tuple) :-
+    I < Argc, !,
     I2 is I+1,
-    fill_args(T, I2, Argv).
+    arg(I2, Term, A),
+    prolog_to_python(A, Py),
+    'Py_INCREF'(Py),                            % 'PyTuple_SetItem' decrements
+    'PyTuple_SetItem'(Tuple, I, Py, _Rc),
+    fill_tuple(I2, Argc, Term, Tuple).
+fill_tuple(_, _, _, _).
+
+%!  prolog_to_python(+Prolog, -Python) is det.
+%
+%   Translate a Prolog term into a Python object.
 
 prolog_to_python(Int, Py) :-
     integer(Int),
@@ -86,12 +139,8 @@ prolog_to_python(Int, Py) :-
 prolog_to_python(Prolog, _Pyton) :-
     type_error(python, Prolog).
 
+%!  python_to_prolog(+Python, -Prolog) is det.
+
 python_to_prolog(Py, Value) :-
     'PyLong_AsLong'(Py, Value).
 
-today :-
-    py_init,
-    'PyRun_SimpleStringFlags'("from time import time,ctime\n\c
-                               print('Today is', ctime(time()))\n",
-                              null, Rc),
-    writeln(Rc).
