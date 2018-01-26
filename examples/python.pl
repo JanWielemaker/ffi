@@ -102,6 +102,7 @@ py_module_sync(Name, Module) :-
     py_init,
     'PyUnicode_FromString'(Name, PyString),
     'PyImport_Import'(PyString, Module),
+    py_check_exception,
     asserta(py_module_done(Name, Module)).
 
 %!  py_function(+Module, +Name, -Function) is det.
@@ -122,6 +123,7 @@ py_function_sync(Module, Name, Function) :-
 py_function_sync(Module, Name, Function) :-
     py_module(Module, Handle),
     'PyObject_GetAttrString'(Handle, Name, Function),
+    py_check_exception,
     asserta(py_function_done(Module, Name, Function)).
 
 %!  py_call(+Call, -Return) is det.
