@@ -12,3 +12,13 @@ MyPy_INCREF(PyObject *o)
 { Py_INCREF(o);
 }
 
+int
+MyPyLong_Check(PyObject *o)
+{ return PyLong_Check(o);
+}
+
+int
+MyPyFloat_Check(PyObject *o)
+{ return PyFloat_Check(o);
+}
+
