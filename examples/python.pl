@@ -27,9 +27,13 @@
               'Py_FinalizeEx'([-int]),
 
               'PyUnicode_FromString'(+string(utf8), [*('PyObject', 'MyPy_DECREF')]),
-              'PyLong_FromLong'(int, [*('PyObject', 'MyPy_DECREF')]),
+              'PyLong_FromLongLong'(int, [*('PyObject', 'MyPy_DECREF')]),
+              'PyFloat_FromDouble'(float, [*('PyObject', 'MyPy_DECREF')]),
 
-              'PyLong_AsLong'(*'PyObject', [-int]),
+              'MyPyLong_Check'(*'PyObject', [-int]) as 'PyLong_Check',
+              'MyPyFloat_Check'(*'PyObject', [-int]) as 'PyFloat_Check',
+              'PyLong_AsLongLong'(*'PyObject', [-int]),
+              'PyFloat_AsDouble'(*'PyObject', [-float]),
 
               'PyImport_Import'(*'PyObject', [*('PyObject', 'MyPy_DECREF')]),
 
@@ -132,15 +136,27 @@ fill_tuple(_, _, _, _).
 %
 %   Translate a Prolog term into a Python object.
 
-prolog_to_python(Int, Py) :-
-    integer(Int),
-    !,
-    'PyLong_FromLong'(Int, Py).
-prolog_to_python(Prolog, _Pyton) :-
-    type_error(python, Prolog).
+prolog_to_python(Prolog, Py) :-
+    (   integer(Prolog)
+    ->  'PyLong_FromLongLong'(Prolog, Py)
+    ;   float(Prolog)
+    ->  'PyFloat_FromDouble'(Prolog, Py)
+    ;   string(Prolog)
+    ->  'PyUnicode_FromString'(Prolog, Py)
+    ;   atom(Prolog)
+    ->  'PyUnicode_FromString'(Prolog, Py)
+    ;   type_error(python, Prolog)
+    ).
 
 %!  python_to_prolog(+Python, -Prolog) is det.
 
 python_to_prolog(Py, Value) :-
-    'PyLong_AsLong'(Py, Value).
-
+    'PyLong_Check'(Py, 1),
+    !,
+    'PyLong_AsLongLong'(Py, Value).
+python_to_prolog(Py, Value) :-
+    'PyFloat_Check'(Py, 1),
+    !,
+    'PyFloat_AsDouble'(Py, Value).
+python_to_prolog(Py, _Value) :-
+    throw(error(python_convert_error(python(Py)), _)).
