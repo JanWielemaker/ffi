@@ -23,25 +23,34 @@
             ],
             [ 'Py_SetProgramName'(+string(wchar_t)),
               'Py_Initialize'(),
-              'PyRun_SimpleStringFlags'(+string, +'PyCompilerFlags', [-int]),
-              'Py_FinalizeEx'([-int]),
+              'PyRun_SimpleStringFlags'(string, 'PyCompilerFlags', [int]),
+              'Py_FinalizeEx'([int]),
 
-              'PyUnicode_FromString'(+string(utf8), [*('PyObject', 'MyPy_DECREF')]),
               'PyLong_FromLongLong'(int, [*('PyObject', 'MyPy_DECREF')]),
               'PyFloat_FromDouble'(float, [*('PyObject', 'MyPy_DECREF')]),
+              'PyUnicode_FromString'(+string(utf8),
+                                     [*('PyObject', 'MyPy_DECREF')]),
+              'PyUnicode_FromWideChar'(+string(wchar_t), +int,
+                                       [*('PyObject', 'MyPy_DECREF')]),
 
               'MyPyLong_Check'(*'PyObject', [-int]) as 'PyLong_Check',
               'MyPyFloat_Check'(*'PyObject', [-int]) as 'PyFloat_Check',
+              'MyPyUnicode_Check'(*'PyObject', [-int]) as 'PyUnicode_Check',
+
               'PyLong_AsLongLong'(*'PyObject', [-int]),
               'PyFloat_AsDouble'(*'PyObject', [-float]),
+              'PyUnicode_AsWideCharString'(*'PyObject', -int,
+                                           [*(wchar_t, 'PyMem_Free')]),
 
               'PyImport_Import'(*'PyObject', [*('PyObject', 'MyPy_DECREF')]),
 
-              'PyObject_GetAttrString'(*'PyObject', +string, [*('PyObject', 'MyPy_DECREF')]),
+              'PyObject_GetAttrString'(*'PyObject', +string,
+                                       [*('PyObject', 'MyPy_DECREF')]),
 
               'PyTuple_New'(int, [*('PyObject', 'MyPy_DECREF')]),
               'PyTuple_SetItem'(*'PyObject', int, *'PyObject', [int]),
-              'PyObject_CallObject'(*'PyObject', *'PyObject', [*('PyObject', 'MyPy_DECREF')]),
+              'PyObject_CallObject'(*'PyObject', *'PyObject',
+                                    [*('PyObject', 'MyPy_DECREF')]),
 
               'MyPy_DECREF'(*'PyObject') as 'Py_DECREF',
               'MyPy_INCREF'(*'PyObject') as 'Py_INCREF'
@@ -142,11 +151,18 @@ prolog_to_python(Prolog, Py) :-
     ;   float(Prolog)
     ->  'PyFloat_FromDouble'(Prolog, Py)
     ;   string(Prolog)
-    ->  'PyUnicode_FromString'(Prolog, Py)
+    ->  prolog_string_to_python(Prolog, Py)
     ;   atom(Prolog)
-    ->  'PyUnicode_FromString'(Prolog, Py)
+    ->  prolog_string_to_python(Prolog, Py)
     ;   type_error(python, Prolog)
     ).
+
+prolog_string_to_python(Text, Py) :-
+    sub_atom(Text, _, _, _, '\u0000'), !,
+    atom_length(Text, Len),
+    'PyUnicode_FromWideChar'(Text, Len, Py).
+prolog_string_to_python(Text, Py) :-
+    'PyUnicode_FromString'(Text, Py).
 
 %!  python_to_prolog(+Python, -Prolog) is det.
 
@@ -158,5 +174,10 @@ python_to_prolog(Py, Value) :-
     'PyFloat_Check'(Py, 1),
     !,
     'PyFloat_AsDouble'(Py, Value).
+python_to_prolog(Py, Value) :-
+    'PyUnicode_Check'(Py, 1),
+    !,
+    'PyUnicode_AsWideCharString'(Py, Len, WString),
+    c_load_string(WString, Len, Value, string, wchar_t).
 python_to_prolog(Py, _Value) :-
     throw(error(python_convert_error(python(Py)), _)).

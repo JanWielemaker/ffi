@@ -22,3 +22,7 @@ MyPyFloat_Check(PyObject *o)
 { return PyFloat_Check(o);
 }
 
+int
+MyPyUnicode_Check(PyObject *o)
+{ return PyUnicode_Check(o);
+}
