@@ -682,7 +682,7 @@ pl_ffi_call(term_t prototype, term_t goal)
 		return PL_cvt_o_float(rv.d, arg);
 	    }
 	  case 'p':
-	    return unify_ptr(arg, rv.p, ctx->ret.size, 1,
+	    return unify_ptr(arg, rv.p, 1, ctx->ret.size,
 			     ctx->ret.type, ctx->ret.qual, ctx->ret.free);
 	}
       }
