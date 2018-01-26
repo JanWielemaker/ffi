@@ -63,7 +63,41 @@ static atom_t ATOM_fastcall;
 
 static atom_t ATOM_void;			/* void */
 
+static functor_t FUNCTOR_pointer2;
+static functor_t FUNCTOR_pointer3;
+
 #include "cmemory.c"
+
+		 /*******************************
+		 *	      TYPES		*
+		 *******************************/
+
+typedef struct ret_spec
+{ atom_t	 type;
+  type_qualifier qual;
+  size_t	 size;			/* Element size */
+  void          *free;			/* Free function */
+} ret_spec;
+
+typedef struct ctx_library
+{ char	       *name;			/* name of the library */
+  void	       *lib;			/* handle */
+} ctx_library;
+
+typedef struct ctx_symbol
+{ void         *func;
+} ctx_symbol;
+
+typedef struct ctx_prototype
+{ ffi_cif	cif;			/* libffi cif */
+  void         *func;
+  int		argc;
+  const char   *rformat;
+  const char   *pformat;
+  ffi_type    **atypes;
+  ret_spec	ret;
+} ctx_prototype;
+
 
 
 		 /*******************************
@@ -86,6 +120,48 @@ get_abi(term_t cc, ffi_abi *v)
 
   return FALSE;
 }
+
+
+int
+get_return(term_t t, ret_spec *rspec, char **format)
+{ int nofree;
+
+  memset(rspec, 0, sizeof(*rspec));
+
+  if ( (nofree = PL_is_functor(t, FUNCTOR_pointer2)) ||
+       PL_is_functor(t, FUNCTOR_pointer3) )
+  { term_t a = PL_new_term_ref();
+    static char *p = "p";
+
+    _PL_get_arg(1, t, a);
+    if ( !get_type(a, &rspec->type, &rspec->qual) )
+      return FALSE;
+    _PL_get_arg(2, t, a);
+    if ( !PL_get_size_ex(a, &rspec->size) )
+      return FALSE;
+
+    if ( !nofree )
+    { ctx_symbol *ep;
+
+      _PL_get_arg(3, t, a);
+      if ( get_ptr(a, &ep, ATOM_c_symbol) )
+	rspec->free = ep->func;
+      else
+	return FALSE;
+    }
+
+    *format = p;
+  } else
+  { if ( !PL_get_chars(t, format, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) )
+      return FALSE;
+    rspec->type = ATOM_void;
+    rspec->qual = Q_PLAIN;
+    rspec->size = SZ_UNKNOWN;
+  }
+
+  return TRUE;
+}
+
 
 
 		 /*******************************
@@ -115,29 +191,6 @@ ffi_error(ffi_status rc)
       return FALSE;
   }
 }
-
-		 /*******************************
-		 *	   CONTEXT TYPES	*
-		 *******************************/
-
-typedef struct ctx_library
-{ char	       *name;			/* name of the library */
-  void	       *lib;			/* handle */
-} ctx_library;
-
-typedef struct ctx_symbol
-{ void         *func;
-} ctx_symbol;
-
-typedef struct ctx_prototype
-{ ffi_cif	cif;			/* libffi cif */
-  void         *func;
-  int		argc;
-  const char   *rformat;
-  const char   *pformat;
-  ffi_type    **atypes;
-} ctx_prototype;
-
 
 		 /*******************************
 		 *	 LINK DEPENDENCIES	*
@@ -356,6 +409,11 @@ ci_function_free(void *ptr)
 }
 
 
+/** 'ffi_prototype_create'(+Function, +ABI, +Return, +Params, -Prototype)
+
+@arg Return is either text, pointer(+Type) or pointer(+Type, +FreeFunc)
+*/
+
 static foreign_t
 ffi_prototype_create(term_t entry, term_t cc,
 		     term_t ret, term_t parms,
@@ -367,10 +425,11 @@ ffi_prototype_create(term_t entry, term_t cc,
   ffi_type *r_type;
   ffi_type *a_types[MAX_ARGC];
   int argc;
+  ret_spec rspec;
 
   if ( get_ptr(entry, &ep, ATOM_c_symbol) &&
        get_abi(cc, &abi) &&
-       PL_get_chars(ret, &rformat, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) &&
+       get_return(ret, &rspec, &rformat) &&
        PL_get_chars(parms, &pformat, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) &&
        ret_signature(rformat, &r_type) &&
        (argc=ci_signature(pformat, a_types)) >= 0 )
@@ -396,6 +455,7 @@ ffi_prototype_create(term_t entry, term_t cc,
       p->rformat = strdup(rformat);
       p->pformat = strdup(pformat);
       p->atypes  = at;
+      p->ret     = rspec;
 
       DEBUG(1, Sdprintf("Created prototype\n"));
 
@@ -622,8 +682,8 @@ pl_ffi_call(term_t prototype, term_t goal)
 		return PL_cvt_o_float(rv.d, arg);
 	    }
 	  case 'p':
-	    return unify_ptr(arg, rv.p, SZ_UNKNOWN, 1,
-			     ATOM_void, Q_PLAIN, NULL);
+	    return unify_ptr(arg, rv.p, ctx->ret.size, 1,
+			     ctx->ret.type, ctx->ret.qual, ctx->ret.free);
 	}
       }
     } else
@@ -678,6 +738,9 @@ install(void)
   MKATOM(fastcall);
 
   MKATOM(void);
+
+  MKFUNCTOR(pointer, 2);
+  MKFUNCTOR(pointer, 3);
 
   install_c_memory();
 
