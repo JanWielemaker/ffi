@@ -366,13 +366,19 @@ compatible_ret(int, CArg, CArg, _) :-
     int_type(CArg).
 compatible_ret(float, CArg, CArg, _) :-
     float_type(CArg).
+compatible_ret(*(TypeNam,_Free), CType, Param, Types) :-
+    compatible_ret(*(TypeNam), CType, Param, Types).
 compatible_ret(*(TypeName), *(CType), *(CType), Types) :-
     memberchk(typedef(TypeName, Type), Types),
     !,
     compatible_ret(*(Type), *(CType), Types).
 % compatible_ret/3
 compatible_ret(-PlArg, CArg, Types) :-
+    !,
     compatible_ret(PlArg, CArg, Types).
+compatible_ret(*(Type,_Free), CType, Types) :-
+    !,
+    compatible_ret(*(Type), CType, Types).
 compatible_ret(Type, Type, _) :- !.
 compatible_ret(*(struct(Name)),  *(struct(Name)), _).
 compatible_ret(*(union(Name)),   *(union(Name)), _).
@@ -449,15 +455,10 @@ link_clause(M:Goal, CSignature,
     functor(Head, Name, Arity),
     functor(Head1, Name, Arity),
     CSignature =.. [FName|SigArgs],
-    (   M:'$c_lib'(Lib, Funcs),
-        member(Func, Funcs),
-        optional(Func, FName, _Optional),
-        ci_library(Lib, FH),
-        ffi_lookup_symbol(FH, FName, FuncPtr)
-    ->  debug(ctypes, 'Binding ~p (Ret=~p, Params=~p)', [Name, Ret, Params]),
-        ffi_prototype_create(FuncPtr, default, Ret, Params, Prototype)
-    ;   existence_error(c_function, Name)
-    ),
+    prototype_return(Ret, M, SigArgs, PRet),
+    find_symbol(M, FName, FuncPtr),
+    debug(ctypes, 'Binding ~p (Ret=~p, Params=~p)', [Name, PRet, Params]),
+    ffi_prototype_create(FuncPtr, default, PRet, Params, Prototype),
     convert_args(SigArgs, 1, Arity, Head, Head1, PreConvert, PostConvert),
     Invoke = ffi:ffi_call(Prototype, Head1),
     mkconj(PreConvert, Invoke, Body0),
@@ -465,6 +466,28 @@ link_clause(M:Goal, CSignature,
 
 param_type(_Name-Type, Type) :- !.
 param_type(Type, Type).
+
+find_symbol(M, FName, Symbol) :-
+    M:'$c_lib'(Lib, Funcs),
+    member(Func, Funcs),
+    optional(Func, FName, _Optional),
+    ci_library(Lib, FH),
+    ffi_lookup_symbol(FH, FName, Symbol),
+    !.
+find_symbol(_, FName, _) :-
+    existence_error(c_function, FName).
+
+prototype_return(p, M, SigArgs, PRet) :-
+    append(_, [[PlRet]], SigArgs),
+    PlRet =.. [*,Type|T], !,
+    type_size(M:Type, Size),
+    (   T == []
+    ->  PRet = pointer(Type, Size)
+    ;   T = [FreeName]
+    ->  find_symbol(M, FreeName, Free),
+        PRet = pointer(Type, Size, Free)
+    ).
+prototype_return(Ret, _, _, Ret).
 
 convert_args([], _, _, _, _, true, true).
 convert_args([H|T], I, Arity, Head0, Head1, GPre, GPost) :-
@@ -517,9 +540,6 @@ convert_arg([string], String, Ptr, Pre, Post) :-
 convert_arg([enum(Enum)], Id, Int,
             true,
             c_enum_out(Id, Enum, Int)).
-convert_arg([*(Type)], Out, In,
-            true,
-            c_cast(Type, In, Out)).
 
 mkconj(true, G, G) :- !.
 mkconj(G, true, G) :- !.
