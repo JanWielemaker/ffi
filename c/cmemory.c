@@ -837,9 +837,17 @@ c_alloc_string(term_t ptr, term_t data, term_t encoding)
 
 
 static foreign_t
-c_load_string(term_t ptr, term_t data, term_t type, term_t encoding)
+c_load_string5(term_t ptr, term_t len, term_t data, term_t type, term_t encoding)
 { PL_blob_t *btype;
   void *bp;
+  size_t clen;
+
+  if ( len )
+  { if ( !PL_get_size_ex(len, &clen) )
+      return FALSE;
+  } else
+  { clen = (size_t)-1;
+  }
 
   if ( PL_get_blob(ptr, &bp, NULL, &btype) &&
        btype == &c_ptr_blob )
@@ -863,7 +871,7 @@ c_load_string(term_t ptr, term_t data, term_t type, term_t encoding)
       return PL_domain_error("text_type", type);
 
     if ( aenc == ATOM_wchar_t )
-      return PL_unify_wchars(data, flags, (size_t)-1, ref->ptr);
+      return PL_unify_wchars(data, flags, clen, ref->ptr);
 
     if ( aenc == ATOM_iso_latin_1 )
     { flags |= REP_ISO_LATIN_1;
@@ -874,10 +882,15 @@ c_load_string(term_t ptr, term_t data, term_t type, term_t encoding)
     } else
       return PL_domain_error("encoding", encoding);
 
-    return PL_unify_chars(data, flags, (size_t)-1, ref->ptr);
+    return PL_unify_chars(data, flags, clen, ref->ptr);
   }
 
   return FALSE;
+}
+
+static foreign_t
+c_load_string4(term_t ptr, term_t data, term_t type, term_t encoding)
+{ return c_load_string5(ptr, 0, data, type, encoding);
 }
 
 
@@ -932,5 +945,6 @@ install_c_memory(void)
   PL_register_foreign("c_sizeof",	2, c_sizeof,	   0);
   PL_register_foreign("c_alignof",	2, c_alignof,	   0);
   PL_register_foreign("c_alloc_string",	3, c_alloc_string, 0);
-  PL_register_foreign("c_load_string",	4, c_load_string,  0);
+  PL_register_foreign("c_load_string",	4, c_load_string4, 0);
+  PL_register_foreign("c_load_string",	5, c_load_string5, 0);
 }
