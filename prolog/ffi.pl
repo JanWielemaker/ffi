@@ -70,7 +70,7 @@
 
             c_alloc_string/3,           % -Ptr, +Data, +Encoding
             c_load_string/4,            % +Ptr, -Data, +Type, +Encoding
-            c_load_string/4,            % +Ptr, +Len, -Data, +Type, +Encoding
+            c_load_string/5,            % +Ptr, +Len, -Data, +Type, +Encoding
 
             c_errno/1,                  % -Integer
 
@@ -175,7 +175,7 @@ system:term_expansion((:- c_import(Header, Flags, Functions)),
                       Clauses) :-
     \+ current_prolog_flag(xref, true),
     prolog_load_context(module, M),
-    maplist(function_name, Functions, FunctionNames),
+    phrase(c_functions_needed(Functions), FunctionNames),
     add_constants(M, Header, HeaderConst),
     partition(is_lib_flag, Flags, LibFlags, InclFlags),
     c99_types(HeaderConst, InclFlags, FunctionNames, Types, Constants),
@@ -187,17 +187,40 @@ system:term_expansion((:- c_import(Header, Flags, Functions)),
              c_import(Functions, LibFlags, FunctionNames, Types)),
            Clauses).
 
-function_name([Spec], [Name]) :-
-    !,
-    function_name_(Spec, Name).
-function_name(Spec, Name) :-
-    function_name_(Spec, Name).
+%!  c_functions_needed(+FuncSpecList)//
+%
+%   Get the names of the C functions   that  we need. Optional functions
+%   are returned in a list.
 
-function_name_(Spec as _Pred, Name) :-
+c_functions_needed([]) --> [].
+c_functions_needed([H|T]) --> c_function_needed(H), c_functions_needed(T).
+
+c_function_needed([Spec]) -->
     !,
-    compound_name_arity(Spec, Name, _).
-function_name_(Spec, Name) :-
-    compound_name_arity(Spec, Name, _).
+    c_function_needed(Spec, optional).
+c_function_needed(Spec) -->
+    c_function_needed(Spec, required).
+
+c_function_needed(Spec as _, Optional) -->
+    !,
+    c_function_needed(Spec, Optional).
+c_function_needed(Spec, Optional) -->
+    { compound_name_arguments(Spec, Name, Args) },
+    needed(Name, Optional),
+    (   {append(_,[[*(_,Free)]], Args)}
+    ->  needed(Free, Optional)
+    ;   []
+    ).
+
+needed(Name, optional) -->
+    [[Name]].
+needed(Name, required) -->
+    [Name].
+
+%!  c_import(+FuncSpecList, +Flags, +FunctionNames, +Types)//
+%
+%   Produce the clauses for the predicates  and types that represent the
+%   library.
 
 c_import(Functions, Flags, FunctionNames, Types) -->
     decls(Types),
