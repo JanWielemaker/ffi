@@ -700,7 +700,7 @@ pl_ffi_call(term_t prototype, term_t goal)
 		 *******************************/
 
 static foreign_t
-ci_debug(term_t level)
+ffi_debug(term_t level)
 { unsigned int i;
 
   if ( PL_cvt_i_uint(level, &i) )
@@ -750,6 +750,6 @@ install(void)
   PL_register_foreign("ffi_prototype_create", 5, ffi_prototype_create, 0);
   PL_register_foreign("ffi_call",	      2, pl_ffi_call,	       0);
 
-  PL_register_foreign("ci_debug",	      1, ci_debug,	       0);
+  PL_register_foreign("ffi_debug",	      1, ffi_debug,	       0);
   PL_register_foreign("c_errno",	      1, c_errno,	       0);
 }
