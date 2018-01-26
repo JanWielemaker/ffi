@@ -32,3 +32,8 @@ MyPyList_Check(PyObject *o)
 { return PyList_Check(o);
 }
 
+int
+MyPyDict_Check(PyObject *o)
+{ return PyDict_Check(o);
+}
+

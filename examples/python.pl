@@ -37,6 +37,7 @@
               'MyPyFloat_Check'(*'PyObject', [-int]) as 'PyFloat_Check',
               'MyPyUnicode_Check'(*'PyObject', [-int]) as 'PyUnicode_Check',
               'MyPyList_Check'(*'PyObject', [-int]) as 'PyList_Check',
+              'MyPyDict_Check'(*'PyObject', [-int]) as 'PyDict_Check',
 
               'PyLong_AsLongLong'(*'PyObject', [-int]),
               'PyFloat_AsDouble'(*'PyObject', [-float]),
@@ -55,6 +56,10 @@
               'PyList_Append'(*'PyObject', *'PyObject', [int]),
               'PyList_GetItem'(*'PyObject', int, [*('PyObject')]),
               'PyList_Size'(*'PyObject', [int]),
+
+              'PyDict_New'([*('PyObject', 'MyPy_DECREF')]),
+              'PyDict_SetItemString'(*'PyObject', string(utf8), *'PyObject', [int]),
+              'PyDict_SetItem'(*'PyObject', *'PyObject', *'PyObject', [int]),
 
               'PyObject_CallObject'(*'PyObject', *'PyObject',
                                     [*('PyObject', 'MyPy_DECREF')]),
@@ -175,6 +180,11 @@ prolog_to_python(Prolog, Py) :-
     ;   is_list(Prolog)
     ->  'PyList_New'(0, Py),
         maplist(list_append(Py), Prolog)
+    ;   is_dict(Prolog, _Tag),
+        'PyDict_New'(Py),
+        dict_pairs(Prolog, _, Pairs),
+        maplist(py_dict_add(Py), Pairs),
+        py_dict_add_pairs(Pairs, Py)
     ;   type_error(python, Prolog)
     ).
 
@@ -192,6 +202,15 @@ list_append(List, Prolog) :-
     ->  true
     ;   py_check_exception
     ).
+
+py_dict_add(Dict, Key-Value) :-
+    prolog_to_python(Value, PyValue),
+    (   atom(Key)
+    ->  'PyDict_SetItemString'(Dict, Key, PyValue)
+    ;   prolog_to_python(Key, PyKey),
+        'PyDict_SetItem'(Dict, PyKey, PyValue)
+    ).
+
 
 %!  python_to_prolog(+Python, -Prolog) is det.
 
@@ -212,6 +231,9 @@ python_to_prolog(Py, Value) :-
     'PyList_Check'(Py, 1), !,
     'PyList_Size'(Py, Len),
     py_list(0, Len, Py, Value).
+python_to_prolog(Py, _Value) :-
+    'PyDic_Check'(Py, 1), !,
+    pp(Py).                                     % TBD: Use PyDict_Next
 python_to_prolog(Py, _Value) :-
     throw(error(python_convert_error(python(Py)), _)).
 
