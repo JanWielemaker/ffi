@@ -366,8 +366,9 @@ compatible_ret(int, CArg, CArg, _) :-
     int_type(CArg).
 compatible_ret(float, CArg, CArg, _) :-
     float_type(CArg).
-compatible_ret(*(TypeNam,_Free), CType, Param, Types) :-
-    compatible_ret(*(TypeNam), CType, Param, Types).
+compatible_ret(*(TypeName,Free), *(CType), *(CType,Free), Types) :-
+    !,
+    compatible_ret(*(TypeName), *(CType), *(CType), Types).
 compatible_ret(*(TypeName), *(CType), *(CType), Types) :-
     memberchk(typedef(TypeName, Type), Types),
     !,
