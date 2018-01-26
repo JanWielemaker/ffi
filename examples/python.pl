@@ -52,6 +52,9 @@
               'PyObject_CallObject'(*'PyObject', *'PyObject',
                                     [*('PyObject', 'MyPy_DECREF')]),
 
+              'PyErr_Occurred'([*('PyObject')]),
+              'PyErr_Clear'(),
+
               'MyPy_DECREF'(*'PyObject') as 'Py_DECREF',
               'MyPy_INCREF'(*'PyObject') as 'Py_INCREF'
             ]).
@@ -129,6 +132,7 @@ py_call(Module:Call, Return) :-
     'PyTuple_New'(Argc, Argv),
     fill_tuple(0, Argc, Call, Argv),
     'PyObject_CallObject'(Function, Argv, PyReturn),
+    py_check_exception,
     python_to_prolog(PyReturn, Return).
 
 fill_tuple(I, Argc, Term, Tuple) :-
@@ -181,3 +185,19 @@ python_to_prolog(Py, Value) :-
     c_load_string(WString, Len, Value, string, wchar_t).
 python_to_prolog(Py, _Value) :-
     throw(error(python_convert_error(python(Py)), _)).
+
+%!  py_check_exception is det.
+%
+%   Check whether there is an exception in  the environment and raise it
+%   as a Prolog exception.
+%
+%   @tbd Map to Prolog
+%   @tbd The exception is borrowed.  How to handle reference counts.
+
+py_check_exception :-
+    'PyErr_Occurred'(Ex),
+    (   c_nil(Ex)
+    ->  true
+    ;   'PyErr_Clear'(),
+        throw(error(python_error(Ex)))
+    ).
