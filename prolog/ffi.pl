@@ -948,6 +948,8 @@ c_store_(Ptr, Offset, Type, Value) :-
     ;   Plain = enum(Set)
     ->  c_enum_in(Value, M:Set, IntValue),
         c_store_(Ptr, Offset, M:int, IntValue)
+    ;   Plain = *(_EType)                       % TBD: validate
+    ->  c_store_(Ptr, Offset, pointer, Value)
     ).
 
 %!  c_cast(:Type, +PtrIn, -PtrOut)
