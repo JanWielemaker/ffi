@@ -7,6 +7,7 @@
           ]).
 :- use_module(library(ffi)).
 :- use_module(library(error)).
+:- use_module(library(apply)).
 
 /** <module> Embed Python
 
@@ -60,6 +61,8 @@
               'PyDict_New'([*('PyObject', 'MyPy_DECREF')]),
               'PyDict_SetItemString'(*'PyObject', string(utf8), *'PyObject', [int]),
               'PyDict_SetItem'(*'PyObject', *'PyObject', *'PyObject', [int]),
+              'PyDict_Next'(*'PyObject', *int,
+                            *(*('PyObject')), *(*('PyObject')), [int]),
 
               'PyObject_CallObject'(*'PyObject', *'PyObject',
                                     [*('PyObject', 'MyPy_DECREF')]),
@@ -183,8 +186,7 @@ prolog_to_python(Prolog, Py) :-
     ;   is_dict(Prolog, _Tag),
         'PyDict_New'(Py),
         dict_pairs(Prolog, _, Pairs),
-        maplist(py_dict_add(Py), Pairs),
-        py_dict_add_pairs(Pairs, Py)
+        maplist(py_dict_add(Py), Pairs)
     ;   type_error(python, Prolog)
     ).
 
@@ -206,9 +208,9 @@ list_append(List, Prolog) :-
 py_dict_add(Dict, Key-Value) :-
     prolog_to_python(Value, PyValue),
     (   atom(Key)
-    ->  'PyDict_SetItemString'(Dict, Key, PyValue)
+    ->  'PyDict_SetItemString'(Dict, Key, PyValue, _Rc)
     ;   prolog_to_python(Key, PyKey),
-        'PyDict_SetItem'(Dict, PyKey, PyValue)
+        'PyDict_SetItem'(Dict, PyKey, PyValue, _Rc)
     ).
 
 
@@ -231,9 +233,10 @@ python_to_prolog(Py, Value) :-
     'PyList_Check'(Py, 1), !,
     'PyList_Size'(Py, Len),
     py_list(0, Len, Py, Value).
-python_to_prolog(Py, _Value) :-
-    'PyDic_Check'(Py, 1), !,
-    pp(Py).                                     % TBD: Use PyDict_Next
+python_to_prolog(Py, Value) :-
+    'PyDict_Check'(Py, 1), !,
+    py_dict_pairs(Py, Pairs),
+    dict_pairs(Value, py, Pairs).
 python_to_prolog(Py, _Value) :-
     throw(error(python_convert_error(python(Py)), _)).
 
@@ -244,6 +247,23 @@ py_list(I, Len, List, [H|T]) :-
     I2 is I+1,
     py_list(I2, Len, List, T).
 py_list(Len, Len, _, []).
+
+py_dict_pairs(PyDict, Pairs) :-
+    c_alloc(KeyP, *('PyObject')),
+    c_alloc(ValP, *('PyObject')),
+    c_alloc(PosP, int),
+    py_dict_pairs(PyDict, PosP, KeyP, ValP, Pairs).
+
+py_dict_pairs(PyDict, PosP, KeyP, ValP, [Key-Val|T]) :-
+    'PyDict_Next'(PyDict, PosP, KeyP, ValP, 1),
+    !,
+    c_load(KeyP, PyKey),
+    c_load(ValP, PyVal),
+    python_to_prolog(PyKey, Key),
+    python_to_prolog(PyVal, Val),
+    py_dict_pairs(PyDict, PosP, KeyP, ValP, T).
+py_dict_pairs(_,_,_,_,[]).
+
 
 %!  py_check_exception is det.
 %
