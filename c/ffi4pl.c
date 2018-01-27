@@ -74,7 +74,8 @@ static functor_t FUNCTOR_pointer3;
 
 typedef struct ret_spec
 { atom_t	 type;
-  type_qualifier qual;
+  type_qualifier qual;			/* struct, union, enum */
+  int		 ptrl;			/* pointer level */
   size_t	 size;			/* Element size */
   void          *free;			/* Free function */
 } ret_spec;
@@ -134,7 +135,7 @@ get_return(term_t t, ret_spec *rspec, char **format)
     static char *p = "p";
 
     _PL_get_arg(1, t, a);
-    if ( !get_type(a, &rspec->type, &rspec->qual) )
+    if ( !get_type(a, &rspec->type, &rspec->qual,  &rspec->ptrl) )
       return FALSE;
     _PL_get_arg(2, t, a);
     if ( !PL_get_size_ex(a, &rspec->size) )
@@ -156,6 +157,7 @@ get_return(term_t t, ret_spec *rspec, char **format)
       return FALSE;
     rspec->type = ATOM_void;
     rspec->qual = Q_PLAIN;
+    rspec->ptrl = 0;
     rspec->size = SZ_UNKNOWN;
   }
 
@@ -200,7 +202,7 @@ static int
 unify_part_ptr(term_t t,
 	       void *ptr, size_t size, atom_t type,
 	       freefunc free)
-{ return unify_ptr(t, ptr, 1, size, type, Q_STRUCT, free);
+{ return unify_ptr(t, ptr, 1, size, type, Q_STRUCT, 0, free);
 }
 
 
@@ -683,7 +685,8 @@ pl_ffi_call(term_t prototype, term_t goal)
 	    }
 	  case 'p':
 	    return unify_ptr(arg, rv.p, 1, ctx->ret.size,
-			     ctx->ret.type, ctx->ret.qual, ctx->ret.free);
+			     ctx->ret.type, ctx->ret.qual, 0,
+			     ctx->ret.free);
 	}
       }
     } else
