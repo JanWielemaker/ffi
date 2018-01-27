@@ -183,8 +183,8 @@ prolog_to_python(Prolog, Py) :-
     ;   is_list(Prolog)
     ->  'PyList_New'(0, Py),
         maplist(list_append(Py), Prolog)
-    ;   is_dict(Prolog, _Tag),
-        'PyDict_New'(Py),
+    ;   is_dict(Prolog, _Tag)
+    ->  'PyDict_New'(Py),
         dict_pairs(Prolog, _, Pairs),
         maplist(py_dict_add(Py), Pairs)
     ;   type_error(python, Prolog)
@@ -230,11 +230,13 @@ python_to_prolog(Py, Value) :-
     'PyUnicode_AsWideCharString'(Py, Len, WString),
     c_load_string(WString, Len, Value, string, wchar_t).
 python_to_prolog(Py, Value) :-
-    'PyList_Check'(Py, 1), !,
+    'PyList_Check'(Py, 1),
+    !,
     'PyList_Size'(Py, Len),
     py_list(0, Len, Py, Value).
 python_to_prolog(Py, Value) :-
-    'PyDict_Check'(Py, 1), !,
+    'PyDict_Check'(Py, 1),
+    !,
     py_dict_pairs(Py, Pairs),
     dict_pairs(Value, py, Pairs).
 python_to_prolog(Py, _Value) :-
@@ -259,10 +261,22 @@ py_dict_pairs(PyDict, PosP, KeyP, ValP, [Key-Val|T]) :-
     !,
     c_load(KeyP, PyKey),
     c_load(ValP, PyVal),
-    python_to_prolog(PyKey, Key),
+    python_to_prolog_key(PyKey, Key),
     python_to_prolog(PyVal, Val),
     py_dict_pairs(PyDict, PosP, KeyP, ValP, T).
 py_dict_pairs(_,_,_,_,[]).
+
+python_to_prolog_key(Py, Value) :-
+    'PyLong_Check'(Py, 1),
+    !,
+    'PyLong_AsLongLong'(Py, Value).
+python_to_prolog_key(Py, Value) :-
+    'PyUnicode_Check'(Py, 1),
+    !,
+    'PyUnicode_AsWideCharString'(Py, Len, WString),
+    c_load_string(WString, Len, Value, atom, wchar_t).
+python_to_prolog_key(Py, _Value) :-
+    type_error(python_key, Py).
 
 
 %!  py_check_exception is det.
