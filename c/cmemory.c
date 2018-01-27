@@ -198,7 +198,7 @@ qname(type_qualifier q)
 static char *
 pname(const c_ptr *ref, char *buf)
 { if ( ref->count == SZ_UNKNOWN )
-  { return "*";
+  { return "[]";
   } else
   { sprintf(buf, "[%zd]", ref->count);
     return buf;
@@ -225,8 +225,8 @@ write_c_ptr(IOSTREAM *s, atom_t aref, int flags)
   char stars[10];
 
   Sfprintf(s, "<C %s%s%s%s>(%p)",
-	   pstars(ref->ptrl, stars, sizeof(stars)),
 	   qname(ref->qual), PL_atom_chars(ref->type),
+	   pstars(ref->ptrl, stars, sizeof(stars)),
 	   pname(ref, pbuf), ref->ptr);
   return TRUE;
 }
