@@ -363,17 +363,22 @@ compatible_arg(string,          *(char), _).
 compatible_arg(string(wchar_t), *(Type), _) :- !, wchar_t_type(Type).
 compatible_arg(string(Enc),     *(char), _) :- Enc \== wchar_t.
 compatible_arg(*TypeName,       CType, Types) :-
+    atom(TypeName),
     memberchk(typedef(TypeName, Type), Types),
     !,
     compatible_arg(*Type, CType, Types).
 compatible_arg(TypeName,        CType, Types) :-
+    atom(TypeName),
     memberchk(typedef(TypeName, Type), Types),
     !,
     compatible_arg(Type, CType, Types).
 compatible_arg(-TypeName,        CType, Types) :-
+    atom(TypeName),
     memberchk(typedef(TypeName, Type), Types),
     !,
     compatible_arg(-Type, CType, Types).
+compatible_arg(*Type, *CType, Types) :-
+    compatible_arg(Type, CType, Types).
 
 
 compatible_return(PlArg, CArg, RetParam, Types) :-
