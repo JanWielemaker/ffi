@@ -6,3 +6,6 @@ def multiply(a,b):
 def concat(a,b):
     return a+b;
 
+def trivial(val):
+    print(val);
+    return val;
