@@ -18,6 +18,11 @@ MyPyLong_Check(PyObject *o)
 }
 
 int
+MyPyBool_Check(PyObject *o)
+{ return PyBool_Check(o);
+}
+
+int
 MyPyFloat_Check(PyObject *o)
 { return PyFloat_Check(o);
 }

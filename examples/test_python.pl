@@ -27,5 +27,9 @@ test(concat, Z == [1,2,3]) :-
     py_call(demo:concat([1], [2,3]), Z).
 test(dict, Z == py{name:"bob", age:42}) :-
     py_call(demo:trivial(py{name:"bob", age:42}), Z).
+test(bool, Z == true) :-
+    py_call(demo:trivial(true), Z).
+test(bool, Z == false) :-
+    py_call(demo:trivial(false), Z).
 
 :- end_tests(python).

@@ -35,12 +35,14 @@
                                        [*('PyObject', 'MyPy_DECREF')]),
 
               'MyPyLong_Check'(*'PyObject', [-int]) as 'PyLong_Check',
+              'MyPyBool_Check'(*'PyObject', [-int]) as 'PyBool_Check',
               'MyPyFloat_Check'(*'PyObject', [-int]) as 'PyFloat_Check',
               'MyPyUnicode_Check'(*'PyObject', [-int]) as 'PyUnicode_Check',
               'MyPyList_Check'(*'PyObject', [-int]) as 'PyList_Check',
               'MyPyDict_Check'(*'PyObject', [-int]) as 'PyDict_Check',
 
               'PyLong_AsLongLong'(*'PyObject', [-int]),
+              'PyBool_FromLong'(int, [*('PyObject', 'MyPy_DECREF')]),
               'PyFloat_AsDouble'(*'PyObject', [-float]),
               'PyUnicode_AsWideCharString'(*'PyObject', -int,
                                            [*(wchar_t, 'PyMem_Free')]),
@@ -179,7 +181,7 @@ prolog_to_python(Prolog, Py) :-
     ;   string(Prolog)
     ->  prolog_string_to_python(Prolog, Py)
     ;   atom(Prolog)
-    ->  prolog_string_to_python(Prolog, Py)
+    ->  prolog_atom_to_python(Prolog, Py)
     ;   is_list(Prolog)
     ->  'PyList_New'(0, Py),
         maplist(list_append(Py), Prolog)
@@ -189,6 +191,15 @@ prolog_to_python(Prolog, Py) :-
         maplist(py_dict_add(Py), Pairs)
     ;   type_error(python, Prolog)
     ).
+
+prolog_atom_to_python(false, Py) :-
+    !,
+    'PyBool_FromLong'(0, Py).
+prolog_atom_to_python(true, Py) :-
+    !,
+    'PyBool_FromLong'(1, Py).
+prolog_atom_to_python(Atom, Py) :-
+    prolog_string_to_python(Atom, Py).
 
 prolog_string_to_python(Text, Py) :-
     sub_atom(Text, _, _, _, '\u0000'), !,
@@ -216,6 +227,14 @@ py_dict_add(Dict, Key-Value) :-
 
 %!  python_to_prolog(+Python, -Prolog) is det.
 
+python_to_prolog(Py, Value) :-
+    'PyBool_Check'(Py, 1),
+    !,
+    'PyLong_AsLongLong'(Py, Value0),
+    (   Value0 == 0
+    ->  Value = false
+    ;   Value = true
+    ).
 python_to_prolog(Py, Value) :-
     'PyLong_Check'(Py, 1),
     !,
