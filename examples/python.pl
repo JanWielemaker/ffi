@@ -1,3 +1,5 @@
+
+
 :- module(python,
           [ py_call/2,                          % +Module:Call, -Return
 
@@ -10,6 +12,32 @@
 :- use_module(library(apply)).
 
 /** <module> Embed Python
+
+This demo embeds the Python interpreter in   Prolog using the Prolog FFI
+bridge.  Quite  likely  is  is  worthwhile   to  implement  a  low-level
+replacement  of  this  library  for  a    robust  and  high  performance
+connection. This module has been implemented  to evaluate the FFI bridge
+to C.
+
+This module proves that the FFI interface is powerful and compact. While
+slower than what can be achieved using a native interface, the FFI based
+interface  performs  reasonably  for  many  applications.  For  example,
+transferring two 100,000 (integer) lists two   Python, appending them in
+Python and transferring the 200,000 long list back to Prolog takes about
+0.5 second (Intel mobile i7  CPU).  It   is  easy  to port time critical
+functions to C to improve the performance   while FFI based interface is
+easily expanded to support a larger  part   of  the  rich Python foreign
+interface.
+
+Issues:
+
+  - Unfortunately, some of the Python API is defined as macros.
+    We need to implement these as functions.  This requires creating
+    and managing a shared object.
+  - The current interface doesn't support Prolog threads.  This
+    is because decrementing the Python reference counts is done
+    by the atom garbage collector that may run in any Prolog thread,
+    but must be executed in the Python thread that owns the reference.
 
 @see https://docs.python.org/3/c-api/index.html
 @see https://docs.python.org/3/extending/embedding.html
@@ -85,6 +113,7 @@
 %
 %   Initialise Python. Normally this is  called lazily. Applications may
 %   wish to set `PYTHONPATH` before calling a Python interface function.
+%   See setenv/2.
 %
 %   @tbd Currently disables the  Prolog  GC   thread  as  objects cannot
 %   receive  a  Py_DECREF()  from  another    thread  that  created  the
@@ -171,7 +200,22 @@ fill_tuple(_, _, _, _).
 
 %!  prolog_to_python(+Prolog, -Python) is det.
 %
-%   Translate a Prolog term into a Python object.
+%   Translate a Prolog term into a Python object. Supported translations
+%   are in the table below. Note that   atoms are translated to strings,
+%   except for the boolean atoms. This implies that arbitrary atoms that
+%   must be translated to strings must first   be translated to a Prolog
+%   string.  Integer support uses the C type =long long= as intermediate
+%   and is thus limited to 64 bits on must machines.
+%
+%     | Prolog            | Python |
+%     ------------------------------
+%     | integer           | Long   |
+%     | float             | Float  |
+%     | `true` or `false` | Bool   |
+%     | atom		  | String |
+%     | string		  | String |
+%     | list		  | List   |
+%     | dict		  | Dict   |
 
 prolog_to_python(Prolog, Py) :-
     (   integer(Prolog)
@@ -226,6 +270,18 @@ py_dict_add(Dict, Key-Value) :-
 
 
 %!  python_to_prolog(+Python, -Prolog) is det.
+%
+%   Convert a Python value to a  Prolog value. Supported conversions are
+%   in the table below.
+%
+%     | Python | Prolog            |
+%     ------------------------------
+%     | Bool   | `true` or `false` |
+%     | Long   | integer           |
+%     | Float  | float             |
+%     | String | String            |
+%     | List   | list              |
+%     | Dict   | dict              |
 
 python_to_prolog(Py, Value) :-
     'PyBool_Check'(Py, 1),
