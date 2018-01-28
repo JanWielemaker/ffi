@@ -72,18 +72,18 @@ c99_types(Header, Flags, Functions, Types) :-
     c99_types(Header, Flags, Functions, Types, -).
 c99_types(Header, Flags, Functions, Types, Consts) :-
     c99_header_ast(Header, Flags, AST),
-    phrase(prototypes(Functions, AST), Types0),
+    phrase(prototypes(Functions, AST, [], _Resolved), Types0),
     list_to_set(Types0, Types1),
     phrase(expand_types(Types1), Types),
     constants(AST, Consts).
 
-prototypes([], _) --> [].
-prototypes([H|T], AST) -->
+prototypes([], _, R, R) --> [].
+prototypes([H|T], AST, R0, R) -->
     { optional(H, Func, Optional) },
-    prototype(Func, Optional, AST),
-    prototypes(T, AST).
+    prototype(Func, Optional, AST, R0, R1),
+    prototypes(T, AST, R1, R).
 
-prototype(Func, _, AST) -->
+prototype(Func, _, AST, R0, R) -->
     { skeleton(prototype(Return, RDecl, Params0), Func, FuncDecl),
       memberchk(FuncDecl, AST), !,
       parameters(Params0, Params),
@@ -91,10 +91,10 @@ prototype(Func, _, AST) -->
       pointers(RDecl, BasicType, RType)
     },
     [ function(Func, RType, Params) ],
-    type_opt(RType, AST, [], Resolved),
-    types(Params, AST, Resolved, _).
-prototype(_, optional, _) --> !.
-prototype(Func, required, _) -->
+    type_opt(RType, AST, R0, R1),
+    types(Params, AST, R1, R).
+prototype(_, optional, _, R, R) --> !.
+prototype(Func, required, _, R, R) -->
     { print_message(error, ffi(existence_error(function_declaration, Func)))
     }.
 
@@ -199,11 +199,11 @@ ast_type(user_type(Name), AST, type(Name, typedef, Primitive)) :-
 %   types.
 
 typedef(Name, AST, Primitive) :-
-    member(decl(Specifier,
+    memberchk(decl(Specifier,
                 [ declarator(_, dd(Name, _))], _Attrs), AST),
     selectchk(storage(typedef), Specifier, Primitive), !.
 typedef(Name, AST, Primitive) :-        % typedef rtype (*type)(param, ...);
-    member(decl(Specifier,
+    memberchk(decl(Specifier,
                 [ declarator(_, dd(declarator([ptr([])], dd(Name,_)),
                                    dds(Params0)))
                 ], _Attrs), AST),
