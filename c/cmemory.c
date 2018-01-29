@@ -88,21 +88,39 @@ typedef struct c_dep
   struct c_dep *next;
 } c_dep;
 
+typedef enum c_type
+{ CT_UNKNOWN = 0,
+  CT_CHAR,
+  CT_UCHAR,
+  CT_WCHAR_T,
+  CT_SHORT,
+  CT_USHORT,
+  CT_INT,
+  CT_UINT,
+  CT_LONG,
+  CT_ULONG,
+  CT_LONGLONG,
+  CT_ULONGLONG,
+  CT_FLOAT,
+  CT_DOUBLE,
+  CT_POINTER,
+  CT_STRUCT,
+  CT_UNION,
+  CT_ENUM,
+  CT_VOID
+} c_type;
 
-typedef enum
-{ Q_PLAIN = 0,
-  Q_STRUCT,
-  Q_UNION,
-  Q_ENUM
-} type_qualifier;
-
+typedef struct type_spec
+{ c_type	 type;			/* CT_* */
+  int		 ptrl;			/* pointer level */
+  atom_t	 name;			/* struct, union or enum name */
+  size_t	 size;			/* Element size */
+  void          *free;			/* Free function */
+} type_spec;
 
 typedef struct c_ptr
 { void *ptr;				/* the pointer */
-  atom_t type;				/* Its type */
-  type_qualifier qual;			/* Type qualifier */
-  int    ptrl;				/* Indirect pointers */
-  size_t size;				/* Element size behind ptr */
+  type_spec type;			/* element type */
   size_t count;				/* Element count behind ptr */
   freefunc free;			/* Its free function */
   c_dep *deps;				/* Dependency */
@@ -179,18 +197,18 @@ free_ptr(c_ptr *ref)
     }
   }
 
-  PL_unregister_atom(ref->type);
+  if ( ref->type.name )
+    PL_unregister_atom(ref->type.name);
 }
 
 
 static char *
-qname(type_qualifier q)
-{ switch(q)
-  { case Q_PLAIN:  return "";
-    case Q_STRUCT: return "struct ";
-    case Q_UNION:  return "union ";
-    case Q_ENUM:   return "enum ";
-    default:	   return "?";
+qname(c_type t)
+{ switch(t)
+  { case CT_STRUCT: return "struct ";
+    case CT_UNION:  return "union ";
+    case CT_ENUM:   return "enum ";
+    default:	    return "";
   }
 }
 
@@ -217,6 +235,30 @@ pstars(int level, char *stars, size_t size)
    return stars;
 }
 
+
+static const char *
+tname(const type_spec *tspec)
+{ switch(tspec->type)
+  { case CT_CHAR:      return "char";
+    case CT_UCHAR:     return "uchar";
+    case CT_WCHAR_T:   return "wchar_t";
+    case CT_SHORT:     return "short";
+    case CT_USHORT:    return "ushort";
+    case CT_INT:       return "int";
+    case CT_UINT:      return "uint";
+    case CT_LONG:      return "long";
+    case CT_ULONG:     return "ulong";
+    case CT_LONGLONG:  return "longlong";
+    case CT_ULONGLONG: return "ulonglong";
+    case CT_VOID:      return "void";
+    case CT_STRUCT:
+    case CT_UNION:
+    case CT_ENUM:      return PL_atom_chars(tspec->name);
+    default:	       return "???";
+  }
+}
+
+
 static int
 write_c_ptr(IOSTREAM *s, atom_t aref, int flags)
 { c_ptr *ref = PL_blob_data(aref, NULL, NULL);
@@ -225,8 +267,8 @@ write_c_ptr(IOSTREAM *s, atom_t aref, int flags)
   char stars[10];
 
   Sfprintf(s, "<C %s%s%s%s>(%p)",
-	   qname(ref->qual), PL_atom_chars(ref->type),
-	   pstars(ref->ptrl, stars, sizeof(stars)),
+	   qname(ref->type.type), tname(&ref->type),
+	   pstars(ref->type.ptrl, stars, sizeof(stars)),
 	   pname(ref, pbuf), ref->ptr);
   return TRUE;
 }
@@ -244,7 +286,7 @@ release_c_ptr(atom_t aref)
 { c_ptr *ref = PL_blob_data(aref, NULL, NULL);
 
   DEBUG(4, Sdprintf("Release <c>(%s,%p)\n",
-		    PL_atom_chars(ref->type), ref->ptr));
+		    tname(&ref->type), ref->ptr));
   free_ptr(ref);
   free(ref);
 
@@ -258,7 +300,7 @@ save_c_ptr(atom_t aref, IOSTREAM *fd)
   (void)fd;
 
   return PL_warning("Cannot save reference to <c>(%s,%p)",
-		    PL_atom_chars(ref->type), ref->ptr);
+		    tname(&ref->type), ref->ptr);
 }
 
 
@@ -285,22 +327,19 @@ static PL_blob_t c_ptr_blob =
 
 static int
 unify_ptr(term_t t, void *ptr,
-	  size_t count, size_t size,
-	  atom_t type, type_qualifier qual, int ptrl,
-	  freefunc free)
+	  size_t count, const type_spec *type)
 { c_ptr *ref = malloc(sizeof(*ref));
 
   if ( ref )
   { ref->ptr   = ptr;
-    ref->type  = type;
-    ref->qual  = qual;
-    ref->ptrl  = ptrl;
     ref->count = count;
-    ref->size  = size;
+    ref->type  = *type;
     ref->free  = free;
     ref->deps  = NULL;
 
-    PL_register_atom(ref->type);
+    if ( ref->type.name )
+      PL_register_atom(ref->type.name);
+
     return PL_unify_blob(t, ref, sizeof(*ref), &c_ptr_blob);
   }
 
@@ -340,15 +379,19 @@ get_ptr_ref_ex(term_t t, atom_t *a)
 
 
 static int
-get_ptr_direct(term_t t, void *ptrp, atom_t ptrtype)
+get_ptr_direct(term_t t, void *ptrp, const type_spec *tspec)
 { c_ptr *ref;
 
   if ( (ref=get_ptr_ref(t, NULL)) )
   { void **ptrpp = ptrp;
 
-    if ( ptrtype && ptrtype != ref->type )
-    { PL_type_error(PL_atom_chars(ref->type), t);
-      return -1;
+    if ( tspec )
+    { if ( tspec->type != ref->type.type ||
+	   tspec->name != ref->type.name ||
+	   tspec->ptrl != ref->type.ptrl )
+      { PL_type_error(tname(tspec), t);
+	return -1;
+      }
     }
 
     *ptrpp = ref->ptr;
@@ -361,11 +404,11 @@ get_ptr_direct(term_t t, void *ptrp, atom_t ptrtype)
 
 
 static int
-get_ptr(term_t t, void *ptrp, atom_t ptrtype)
+get_ptr(term_t t, void *ptrp, const type_spec *tspec)
 { int rc;
   atom_t null;
 
-  if ( (rc=get_ptr_direct(t, ptrp, ptrtype)) == TRUE )
+  if ( (rc=get_ptr_direct(t, ptrp, tspec)) == TRUE )
     return TRUE;
   else if ( rc < 0 )
     return FALSE;
@@ -387,7 +430,7 @@ get_ptr(term_t t, void *ptrp, atom_t ptrtype)
       if ( PL_get_list(list, arg, list) &&
 	   PL_get_nil(list) &&
 	   PL_get_size_ex(arg, &offset) )
-      { *ptrpp = (char *)ref->ptr + offset*ref->size;
+      { *ptrpp = (char *)ref->ptr + offset*ref->type.size;
 	return TRUE;
       }
 
@@ -407,47 +450,61 @@ get_ptr(term_t t, void *ptrp, atom_t ptrtype)
 		 *******************************/
 
 static int
-get_type(term_t t, atom_t *tname, type_qualifier *tq, int *ptr)
+get_type(term_t t, type_spec *tspec)
 { atom_t qn;
   size_t arity;
   module_t m = NULL;
-  int ptrl = 0;
   term_t t0 = t;
+  int rc;
+
+  memset(tspec, 0, sizeof(*tspec));
 
   if ( !PL_strip_module(t, &m, t) )		/* module just ignored for now */
     return FALSE;
 
-  while ( PL_get_name_arity(t, &qn, &arity) && arity == 1 )
+  while ( (rc=PL_get_name_arity(t, &qn, &arity)) && arity == 1 )
   { if ( qn == ATOM_star )
-    { if ( ptrl == 0 )
+    { if ( tspec->ptrl == 0 )
 	t = PL_copy_term_ref(t);
       _PL_get_arg(1, t, t);
-      ptrl++;
+      tspec->ptrl++;
       continue;
     } else
     { term_t a = PL_new_term_ref();
 
       _PL_get_arg(1, t, a);
-      if ( PL_get_atom_ex(a, tname) )
+      if ( PL_get_atom_ex(a, &tspec->name) )
       { if ( qn == ATOM_struct )
-	  *tq = Q_STRUCT;
+	  tspec->type = CT_STRUCT;
 	else if ( qn == ATOM_union )
-	  *tq = Q_UNION;
+	  tspec->type = CT_UNION;
 	else if ( qn == ATOM_enum )
-	  *tq = Q_ENUM;
+	  tspec->type = CT_ENUM;
 	else
 	  return PL_type_error("c_type", t0);
       } else
 	return PL_type_error("c_type", t0);
 
-      *ptr = ptrl;
       return TRUE;
     }
   }
 
-  if ( PL_get_atom(t, tname) )
-  { *tq = Q_PLAIN;
-    *ptr = ptrl;
+  if ( rc && arity == 0 )
+  { if      ( qn == ATOM_char      ) tspec->type = CT_CHAR;
+    else if ( qn == ATOM_uchar     ) tspec->type = CT_UCHAR;
+    else if ( qn == ATOM_wchar_t   ) tspec->type = CT_WCHAR_T;
+    else if ( qn == ATOM_short     ) tspec->type = CT_SHORT;
+    else if ( qn == ATOM_ushort    ) tspec->type = CT_USHORT;
+    else if ( qn == ATOM_int       ) tspec->type = CT_INT;
+    else if ( qn == ATOM_uint      ) tspec->type = CT_UINT;
+    else if ( qn == ATOM_long      ) tspec->type = CT_LONG;
+    else if ( qn == ATOM_ulong     ) tspec->type = CT_ULONG;
+    else if ( qn == ATOM_longlong  ) tspec->type = CT_LONGLONG;
+    else if ( qn == ATOM_ulonglong ) tspec->type = CT_ULONGLONG;
+    else if ( qn == ATOM_void      ) tspec->type = CT_VOID;
+    else
+      return PL_type_error("c_type", t0);
+
     return TRUE;
   }
 
@@ -456,8 +513,12 @@ get_type(term_t t, atom_t *tname, type_qualifier *tq, int *ptr)
 
 
 static int
-unify_type(term_t t, atom_t tname, type_qualifier q, int ptrl)
-{ if ( ptrl > 0 )
+unify_type(term_t t, const type_spec *tspec)
+{ int ptrl;
+  atom_t a = 0;
+  functor_t f = 0;
+
+  if ( (ptrl=tspec->ptrl) > 0 )
   { term_t copy = PL_copy_term_ref(t);
 
     while(ptrl-- > 0)
@@ -469,38 +530,49 @@ unify_type(term_t t, atom_t tname, type_qualifier q, int ptrl)
     t = copy;
   }
 
-  if ( q == Q_PLAIN )
-  { return PL_unify_atom(t, tname);
-  } else
-  { functor_t f;
-
-    if      ( q == Q_STRUCT )  f = FUNCTOR_struct1;
-    else if ( q == Q_UNION  )  f = FUNCTOR_union1;
-    else /*if ( q == Q_ENUM )*/f = FUNCTOR_enum1;
-
-    return PL_unify_term(t, PL_FUNCTOR, f, PL_ATOM, tname);
+  switch(tspec->type)
+  { case CT_CHAR:      a = ATOM_char;       break;
+    case CT_UCHAR:     a = ATOM_uchar;      break;
+    case CT_WCHAR_T:   a = ATOM_wchar_t;    break;
+    case CT_SHORT:     a = ATOM_short;      break;
+    case CT_USHORT:    a = ATOM_ushort;     break;
+    case CT_INT:       a = ATOM_int;        break;
+    case CT_UINT:      a = ATOM_uint;       break;
+    case CT_LONG:      a = ATOM_long;       break;
+    case CT_ULONG:     a = ATOM_ulong;      break;
+    case CT_LONGLONG:  a = ATOM_longlong;   break;
+    case CT_ULONGLONG: a = ATOM_ulonglong;  break;
+    case CT_FLOAT:     a = ATOM_float;      break;
+    case CT_DOUBLE:    a = ATOM_double;     break;
+    case CT_STRUCT:    f = FUNCTOR_struct1; break;
+    case CT_UNION:     f = FUNCTOR_union1;  break;
+    case CT_ENUM:      f = FUNCTOR_enum1;   break;
+    default:
+      assert(0);
   }
+
+  if ( f )
+    return PL_unify_term(t, PL_FUNCTOR, f, PL_ATOM, tspec->name);
+  else
+    return PL_unify_atom(t, a);
 }
 
 
 
 static foreign_t
 c_calloc(term_t ptr, term_t type, term_t esize, term_t count)
-{ size_t esz;
+{ type_spec tspec;
   size_t cnt;
-  atom_t ta;
-  type_qualifier q;
-  int ptrl;
 
-  if ( get_type(type, &ta, &q, &ptrl) &&
-       PL_get_size_ex(esize, &esz) &&
+  if ( get_type(type, &tspec) &&
+       PL_get_size_ex(esize, &tspec.size) &&
        PL_get_size_ex(count, &cnt) )
-  { size_t bytes = esz*cnt;
+  { size_t bytes = tspec.size*cnt;
     void *p = malloc(bytes);
 
     if ( p )
     { memset(p, 0, bytes);
-      if ( unify_ptr(ptr, p, cnt, esz, ta, q, ptrl, free) )
+      if ( unify_ptr(ptr, p, cnt, &tspec) )
 	return TRUE;
       free(p);
     } else
@@ -514,25 +586,31 @@ c_calloc(term_t ptr, term_t type, term_t esize, term_t count)
 
 
 static foreign_t
-c_realloc(term_t ptr, term_t size)
-{ size_t sz;
-  PL_blob_t *type;
-  void *bp;
+c_recalloc(term_t ptr, term_t count)
+{ size_t cnt;
+  c_ptr *ref;
 
-  if ( PL_get_size_ex(size, &sz) &&
-       PL_get_blob(ptr, &bp, NULL, &type) &&
-       type == &c_ptr_blob )
-  { c_ptr *ref = bp;
-    void *p = realloc(ref->ptr, sz);
+  if ( PL_get_size_ex(count, &cnt) &&
+       (ref=get_ptr_ref_ex(ptr, NULL)) )
+  { size_t obytes;
+    size_t nbytes;
+    void *np;
 
-    if ( p )
-    { memset(p, 0, sz);
-      if ( sz > ref->size )
-	memset((char*)p+ref->size, 0, sz-ref->size);
-      ref->size = sz;
+    if ( ref->type.size == SZ_UNKNOWN )
+      return PL_domain_error("sized pointer", ptr);
+
+    obytes = ref->type.size * ref->count;
+    nbytes = ref->type.size * cnt;
+
+    if ( (np = realloc(ref->ptr, nbytes)) )
+    { if ( nbytes > obytes )
+	memset((char*)ref->ptr+obytes, 0, nbytes-obytes);
+
+      ref->count = cnt;
       return TRUE;
-    } else
-      PL_resource_error("memory");
+    }
+
+    PL_resource_error("memory");
   }
 
   return FALSE;
@@ -559,15 +637,24 @@ c_typeof(term_t ptr, term_t type)
 { c_ptr *ref;
 
   if ( (ref=get_ptr_ref_ex(ptr, NULL)) )
-    return unify_type(type, ref->type, ref->qual, ref->ptrl);
+    return unify_type(type, &ref->type);
 
   return FALSE;
 }
 
 
-#define VALID(ref, off, type) \
-	(((off)+sizeof(type) <= ref->count*ref->size) ? TRUE : \
-	PL_domain_error("offset", offset))
+static int
+valid_offset(c_ptr *ref, size_t off, size_t tsize, term_t offset)
+{ if ( ref->count != SZ_UNKNOWN && ref->type.size != SZ_UNKNOWN )
+  { if ( off+tsize <= ref->count*ref->type.size )
+      return TRUE;
+    return PL_domain_error("offset", offset);
+  }
+
+  return TRUE;
+}
+
+#define VALID(ref, off, type) valid_offset(ref, off, sizeof(type), offset)
 
 static foreign_t
 c_load(term_t ptr, term_t offset, term_t type, term_t value)
@@ -631,24 +718,23 @@ c_load(term_t ptr, term_t offset, term_t type, term_t value)
 	return VALID(ref, off, double) && PL_unify_float(value, *p);
       } else if ( ta == ATOM_pointer )
       { void **p = vp;
+	type_spec tspec = {CT_VOID, 0, 0, SZ_UNKNOWN, NULL};
+
 	return VALID(ref, off, void*) &&
-	       unify_ptr(value, *p, SZ_UNKNOWN, 1,
-			 ATOM_void, Q_PLAIN, 0, NULL);
+	       unify_ptr(value, *p, 1, &tspec);
       } else
 	return PL_domain_error("c_type", type);
     } else if ( PL_get_name_arity(type, &ta, &tarity) )
     { term_t arg = PL_new_term_ref();
 
       if ( ta == ATOM_pointer && tarity == 1 )
-      { atom_t atype;
-	type_qualifier q;
-	int ptrl;
+      { type_spec tspec;
 
 	_PL_get_arg(1, type, arg);
-	if ( get_type(arg, &atype, &q, &ptrl) )
+	if ( get_type(arg, &tspec) )
 	{ void **p = vp;
 	  return VALID(ref, off, void*) &&
-		 unify_ptr(value, *p, SZ_UNKNOWN, 1, atype, q, ptrl, NULL);
+		 unify_ptr(value, *p, SZ_UNKNOWN, &tspec);
 	}
 	return FALSE;
       }
@@ -750,20 +836,17 @@ c_offset(term_t ptr0, term_t offset,
 { c_ptr *ref;
   atom_t ptra;
   size_t off;
-  size_t sz;
   size_t cnt;
-  atom_t ta;
-  type_qualifier q;
-  int ptrl;
+  type_spec tspec;
 
   if ( (ref=get_ptr_ref_ex(ptr0, &ptra)) &&
        PL_get_size_ex(offset, &off) &&
-       PL_get_size_ex(size, &sz) &&
        get_count_or_unknown(count, &cnt) &&
-       get_type(type, &ta, &q, &ptrl) )
+       get_type(type, &tspec) &&
+       PL_get_size_ex(size, &tspec.size) )
   { void *vp = (void*)((char *)ref->ptr + off);
 
-    if ( unify_ptr(ptr, vp, cnt, sz, ta, q, ptrl, NULL) )
+    if ( unify_ptr(ptr, vp, cnt, &tspec) )
     { c_ptr *ref2 = get_ptr_ref_ex(ptr, NULL);
       return add_dependency(ref2, ptra, (size_t)-1);
     }
@@ -864,8 +947,9 @@ c_alloc_string(term_t ptr, term_t data, term_t encoding)
     { pl_wchar_t *ws;
 
       if ( PL_get_wchars(data, &len, &ws, flags) )
-      { if ( unify_ptr(ptr, ws, (len+1), sizeof(pl_wchar_t),
-		       ATOM_wchar_t, Q_PLAIN, 0, PL_free) )
+      { type_spec tspec = {CT_WCHAR_T, 0, 0, sizeof(wchar_t), PL_free};
+
+	if ( unify_ptr(ptr, ws, (len+1), &tspec) )
 	  return TRUE;
 	PL_free(ws);
       }
@@ -874,7 +958,9 @@ c_alloc_string(term_t ptr, term_t data, term_t encoding)
   }
 
   if ( PL_get_nchars(data, &len, &s, flags) )
-  { if ( unify_ptr(ptr, s, len+1, 1, ATOM_char, Q_PLAIN, 0, PL_free) )
+  { type_spec tspec = {CT_CHAR, 0, 0, sizeof(char), PL_free};
+
+    if ( unify_ptr(ptr, s, len+1, &tspec) )
       return TRUE;
     PL_free(s);
   }
@@ -984,7 +1070,7 @@ install_c_memory(void)
   FUNCTOR_star1  = PL_new_functor(ATOM_star, 1);
 
   PL_register_foreign("c_calloc",	4, c_calloc,	   0);
-  PL_register_foreign("c_realloc",	2, c_realloc,	   0);
+  PL_register_foreign("c_recalloc",	2, c_recalloc,	   0);
   PL_register_foreign("c_free",		1, c_free,	   0);
   PL_register_foreign("c_load",		4, c_load,	   0);
   PL_register_foreign("c_store",	4, c_store,	   0);

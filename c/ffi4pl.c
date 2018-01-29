@@ -72,14 +72,6 @@ static functor_t FUNCTOR_pointer3;
 		 *	      TYPES		*
 		 *******************************/
 
-typedef struct ret_spec
-{ atom_t	 type;
-  type_qualifier qual;			/* struct, union, enum */
-  int		 ptrl;			/* pointer level */
-  size_t	 size;			/* Element size */
-  void          *free;			/* Free function */
-} ret_spec;
-
 typedef struct ctx_library
 { char	       *name;			/* name of the library */
   void	       *lib;			/* handle */
@@ -96,7 +88,7 @@ typedef struct ctx_prototype
   const char   *rformat;
   const char   *pformat;
   ffi_type    **atypes;
-  ret_spec	ret;
+  type_spec	ret;
 } ctx_prototype;
 
 
@@ -124,7 +116,7 @@ get_abi(term_t cc, ffi_abi *v)
 
 
 int
-get_return(term_t t, ret_spec *rspec, char **format)
+get_return(term_t t, type_spec *rspec, char **format)
 { int nofree;
 
   memset(rspec, 0, sizeof(*rspec));
@@ -135,7 +127,7 @@ get_return(term_t t, ret_spec *rspec, char **format)
     static char *p = "p";
 
     _PL_get_arg(1, t, a);
-    if ( !get_type(a, &rspec->type, &rspec->qual,  &rspec->ptrl) )
+    if ( !get_type(a, rspec) )
       return FALSE;
     _PL_get_arg(2, t, a);
     if ( !PL_get_size_ex(a, &rspec->size) )
@@ -143,9 +135,10 @@ get_return(term_t t, ret_spec *rspec, char **format)
 
     if ( !nofree )
     { ctx_symbol *ep;
+      type_spec tspec = {CT_STRUCT, 0, ATOM_c_symbol};
 
       _PL_get_arg(3, t, a);
-      if ( get_ptr(a, &ep, ATOM_c_symbol) )
+      if ( get_ptr(a, &ep, &tspec) )
 	rspec->free = ep->func;
       else
 	return FALSE;
@@ -155,8 +148,7 @@ get_return(term_t t, ret_spec *rspec, char **format)
   } else
   { if ( !PL_get_chars(t, format, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) )
       return FALSE;
-    rspec->type = ATOM_void;
-    rspec->qual = Q_PLAIN;
+    rspec->type = CT_VOID;
     rspec->ptrl = 0;
     rspec->size = SZ_UNKNOWN;
   }
@@ -202,7 +194,9 @@ static int
 unify_part_ptr(term_t t,
 	       void *ptr, size_t size, atom_t type,
 	       freefunc free)
-{ return unify_ptr(t, ptr, 1, size, type, Q_STRUCT, 0, free);
+{ type_spec tspec = {CT_STRUCT, 0, type, size, free};
+
+  return unify_ptr(t, ptr, 1, &tspec);
 }
 
 
@@ -265,8 +259,9 @@ ffi_library_create(term_t path, term_t lib, term_t options)
 static foreign_t
 pl_ffi_library_free(term_t lib)
 { ctx_library *libh;
+  type_spec tspec = {CT_STRUCT, 0, ATOM_c_library};
 
-  if ( get_ptr(lib, &libh, ATOM_c_library) )
+  if ( get_ptr(lib, &libh, &tspec) )
   { void *h = libh->lib;
 
     if ( h &&__sync_bool_compare_and_swap(&libh->lib, h, NULL) )
@@ -293,8 +288,9 @@ static foreign_t
 ffi_lookup_symbol(term_t lib, term_t name, term_t func)
 { ctx_library *libh;
   char *fname;
+  type_spec tspec = {CT_STRUCT, 0, ATOM_c_library};
 
-  if ( get_ptr(lib, &libh, ATOM_c_library) &&
+  if ( get_ptr(lib, &libh, &tspec) &&
        PL_get_chars(name, &fname, CVT_ATOM|CVT_EXCEPTION) )
   { void *f;
 
@@ -452,9 +448,10 @@ ffi_prototype_create(term_t entry, term_t cc,
   ffi_type *r_type;
   ffi_type *a_types[MAX_ARGC];
   int argc;
-  ret_spec rspec;
+  type_spec rspec;
+  type_spec tspec = {CT_STRUCT, 0, ATOM_c_symbol};
 
-  if ( get_ptr(entry, &ep, ATOM_c_symbol) &&
+  if ( get_ptr(entry, &ep, &tspec) &&
        get_abi(cc, &abi) &&
        get_return(ret, &rspec, &rformat) &&
        PL_get_chars(parms, &pformat, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) &&
@@ -524,8 +521,10 @@ typedef union argstore
 static foreign_t
 pl_ffi_call(term_t prototype, term_t goal)
 { ctx_prototype *ctx;
+  type_spec tspec = {CT_STRUCT, 0, ATOM_c_function};
 
-  if ( get_ptr(prototype, &ctx, ATOM_c_function) )
+
+  if ( get_ptr(prototype, &ctx, &tspec) )
   { void *argv[ctx->argc];
     argstore as[ctx->argc];
     argstore rv;
@@ -709,9 +708,7 @@ pl_ffi_call(term_t prototype, term_t goal)
 		return PL_cvt_o_float(rv.d, arg);
 	    }
 	  case 'p':
-	    return unify_ptr(arg, rv.p, 1, ctx->ret.size,
-			     ctx->ret.type, ctx->ret.qual, 0,
-			     ctx->ret.free);
+	    return unify_ptr(arg, rv.p, 1, &ctx->ret);
 	}
       }
     } else

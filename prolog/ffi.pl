@@ -63,6 +63,8 @@
             c_current_union_field/3,    % :Name, ?Field, ?Type
             c_current_typedef/2,        % :Name, -Type
 
+            c_expand_type/2,            % :TypeIn, -TypeOut
+
             c_struct_dict/2,            % ?Ptr,  ?Dict
 
             c_enum_in/3,                % :Id, +Enum, -Int
@@ -104,6 +106,7 @@
     c_current_union_field(:,?,?),
     c_current_typedef(:,:),
     c_struct_dict(:,?),
+    c_expand_type(:,:),
     type_size(:,-),
     type_size_align(:,-,-),
     type_size_align(:,-,-, +).
@@ -765,6 +768,31 @@ type_size_align(Type, Size, Alignment, All) :-
 type_size_align(Type, _Size, _Alignment, _) :-
     existence_error(type, Type).
 
+%!  c_expand_type(:TypeIn, :TypeOut)
+%
+%   Expand user defined types to arrive at the core type.
+
+c_expand_type(M:Type0, M:Type) :-
+    (   base_type(Type0)
+    ->  Type0 = Type
+    ;   expand_type(Type0, Type, M)
+    ).
+
+base_type(struct(_)).
+base_type(union(_)).
+base_type(enum(_)).
+base_type(Type) :-
+    c_sizeof(Type, _).
+
+expand_type(*Type0, *Type, M) :-
+    !,
+    (   base_type(Type0)
+    ->  Type0 = Type
+    ;   expand_type(Type0, Type, M)
+    ).
+expand_type(Type0, Type, M) :-
+    c_current_typedef(M:Type0, M:Type).
+
 %!  c_current_struct(:Name) is nondet.
 %!  c_current_struct(:Name, ?Size, ?Align) is nondet.
 %
@@ -851,9 +879,10 @@ c_alloc(M:Ptr, M:Type[Count]) :-
     !,
     type_size(M:Type, Size),
     c_calloc(Ptr, Type, Size, Count).
-c_alloc(Ptr, Type) :-
-    type_size(Type, Size),
-    c_calloc(Ptr, Type, Size, 1).
+c_alloc(Ptr, M:Type) :-
+    c_expand_type(M:Type, M:Type1),
+    type_size(M:Type1, Size),
+    c_calloc(Ptr, M:Type1, Size, 1).
 
 c_init(M:Type[], Data, Ptr) :-
     !,
