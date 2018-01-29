@@ -55,6 +55,7 @@ static unsigned int debug = 0;
 static atom_t ATOM_c_library;
 static atom_t ATOM_c_symbol;
 static atom_t ATOM_c_function;
+static atom_t ATOM_c_closure;
 
 static atom_t ATOM_default;
 static atom_t ATOM_cdecl;
@@ -90,6 +91,17 @@ typedef struct ctx_prototype
   ffi_type    **atypes;
   type_spec	ret;
 } ctx_prototype;
+
+typedef struct ctx_closure
+{ ffi_cif	cif;			/* libffi spec */
+  ffi_type    **ffi_type;		/* libffi type spec */
+  ffi_closure  *closure;		/* libffis notion of the closure */
+  void	       *func;			/* created function pointer */
+  predicate_t	predicate;		/* predicate to call */
+  size_t	argc;			/* argument count */
+  type_spec	ret_type;		/* return type */
+  type_spec    *arg_type;		/* argument types */
+} ctx_closure;
 
 
 
@@ -721,6 +733,148 @@ pl_ffi_call(term_t prototype, term_t goal)
 
 
 		 /*******************************
+		 *	      CLOSURES		*
+		 *******************************/
+
+static void call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp);
+
+static ffi_type *
+ffi_type_wchar_t(void)
+{ if ( sizeof(wchar_t) == sizeof(int) )
+    return &ffi_type_sint;
+  else
+    return &ffi_type_ushort;			/* Windows; signed or not? */
+}
+
+
+static ffi_type *
+to_ffi_type(const type_spec *tspec)
+{ if ( tspec->ptrl > 0 )
+    return &ffi_type_pointer;
+
+  switch(tspec->type)
+  { case CT_CHAR:	return &ffi_type_schar;
+    case CT_UCHAR:	return &ffi_type_uchar;
+    case CT_WCHAR_T:	return ffi_type_wchar_t();
+    case CT_SHORT:	return &ffi_type_sshort;
+    case CT_USHORT:	return &ffi_type_ushort;
+    case CT_INT:	return &ffi_type_sint;
+    case CT_UINT:	return &ffi_type_uint;
+    case CT_LONG:	return &ffi_type_slong;
+    case CT_ULONG:	return &ffi_type_ulong;
+    case CT_LONGLONG:	return &ffi_type_sint64;
+    case CT_ULONGLONG:	return &ffi_type_uint64;
+    case CT_FLOAT:	return &ffi_type_float;
+    case CT_DOUBLE:	return &ffi_type_double;
+    default:
+      return NULL;
+  }
+}
+
+static void
+free_closure(ctx_closure *ctx)
+{ if ( ctx->ffi_type ) free(ctx->ffi_type);
+  if ( ctx->arg_type ) free(ctx->arg_type);
+
+  free(ctx);
+}
+
+
+/** ffi_closure_create(:Predicate, +ABI, +Return, +Params, -Closure)
+*/
+
+static foreign_t
+ffi_closure_create(term_t qpred,
+		   term_t abi, term_t ret, term_t args,
+		   term_t closure)
+{ module_t m = NULL;
+  term_t pred = PL_new_term_ref();
+  term_t tail = PL_copy_term_ref(args);
+  term_t head = PL_new_term_ref();
+  atom_t pname;
+  size_t parity;
+  ctx_closure *ctx;
+  ffi_abi fabi;
+  ffi_type *rtype;
+  size_t i;
+
+  if ( !(ctx = malloc(sizeof(*ctx))) )
+    return PL_resource_error("memory");
+
+  memset(ctx, 0, sizeof(*ctx));
+
+  if ( !PL_strip_module(qpred, &m, pred) ||
+       !get_abi(abi, &fabi) )
+    goto error;
+  if ( !PL_get_name_arity(pred, &pname, &parity) )
+  { PL_type_error("callable", qpred);
+    goto error;
+  }
+
+  ctx->predicate = PL_pred(PL_new_functor(pname, parity), m);
+  if ( !get_type(ret, &ctx->ret_type) )
+    goto error;
+  if ( !(rtype = to_ffi_type(&ctx->ret_type)) )
+  { PL_domain_error("c_type", ret);
+    goto error;
+  }
+
+  if ( PL_skip_list(args, 0, &ctx->argc) != PL_LIST )
+  { PL_type_error("list", args);
+    goto error;
+  }
+  if ( !(ctx->arg_type = malloc(sizeof(*ctx->arg_type)*ctx->argc)) ||
+       !(ctx->ffi_type = malloc(sizeof(*ctx->ffi_type)*ctx->argc)) )
+  { PL_resource_error("memory");
+    goto error;
+  }
+
+  for(i=0; PL_get_list(tail, head, tail); i++ )
+  { if ( !get_type(head, &ctx->arg_type[i]) )
+      goto error;
+    if ( !(ctx->ffi_type[i] = to_ffi_type(ctx->arg_type)) )
+    { PL_domain_error("c_type", head);
+      goto error;
+    }
+  }
+
+  if ( !(ctx->closure = ffi_closure_alloc(sizeof(ffi_closure), &ctx->func)) )
+  { PL_resource_error("memory");
+    goto error;
+  }
+
+  if ( ffi_prep_cif(&ctx->cif, fabi, ctx->argc, rtype, ctx->ffi_type) ==
+       FFI_OK )
+  { if ( ffi_prep_closure_loc(ctx->closure, &ctx->cif, call_closure,
+			      ctx, ctx->func) )
+    { type_spec tspec = {CT_STRUCT, 0, ATOM_c_closure,
+			  sizeof(*ctx), free_closure};
+      return unify_ptr(closure, ctx, 1, &tspec);
+    }
+  }
+
+  Sdprintf("Error creating closure!\n");
+
+error:
+  free_closure(ctx);
+
+  return FALSE;
+}
+
+
+static void
+call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp)
+{ ctx_closure *ctx = ctxp;
+
+  Sdprintf("Calling closure\n");
+}
+
+
+
+
+
+
+		 /*******************************
 		 *	       MISC		*
 		 *******************************/
 
@@ -756,6 +910,7 @@ install(void)
 { MKATOM(c_library);
   MKATOM(c_symbol);
   MKATOM(c_function);
+  MKATOM(c_closure);
 
   MKATOM(default);
   MKATOM(cdecl);
@@ -775,6 +930,8 @@ install(void)
   PL_register_foreign("ffi_prototype_create", 5, ffi_prototype_create, 0);
   PL_register_foreign("ffi_call",	      2, pl_ffi_call,	       0);
 
+  PL_register_foreign("ffi_closure_create",   5, ffi_closure_create,
+		      PL_FA_META, "0+++-");
   PL_register_foreign("ffi_debug",	      1, ffi_debug,	       0);
   PL_register_foreign("c_errno",	      1, c_errno,	       0);
 }
