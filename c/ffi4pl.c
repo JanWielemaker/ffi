@@ -516,6 +516,7 @@ ffi_prototype_create(term_t entry, term_t cc,
 typedef union argstore
 { char c;
   unsigned char uc;
+  wchar_t wc;
   short s;
   unsigned short us;
   int i;
@@ -865,13 +866,75 @@ error:
 static void
 call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp)
 { ctx_closure *ctx = ctxp;
+  int has_ret = ctx->ret_type.type != CT_VOID;
+  fid_t fid;
 
   Sdprintf("Calling closure\n");
+
+  if ( (fid = PL_open_foreign_frame()) )
+  { term_t argv;
+
+    if ( (argv=PL_new_term_refs(ctx->argc + has_ret)) )
+    { size_t i;
+      argstore as[ctx->argc];
+      int rc;
+
+      for(i=0; i<ctx->argc; i++)
+      { args[i] = &as[i].p;
+
+	switch(ctx->arg_type[i].type)
+	{ case CT_CHAR:	     rc = PL_put_integer(argv+i, as[i].c);   break;
+	  case CT_UCHAR:     rc = PL_put_integer(argv+i, as[i].uc);  break;
+	  case CT_WCHAR_T:   rc = PL_put_integer(argv+i, as[i].wc);  break;
+	  case CT_SHORT:     rc = PL_put_integer(argv+i, as[i].s);   break;
+	  case CT_USHORT:    rc = PL_put_integer(argv+i, as[i].us);  break;
+	  case CT_INT:       rc = PL_put_integer(argv+i, as[i].i);   break;
+	  case CT_UINT:      rc = PL_put_integer(argv+i, as[i].ui);  break;
+	  case CT_LONG:      rc = PL_put_integer(argv+i, as[i].l);   break;
+	  case CT_ULONG:     rc = PL_put_integer(argv+i, as[i].ul);  break;
+	  case CT_LONGLONG:  rc = PL_put_integer(argv+i, as[i].ll);  break;
+	  case CT_ULONGLONG: rc = PL_put_integer(argv+i, as[i].ull); break;
+	  case CT_FLOAT:     rc = PL_put_integer(argv+i, as[i].f);   break;
+	  case CT_DOUBLE:    rc = PL_put_integer(argv+i, as[i].d);   break;
+	  default:
+	    assert(0);				/* TBD: pointers */
+	}
+
+	if ( !rc )
+	  Sdprintf("Closure: failed to convert arg %d\n", i+1);
+      }
+
+      if ( PL_call_predicate(NULL, PL_Q_NORMAL, ctx->predicate, argv) )
+      { if ( has_ret )
+	{ term_t rt = argv+ctx->argc+1;
+
+	  switch(ctx->ret_type.type)
+	  { case CT_CHAR:      rc = PL_cvt_i_char(rt, ret);   break;
+	    case CT_UCHAR:     rc = PL_cvt_i_uchar(rt, ret);  break;
+	    case CT_WCHAR_T:   rc = PL_cvt_i_wchar(rt, ret);  break;
+	    case CT_SHORT:     rc = PL_cvt_i_short(rt, ret);  break;
+	    case CT_USHORT:    rc = PL_cvt_i_ushort(rt, ret); break;
+	    case CT_INT:       rc = PL_cvt_i_int(rt, ret);    break;
+	    case CT_UINT:      rc = PL_cvt_i_uint(rt, ret);   break;
+	    case CT_LONG:      rc = PL_cvt_i_long(rt, ret);   break;
+	    case CT_ULONG:     rc = PL_cvt_i_ulong(rt, ret);  break;
+	    case CT_LONGLONG:  rc = PL_cvt_i_int64(rt, ret);  break;
+	    case CT_ULONGLONG: rc = PL_cvt_i_uint64(rt, ret); break;
+	    case CT_FLOAT:     rc = PL_cvt_i_single(rt, ret); break;
+	    case CT_DOUBLE:    rc = PL_cvt_i_float(rt, ret);  break;
+	    default:
+	      assert(0);
+	  }
+
+	  if ( !rc )
+	    Sdprintf("Closure: failed to convert return value\n");
+	}
+      }
+    }
+
+    PL_close_foreign_frame(fid);
+  }
 }
-
-
-
-
 
 
 		 /*******************************
