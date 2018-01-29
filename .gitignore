@@ -11,3 +11,6 @@ config.log
 config.status
 configure
 lib
+.gdbinit
+TAGS
+__pycache__
