@@ -413,7 +413,32 @@ ci_function_free(void *ptr)
 
 /** 'ffi_prototype_create'(+Function, +ABI, +Return, +Params, -Prototype)
 
-@arg Return is either text, pointer(+Type) or pointer(+Type, +FreeFunc)
+Create a function prototype for Function   (a  function pointer). Return
+and Params are normally text strings/atoms that   encode  the C types as
+follows:
+
+  | 'u'        | unsigned	       |
+  | '+', '-'   | Input output (unused) |
+  | 'h'        | smaller size          |
+  | 'l'        | larger size	       |
+
+A sequence of the above is followed by the primary type:
+
+  | 'i'        | integer               |
+  | 'f'        | float                 |
+  | 'p'        | pointer               |
+
+For example `uhi` is and unsigned short, `lf`   is  a double, `lli` is a
+long long, etc.
+
+The Return arg can be a text encoding a  single value as above or one of
+the terms pointer(+Type, +Size) or pointer(+Type, +Size +FreeFunc). This
+is used to return a  `c_ptr`  blob   for  the  return parameter with the
+correct type, element size and  optionally   a  function  to discard the
+returned value.
+
+Note that the  `FreeFunc`  is  called   from  the  Prolog  atom  garbage
+collector and is thus normally called from the `gc` thread.
 */
 
 static foreign_t
