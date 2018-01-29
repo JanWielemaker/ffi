@@ -833,8 +833,9 @@ ffi_closure_create(term_t qpred,
   for(i=0; PL_get_list(tail, head, tail); i++ )
   { if ( !get_type(head, &ctx->arg_type[i]) )
       goto error;
-    if ( !(ctx->ffi_type[i] = to_ffi_type(ctx->arg_type)) )
-    { PL_domain_error("c_type", head);
+    if ( !(ctx->ffi_type[i] = to_ffi_type(&ctx->arg_type[i])) )
+    { assert(ctx->ffi_type[i] == &ffi_type_sint);
+      PL_domain_error("c_type", head);
       goto error;
     }
   }
@@ -847,7 +848,7 @@ ffi_closure_create(term_t qpred,
   if ( ffi_prep_cif(&ctx->cif, fabi, ctx->argc, rtype, ctx->ffi_type) ==
        FFI_OK )
   { if ( ffi_prep_closure_loc(ctx->closure, &ctx->cif, call_closure,
-			      ctx, ctx->func) )
+			      ctx, ctx->func) == FFI_OK )
     { type_spec tspec = {CT_STRUCT, 0, ATOM_c_closure,
 			  sizeof(*ctx), free_closure};
       return unify_ptr(closure, ctx, 1, &tspec);
@@ -869,44 +870,49 @@ call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp)
   int has_ret = ctx->ret_type.type != CT_VOID;
   fid_t fid;
 
-  Sdprintf("Calling closure\n");
+  DEBUG(3, Sdprintf("Calling closure\n"));
 
   if ( (fid = PL_open_foreign_frame()) )
   { term_t argv;
 
     if ( (argv=PL_new_term_refs(ctx->argc + has_ret)) )
     { size_t i;
-      argstore as[ctx->argc];
       int rc;
 
-      for(i=0; i<ctx->argc; i++)
-      { args[i] = &as[i].p;
+#define BIND_INT(type)    PL_put_integer(argv+i, *(type*)args[i]);
+#define BIND_INT64(type)  PL_put_int64(argv+i, *(type*)args[i]);
+#define BIND_UINT64(type) PL_unify_uint64(argv+i, *(type*)args[i]);
+#define BIND_FLOAT(type)  PL_put_float(argv+i, *(type*)args[i]);
 
-	switch(ctx->arg_type[i].type)
-	{ case CT_CHAR:	     rc = PL_put_integer(argv+i, as[i].c);   break;
-	  case CT_UCHAR:     rc = PL_put_integer(argv+i, as[i].uc);  break;
-	  case CT_WCHAR_T:   rc = PL_put_integer(argv+i, as[i].wc);  break;
-	  case CT_SHORT:     rc = PL_put_integer(argv+i, as[i].s);   break;
-	  case CT_USHORT:    rc = PL_put_integer(argv+i, as[i].us);  break;
-	  case CT_INT:       rc = PL_put_integer(argv+i, as[i].i);   break;
-	  case CT_UINT:      rc = PL_put_integer(argv+i, as[i].ui);  break;
-	  case CT_LONG:      rc = PL_put_integer(argv+i, as[i].l);   break;
-	  case CT_ULONG:     rc = PL_put_integer(argv+i, as[i].ul);  break;
-	  case CT_LONGLONG:  rc = PL_put_integer(argv+i, as[i].ll);  break;
-	  case CT_ULONGLONG: rc = PL_put_integer(argv+i, as[i].ull); break;
-	  case CT_FLOAT:     rc = PL_put_integer(argv+i, as[i].f);   break;
-	  case CT_DOUBLE:    rc = PL_put_integer(argv+i, as[i].d);   break;
+      for(i=0; i<ctx->argc; i++)
+      { switch(ctx->arg_type[i].type)
+	{ case CT_CHAR:	     rc = BIND_INT(char);                  break;
+	  case CT_UCHAR:     rc = BIND_INT(unsigned char);         break;
+	  case CT_WCHAR_T:   rc = BIND_INT(wchar_t);               break;
+	  case CT_SHORT:     rc = BIND_INT(short);                 break;
+	  case CT_USHORT:    rc = BIND_INT(unsigned short);        break;
+	  case CT_INT:       rc = BIND_INT(int);                   break;
+	  case CT_UINT:      rc = BIND_INT(unsigned int);          break;
+	  case CT_LONG:      rc = BIND_INT(long);                  break;
+	  case CT_ULONG:     rc = BIND_INT64(unsigned long);       break;
+	  case CT_LONGLONG:  rc = BIND_INT64(long long);           break;
+	  case CT_ULONGLONG: rc = BIND_UINT64(unsigned long long); break;
+	  case CT_FLOAT:     rc = BIND_FLOAT(float);               break;
+	  case CT_DOUBLE:    rc = BIND_FLOAT(double);              break;
 	  default:
 	    assert(0);				/* TBD: pointers */
 	}
 
 	if ( !rc )
 	  Sdprintf("Closure: failed to convert arg %d\n", i+1);
+	DEBUG(4, PL_write_term(Serror, argv+i, 1200, PL_WRT_NEWLINE));
       }
 
       if ( PL_call_predicate(NULL, PL_Q_NORMAL, ctx->predicate, argv) )
       { if ( has_ret )
-	{ term_t rt = argv+ctx->argc+1;
+	{ term_t rt = argv+ctx->argc;
+
+	  DEBUG(4, PL_write_term(Serror, rt, 1200, PL_WRT_NEWLINE));
 
 	  switch(ctx->ret_type.type)
 	  { case CT_CHAR:      rc = PL_cvt_i_char(rt, ret);   break;
@@ -936,6 +942,33 @@ call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp)
   }
 }
 
+#define TEST_CLOSURE 1
+#if TEST_CLOSURE
+
+static foreign_t
+i_ii_closure(term_t closure, term_t I1, term_t I2, term_t R)
+{ ctx_closure *ctx;
+  type_spec tspec = {CT_STRUCT, 0, ATOM_c_closure};
+
+  if ( get_ptr(closure, &ctx, &tspec) )
+  { int i1, i2;
+
+    if ( PL_cvt_i_int(I1, &i1) &&
+	 PL_cvt_i_int(I2, &i2) )
+    { int (*f)(int,int) = ctx->func;
+      int r;
+
+      r = (*f)(i1,i2);
+      return PL_unify_integer(R, r);
+    }
+  }
+
+  return FALSE;
+}
+
+
+
+#endif /*TEST_CLOSURE*/
 
 		 /*******************************
 		 *	       MISC		*
@@ -995,6 +1028,10 @@ install(void)
 
   PL_register_foreign("ffi_closure_create",   5, ffi_closure_create,
 		      PL_FA_META, "0+++-");
+#ifdef TEST_CLOSURE
+  PL_register_foreign("i_ii_closure",	      4, i_ii_closure,         0);
+#endif
+
   PL_register_foreign("ffi_debug",	      1, ffi_debug,	       0);
   PL_register_foreign("c_errno",	      1, c_errno,	       0);
 }
