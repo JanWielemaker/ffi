@@ -1,8 +1,11 @@
 :- module(test_python,
-          [ test_python/0
+          [ test_python/0,
+            bench_python/0
           ]).
 :- use_module(python).
 :- use_module(library(plunit)).
+:- use_module(library(debug)).
+:- use_module(library(apply_macros), []).
 
 test_python :-
     run_tests([ python
@@ -33,3 +36,14 @@ test(bool, Z == false) :-
     py_call(demo:trivial(false), Z).
 
 :- end_tests(python).
+
+bench_python :-
+    bench_python(concat_list(100 000)).
+
+bench_python(concat_list(N)) :-
+    numlist(1, N, List),
+    time(py_call(demo:concat(List, List), Concat)),
+    length(Concat, N2),
+    assertion(N*2 =:= N2).
+
+

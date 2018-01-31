@@ -1,11 +1,13 @@
 
 
 :- module(python,
-          [ py_call/2,                          % +Module:Call, -Return
+          [ py_call/2,                  % +Module:Call, -Return
 
             py_init/0,
-            py_module/2,                        % +Name, -Handle
-            py_function/3                       % +Module, +FuncName, -Function
+            py_module/2,                % +Name, -Handle
+            py_function/3,              % +Module, +FuncName, -Function
+
+            py_gil/1                    % :Goal
           ]).
 :- use_module(library(ffi)).
 :- use_module(library(error)).
@@ -43,6 +45,9 @@ Issues:
 @see https://docs.python.org/3/extending/embedding.html
 */
 
+:- meta_predicate
+    py_gil(0).
+
 :- c_import("//#define Py_LIMITED_API 1
 	     #include \"examples/mypython.c\"",
             [ '-lpython3.6m',
@@ -54,6 +59,10 @@ Issues:
               'Py_Initialize'(),
               'PyRun_SimpleStringFlags'(string, 'PyCompilerFlags', [int]),
               'Py_FinalizeEx'([int]),
+
+              'PyEval_InitThreads'(),
+              'PyGILState_Ensure'([int]), % Actually enum ...
+              'PyGILState_Release'(int),  % but we are not interested
 
               'PyLong_FromLongLong'(int, [*('PyObject', 'MyPy_DECREF')]),
               'PyFloat_FromDouble'(float, [*('PyObject', 'MyPy_DECREF')]),
@@ -131,6 +140,7 @@ py_init_sync :-
     current_prolog_flag(os_argv, [Program|_]),
     'Py_SetProgramName'(Program),
     'Py_Initialize'(),
+%   'PyEval_InitThreads'(),
     set_prolog_gc_thread(false),
     asserta(py_init_done).
 
@@ -143,7 +153,7 @@ py_module(Name, Module) :-
     !,
     Module = Module0.
 py_module(Name, Module) :-
-    with_mutex(python, py_module_sync(Name, Module0)),
+    with_mutex(python, py_gil(py_module_sync(Name, Module0))),
     Module = Module0.
 
 py_module_sync(Name, Module) :-
@@ -165,7 +175,7 @@ py_function(Module, Name, Function) :-
     !,
     Function = Function0.
 py_function(Module, Name, Function) :-
-    with_mutex(python, py_function_sync(Module, Name, Function0)),
+    with_mutex(python, py_gil(py_function_sync(Module, Name, Function0))),
     Function = Function0.
 
 py_function_sync(Module, Name, Function) :-
@@ -178,8 +188,17 @@ py_function_sync(Module, Name, Function) :-
     asserta(py_function_done(Module, Name, Function)).
 
 %!  py_call(+Call, -Return) is det.
+%
+%   Call a Python function. Call is   of  the form `Module:Function(Arg,
+%   ...)`, where `Module`  is  the  Python   module  (*not*  the  Prolog
+%   module), `Function` is the name of a   function  in `Module` and the
+%   arguments are Prolog values  that  can   be  translated  into Python
+%   values.
 
-py_call(Module:Call, Return) :-
+py_call(Call, Return) :-
+    py_gil(py_call_sync(Call, Return)).
+
+py_call_sync(Module:Call, Return) :-
     compound_name_arity(Call, Func, Argc),
     py_function(Module, Func, Function),
     'PyTuple_New'(Argc, Argv),
@@ -369,3 +388,16 @@ py_check_exception :-
     ;   'PyErr_Clear'(),
         throw(error(python_error(Ex)))
     ).
+
+%!  py_gil(:Goal)
+%
+%   Call Goal with the Python GIL   (Global Interpreter Lock) held. This
+%   is required for all Python interaction  if multiple (Prolog) threads
+%   are involved.
+
+py_gil(Goal) :-
+    py_init,
+    setup_call_cleanup(
+        'PyGILState_Ensure'(GILState),
+        Goal,
+        'PyGILState_Release'(GILState)).

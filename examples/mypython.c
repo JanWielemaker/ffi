@@ -1,10 +1,11 @@
 #include <Python.h>
-#include <stdio.h>
 
 void
 MyPy_DECREF(PyObject *o)
-{ //fprintf(stderr, "Py_DECREF(%p)\n", o);
+{ PyGILState_STATE gstate;
+  gstate = PyGILState_Ensure();
   Py_DECREF(o);
+  PyGILState_Release(gstate);
 }
 
 void
