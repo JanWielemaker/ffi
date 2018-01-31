@@ -407,7 +407,9 @@ static int
 get_ptr(term_t t, void *ptrp, const type_spec *tspec)
 { int rc;
   atom_t null;
+  int tried = 0;
 
+retry:
   if ( (rc=get_ptr_direct(t, ptrp, tspec)) == TRUE )
     return TRUE;
   else if ( rc < 0 )
@@ -439,6 +441,14 @@ get_ptr(term_t t, void *ptrp, const type_spec *tspec)
     }
 
     return FALSE;
+  } else if ( !tried++ )
+  { term_t plain = PL_new_term_ref();
+    module_t m = 0;
+
+    if ( PL_strip_module(t, &m, plain) )
+    { t = plain;
+      goto retry;
+    }
   }
 
   return PL_type_error("c_ptr", t);
