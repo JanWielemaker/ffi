@@ -275,13 +275,16 @@ wrap_function(Signature as PName, _Optional, Types) -->
         }
     ->  { length(SigArgs, Arity),
           matching_signature(FName, SigArgs, Ret, Params, SigParams, Types),
-          functor(Head, PName, Arity),
+          include(is_closure, SigParams, Closures),
+          length(Closures, NClosures),
+          PArity is Arity - NClosures,
+          functor(PHead, PName, PArity),
           CSignature =.. [FName|SigParams],
           prolog_load_context(module, M)
         },
-        [ ffi:c_function(M:Head, Params, Ret),
-          (:- dynamic(PName/Arity)),
-          (Head :- ffi:define(M:Head, CSignature))
+        [ ffi:c_function(M:PHead, Params, Ret),
+          (:- dynamic(PName/PArity)),
+          (PHead :- ffi:define(M:PHead, CSignature))
         ]
     ;   []	% Already warned by c99_types
     ).
@@ -289,6 +292,20 @@ wrap_function(Signature, Optional, Types) -->
     { compound_name_arity(Signature, Name, _)
     },
     wrap_function(Signature as Name, Optional, Types).
+
+is_closure(+closure(_)).
+
+%!  matching_signature(+FuncName,
+%!                     +PlArgs, +PlRet,
+%!                     +CArgs, -SignatureArgs, +Types) is semidet.
+%
+%   Match the signature given by the user   with  the one extracted from
+%   the C code. If the  two   signatures  are  compatible, the resulting
+%   SignatureArgs is a list of  arguments   using  the  same notation as
+%   PlArgs, but using the concrete  C   types  rather  than the abstract
+%   Prolog type. For example, Prolog `int` may be mapped to C `ulong` if
+%   the C function accepts  a  type   that  (eventually)  aliases  to an
+%   unsigned long.
 
 matching_signature(Name, SigArgs, Ret, Params, SigParams, Types) :-
     append(RealArgs, [[PlRet]], SigArgs),   % specified return
@@ -341,12 +358,16 @@ compatible_arg(float, CType, +CType, _) :-
     float_type(CType).
 compatible_arg(-float, CType, -CType, _) :-
     float_type(CType).
-compatible_arg(Func0, funcptr(Ret, Params), +Func, Types) :-
-    compound(Func0),
-    compound_name_arguments(Func0, function, SigArgs),
+compatible_arg(Func0, funcptr(Ret, Params), +closure(M:Func), Types) :-
+    prolog_load_context(module, M0),
+    strip_module(M0:Func0, M, Func1),
+    compound(Func1),
+    Func1 \= +(_),
+    Func1 \= *(_),
+    compound_name_arguments(Func1, Pred, SigArgs),
     !,
     matching_signature(-, SigArgs, Ret, Params, SigParams, Types),
-    compound_name_arguments(Func, function, SigParams).
+    compound_name_arguments(Func, Pred, SigParams).
 % compatible_arg/3
 compatible_arg(PlArg, _ArgName-CArg, Types) :-
     !,
@@ -477,7 +498,7 @@ define(QHead, CSignature) :-
 
 link_clause(M:Goal, CSignature,
             (Head :- !, Body)) :-
-    c_function(M:Goal, ParamSpec, RetType),
+    c_function(M:Goal, ParamSpec, RetType),	% Also in dynamic part?
     maplist(param_type, ParamSpec, ParamTypes),
     phrase(signature_string(ParamTypes), ParamChars),
     atom_codes(Params, ParamChars),
@@ -486,15 +507,16 @@ link_clause(M:Goal, CSignature,
     ;   phrase(signature_string([RetType]), RetChars),
         atom_codes(Ret, RetChars)
     ),
-    functor(Goal, Name, Arity),
-    functor(Head, Name, Arity),
-    functor(Head1, Name, Arity),
+    functor(Goal, Name, PArity),
+    functor(Head, Name, PArity),
+    functor(CSignature, _, CArity),
+    functor(Head1, Name, CArity),
     CSignature =.. [FName|SigArgs],
     prototype_return(Ret, M, SigArgs, PRet),
     find_symbol(M, FName, FuncPtr),
     debug(ctypes, 'Binding ~p (Ret=~p, Params=~p)', [Name, PRet, Params]),
     ffi_prototype_create(FuncPtr, default, PRet, Params, Prototype),
-    convert_args(SigArgs, 1, Arity, Head, Head1, PreConvert, PostConvert),
+    convert_args(SigArgs, 1, PArity, 1, CArity, Head, Head1, PreConvert, PostConvert),
     Invoke = ffi:ffi_call(Prototype, Head1),
     mkconj(PreConvert, Invoke, Body0),
     mkconj(Body0, PostConvert, Body).
@@ -524,18 +546,29 @@ prototype_return(p, M, SigArgs, PRet) :-
     ).
 prototype_return(Ret, _, _, Ret).
 
-convert_args([], _, _, _, _, true, true).
-convert_args([H|T], I, Arity, Head0, Head1, GPre, GPost) :-
-    arg(I, Head0, Arg0),
-    arg(I, Head1, Arg1),
+%!  convert_args(+SigArgs, +PI, +PArity, +CI, +CArity,
+%!		 +PlHead, +CHead, -PreGoal, -PostGoal)
+
+convert_args([], _, _, _, _, _, _, true, true).
+convert_args([+closure(M:Closure)|T], PI, PArity, CI, CArity,
+             PHead, CHead, GPre, GPost) :-
+    !,
+    arg(CI, CHead, CClosure),
+    closure_create(M:Closure, CClosure),
+    CI2 is CI + 1,
+    convert_args(T, PI, PArity, CI2, CArity, PHead, CHead, GPre, GPost).
+convert_args([H|T], PI, PArity, CI, CArity, Head0, Head1, GPre, GPost) :-
+    arg(CI, Head0, Arg0),
+    arg(PI, Head1, Arg1),
     (   convert_arg(H, Arg0, Arg1, GPre1, GPost1)
     ->  true
     ;   Arg0 = Arg1,
         GPre1 = true,
         GPost1 = true
     ),
-    I2 is I + 1,
-    convert_args(T, I2, Arity, Head0, Head1, GPre2, GPost2),
+    PI2 is PI + 1,
+    CI2 is CI + 1,
+    convert_args(T, PI2, PArity, CI2, CArity, Head0, Head1, GPre2, GPost2),
     mkconj(GPre1, GPre2, GPre),
     mkconj(GPost1, GPost2, GPost).
 
@@ -605,6 +638,21 @@ signature(double)       --> "lf".
 signature(*(_))         --> "p".
 signature(funcptr(_,_)) --> "c".
 signature(enum(_))      --> "i".
+
+%!  closure_create(:Head, -Closure) is det.
+%
+%   Create a closure object from Head. Head   is  a qualified term whose
+%   functor is the predicate name to be   called and whose arguments are
+%   the C parameter types.
+
+closure_create(M:Head, Closure) :-
+    compound_name_arguments(Head, _, Args),
+    (   append(Params, [[Return]], Args)
+    ->  true
+    ;   Params = Args,
+        Return = void
+    ),
+    ffi_closure_create(M:Head, default, Return, Params, Closure).
 
 
 		 /*******************************

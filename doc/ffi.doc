@@ -425,7 +425,7 @@ Argument is an enum of the given name. An enum member is mapped to a
 Prolog atom. The wrapper translates between the atom and C~integer that
 represent the enum encoding.  Input and output arguments are handled the
 same way as \const{int}.
-    \termitem{function}{Arg, \ldots}
+    \termitem{PredicateName}{Arg, \ldots}
 Argument is a \jargon{closure}. The arguments of the function term are
 the predicate arguments for the predicate to which the closure is mapped
 and is subject to the same rules as the predicate arguments described in
@@ -450,6 +450,93 @@ if(current_predicate(Name/Arity)).} to deal with portability issues.
 \end{description}
 
 \end{description}
+
+\subsection{Handling closures}
+
+The term \jargon{closure} refers to a pointer to a C~function that is
+passed to a C~function or placed in a structure. The registered
+function is called on certain events. An example is qsort() from the
+standard C~library that accepts a closure to compare two elements of the
+array that is to be sorted. In this section we explain how qsort() can
+be used through this library.\footnote{The qsort() function is used for
+educational purposes and because it is widely available in C~runtime
+libraries.} Below we declare the function.
+
+\begin{code}
+:- use_module(library(ffi)).
+:- c_import("#include <stdlib.h>",
+            [ libc ],
+            [ qsort(*void, int, int, qcompare(*void, *void, [int]))
+            ]).
+\end{code}
+
+The declaration above creates a predicate \nopredref{qsort}{3} that
+performs a callback on the predicate qcompare/3. Note that, unlike in C,
+we provide a predefined predicate that is called. This is done such that
+the library can create a closure object that matches the requested
+function type. If the called predicate needs to be dynamically
+determined there are two options:
+
+\begin{enumerate}
+    \item Use ``\arg{Function}(\arg{Arg}, ...) as \arg{PredicateName}''
+to bind different variations to different predicates.
+    \item Call the specific closure predicate from the generic one
+after making it available as a hook definition or global variable.
+\end{enumerate}
+
+In our example we create \nopredref{qcompare}{3} as a function that
+operates on an integer array. The example uses c_load/4 to load an
+\ctype{int} indirectly over the \ctype{void*} argument. Prolog compare/3
+is used to compare the elements and the result is translated to an
+\ctype{int} to comply with the qsort() calling convention.
+
+\begin{code}
+qcompare(Ptr1, Ptr2, Diff) :-
+    c_load(Ptr1, 0, int, I1),
+    c_load(Ptr2, 0, int, I2),
+    compare(DiffA, I1, I2),
+    diff_int(DiffA, Diff).
+
+diff_int(<,-1).
+diff_int(=, 0).
+diff_int(>, 1).
+\end{code}
+
+Given this, we can sort an array of integers:
+
+\begin{code}
+sort_int_array(Ptr, Length) :-
+    c_sizeof(int, ESize),
+    qsort(Ptr, Length, ESize).
+\end{code}
+
+A complete example to create an array of C \ctype{int} from a Prolog
+list, sort it and translate the result back to Prolog is below.
+
+\begin{code}
+sort_int_list(List, Sorted) :-
+    length(List, Count),
+    c_alloc(Data, int[Count]),
+    fill_array(List, 0, Data),
+    c_sizeof(int, ESize),
+    qsort(Data, Count, ESize),
+    read_array(0, Count, Data, Sorted).
+
+fill_array([], _, _).
+fill_array([H|T], I, Data) :-
+    c_store(Data[I], H),
+    I2 is I + 1,
+    fill_array(T, I2, Data).
+
+read_array(I, Count, Data, [H|T]) :-
+    I < Count,
+    !,
+    c_load(Data[I], H),
+    I2 is I + 1,
+    read_array(I2, Count, Data, T).
+read_array(_, _, _, []).
+\end{code}
+
 
 \subsection{Module awareness}
 
