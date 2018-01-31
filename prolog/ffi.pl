@@ -1019,6 +1019,9 @@ c_nil(Ptr) :-
 %
 %   Translate a specification into a pointer, offset and type.
 
+c_address(_:(M2:Spec)[E], Ptr, Offset, Type) :-
+    !,                                  % may get wrongly qualified
+    c_address(M2:Spec[E], Ptr, Offset, Type).
 c_address(M:Spec[E], Ptr, Offset, Type) :-
     !,
     c_address(M:Spec, Ptr0, Offset0, Type0),
