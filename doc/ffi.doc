@@ -400,6 +400,10 @@ Prolog integer can be represented by the bounded C integer. If the
 argument is an output argument the C type must be a pointer to a C
 integer. A buffer of sufficient size is allocated and after completion
 of the function the result is extracted from the pointer.
+
+The \const{int} value is also compatible with an \ctype{enum} typed
+C~argument, returning the enum value as an integer. See also
+\const{enum} below.
     \termitem{float}{}
 Supports C floats and doubles.
     \termitem{string}{}
@@ -425,6 +429,12 @@ Argument is an enum of the given name. An enum member is mapped to a
 Prolog atom. The wrapper translates between the atom and C~integer that
 represent the enum encoding.  Input and output arguments are handled the
 same way as \const{int}.
+    \termitem{enum}{}
+This can be used for enum arguments if the name of the enum is not
+important or unknown.  Conversion to or from atoms is performed as
+with the \term{enum}{Name} specification.  Note that an enum can
+also be specified as \const{int}, which stops converstion between
+atoms and the integer representation.
     \termitem{PredicateName}{Arg, \ldots}
 Argument is a \jargon{closure}. The arguments of the function term are
 the predicate arguments for the predicate to which the closure is mapped

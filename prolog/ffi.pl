@@ -350,6 +350,8 @@ compatible_arg(+PlArg, CArg, Param, Types) :-
     compatible_arg(PlArg, CArg, Param, Types).
 compatible_arg(int, CType, +CType, _) :-
     int_type(CType).
+compatible_arg(int, enum(_), +int, _).
+compatible_arg(enum, enum(Name), +enum(Name), _).
 compatible_arg(-int, *(CType), -CType, _) :-
     int_type(CType).
 compatible_arg(*int, *(CType), *CType, _) :-
@@ -418,7 +420,12 @@ compatible_return(PlArg, CArg, PlArg, _Types) :-
 compatible_ret(-PlArg, CArg, Param, Types) :-
     compatible_ret(PlArg, CArg, Param, Types).
 compatible_ret(int, CArg, CArg, _) :-
-    int_type(CArg).
+    int_type(CArg),
+    !.
+compatible_ret(int, enum(_), int, _) :-
+    !.
+compatible_ret(enum, enum(Name), enum(Name), _) :-
+    !.
 compatible_ret(float, CArg, CArg, _) :-
     float_type(CArg).
 compatible_ret(*(TypeName,Free), *(CType), *(CType,Free), Types) :-
