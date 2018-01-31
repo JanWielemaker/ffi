@@ -103,6 +103,7 @@ typedef struct ctx_closure
   type_spec    *arg_type;		/* argument types */
 } ctx_closure;
 
+static int	get_closure(term_t t, void **func);
 
 
 		 /*******************************
@@ -378,6 +379,7 @@ ci_signature(const char *s, ffi_type **types)
 	}
         break;
       case 'p':
+      case 'c':
 	switch(size)
 	{ case 0: *o++ = &ffi_type_pointer; break;
 	  default:
@@ -435,6 +437,7 @@ A sequence of the above is followed by the primary type:
   | 'i'        | integer               |
   | 'f'        | float                 |
   | 'p'        | pointer               |
+  | 'c'        | closure pointer       |
 
 For example `uhi` is and unsigned short, `lf`   is  a double, `lli` is a
 long long, etc.
@@ -651,6 +654,12 @@ pl_ffi_call(term_t prototype, term_t goal)
 	  if ( !get_ptr(arg, &as[argc].p, 0) )
 	    return FALSE;
 	  DEBUG(2, Sdprintf("Got ptr %p\n", as[argc].p));
+	  argv[argc] = &as[argc].p;
+	  break;
+	case 'c':			/* closure */
+	  if ( !get_closure(arg, &as[argc].p) )
+	    return FALSE;
+	  DEBUG(2, Sdprintf("Got closure ptr %p\n", as[argc].p));
 	  argv[argc] = &as[argc].p;
 	  break;
 	default:
@@ -955,20 +964,34 @@ call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp)
   }
 }
 
+
+static int
+get_closure(term_t t, void **func)
+{ ctx_closure *ctx;
+  type_spec tspec = {CT_STRUCT, 0, ATOM_c_closure};
+
+  if ( get_ptr(t, &ctx, &tspec) )
+  { *func = ctx->func;
+
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
 #define TEST_CLOSURE 1
 #if TEST_CLOSURE
 
 static foreign_t
 i_ii_closure(term_t closure, term_t I1, term_t I2, term_t R)
-{ ctx_closure *ctx;
-  type_spec tspec = {CT_STRUCT, 0, ATOM_c_closure};
+{ void *func;
 
-  if ( get_ptr(closure, &ctx, &tspec) )
+  if ( get_closure(closure, &func) )
   { int i1, i2;
 
     if ( PL_cvt_i_int(I1, &i1) &&
 	 PL_cvt_i_int(I2, &i2) )
-    { int (*f)(int,int) = ctx->func;
+    { int (*f)(int,int) = func;
       int r;
 
       r = (*f)(i1,i2);
