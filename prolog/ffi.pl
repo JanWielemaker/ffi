@@ -590,20 +590,21 @@ mkconj(G1, G2, (G1,G2)).
 signature_string([]) --> [].
 signature_string([H|T]) --> signature(H), signature_string(T).
 
-signature(char)      --> "hhi".
-signature(uchar)     --> "uhhi".
-signature(short)     --> "hi".
-signature(ushort)    --> "uhi".
-signature(int)       --> "i".
-signature(uint)      --> "ui".
-signature(long)      --> "li".
-signature(ulong)     --> "uli".
-signature(longlong)  --> "lli".
-signature(ulonglong) --> "ulli".
-signature(float)     --> "f".
-signature(double)    --> "lf".
-signature(*(_))      --> "p".
-signature(enum(_))   --> "i".
+signature(char)         --> "hhi".
+signature(uchar)        --> "uhhi".
+signature(short)        --> "hi".
+signature(ushort)       --> "uhi".
+signature(int)          --> "i".
+signature(uint)         --> "ui".
+signature(long)         --> "li".
+signature(ulong)        --> "uli".
+signature(longlong)     --> "lli".
+signature(ulonglong)    --> "ulli".
+signature(float)        --> "f".
+signature(double)       --> "lf".
+signature(*(_))         --> "p".
+signature(funcptr(_,_)) --> "c".
+signature(enum(_))      --> "i".
 
 
 		 /*******************************
