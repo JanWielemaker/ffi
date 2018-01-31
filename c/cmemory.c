@@ -122,7 +122,6 @@ typedef struct c_ptr
 { void *ptr;				/* the pointer */
   type_spec type;			/* element type */
   size_t count;				/* Element count behind ptr */
-  freefunc free;			/* Its free function */
   c_dep *deps;				/* Dependency */
 } c_ptr;
 
@@ -172,6 +171,7 @@ del_dependency(c_ptr *ref, atom_t adep, size_t offset)
 static void
 free_ptr(c_ptr *ref)
 { c_dep *dep = ref->deps;
+  freefunc freef;
 
   if ( dep )
   { pthread_mutex_lock(&dep_mutex);
@@ -187,13 +187,13 @@ free_ptr(c_ptr *ref)
     pthread_mutex_unlock(&dep_mutex);
   }
 
-  if ( ref->free )
+  if ( (freef=ref->type.free) )
   { void *p = ref->ptr;
 
     if ( __sync_bool_compare_and_swap(&ref->ptr, p, NULL) )
     { DEBUG(5, Sdprintf("free_ptr(%p)\n", p));
 
-      (*ref->free)(p);
+      (*freef)(p);
     }
   }
 
@@ -334,7 +334,6 @@ unify_ptr(term_t t, void *ptr,
   { ref->ptr   = ptr;
     ref->count = count;
     ref->type  = *type;
-    ref->free  = free;
     ref->deps  = NULL;
 
     if ( ref->type.name )
