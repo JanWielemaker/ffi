@@ -141,7 +141,7 @@ py_init_sync :-
     'Py_SetProgramName'(Program),
     'Py_Initialize'(),
 %   'PyEval_InitThreads'(),
-    set_prolog_gc_thread(false),
+%   set_prolog_gc_thread(false),
     asserta(py_init_done).
 
 %!  py_module(+Name, -Module) is det.

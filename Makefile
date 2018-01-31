@@ -1,6 +1,6 @@
 SWIPL=swipl
 LD=$(SWIPL)-ld
-LDSOFLAGS=-Wall -shared -O2
+LDSOFLAGS=-Wall -shared -O2 -gdwarf-2 -g3
 CC=gcc
 MAKE=make
 ARCH=$(shell $(SWIPL) -arch)
