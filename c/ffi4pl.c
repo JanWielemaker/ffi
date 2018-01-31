@@ -885,22 +885,31 @@ call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp)
 #define BIND_FLOAT(type)  PL_put_float(argv+i, *(type*)args[i]);
 
       for(i=0; i<ctx->argc; i++)
-      { switch(ctx->arg_type[i].type)
-	{ case CT_CHAR:	     rc = BIND_INT(char);                  break;
-	  case CT_UCHAR:     rc = BIND_INT(unsigned char);         break;
-	  case CT_WCHAR_T:   rc = BIND_INT(wchar_t);               break;
-	  case CT_SHORT:     rc = BIND_INT(short);                 break;
-	  case CT_USHORT:    rc = BIND_INT(unsigned short);        break;
-	  case CT_INT:       rc = BIND_INT(int);                   break;
-	  case CT_UINT:      rc = BIND_INT(unsigned int);          break;
-	  case CT_LONG:      rc = BIND_INT(long);                  break;
-	  case CT_ULONG:     rc = BIND_INT64(unsigned long);       break;
-	  case CT_LONGLONG:  rc = BIND_INT64(long long);           break;
-	  case CT_ULONGLONG: rc = BIND_UINT64(unsigned long long); break;
-	  case CT_FLOAT:     rc = BIND_FLOAT(float);               break;
-	  case CT_DOUBLE:    rc = BIND_FLOAT(double);              break;
-	  default:
-	    assert(0);				/* TBD: pointers */
+      { const type_spec *tspec = &ctx->arg_type[i];
+
+	if ( tspec->ptrl > 0 )
+	{ type_spec vtype = *tspec;
+
+	  vtype.ptrl--;
+	  rc = unify_ptr(argv+i, *(void**)args[i], SZ_UNKNOWN, &vtype);
+	} else
+	{ switch(tspec->type)
+	  { case CT_CHAR:	     rc = BIND_INT(char);            break;
+	    case CT_UCHAR:     rc = BIND_INT(unsigned char);         break;
+	    case CT_WCHAR_T:   rc = BIND_INT(wchar_t);               break;
+	    case CT_SHORT:     rc = BIND_INT(short);                 break;
+	    case CT_USHORT:    rc = BIND_INT(unsigned short);        break;
+	    case CT_INT:       rc = BIND_INT(int);                   break;
+	    case CT_UINT:      rc = BIND_INT(unsigned int);          break;
+	    case CT_LONG:      rc = BIND_INT(long);                  break;
+	    case CT_ULONG:     rc = BIND_INT64(unsigned long);       break;
+	    case CT_LONGLONG:  rc = BIND_INT64(long long);           break;
+	    case CT_ULONGLONG: rc = BIND_UINT64(unsigned long long); break;
+	    case CT_FLOAT:     rc = BIND_FLOAT(float);               break;
+	    case CT_DOUBLE:    rc = BIND_FLOAT(double);              break;
+	    default:
+	      assert(0);				/* TBD: pointers */
+	  }
 	}
 
 	if ( !rc )
@@ -914,22 +923,26 @@ call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp)
 
 	  DEBUG(4, PL_write_term(Serror, rt, 1200, PL_WRT_NEWLINE));
 
-	  switch(ctx->ret_type.type)
-	  { case CT_CHAR:      rc = PL_cvt_i_char(rt, ret);   break;
-	    case CT_UCHAR:     rc = PL_cvt_i_uchar(rt, ret);  break;
-	    case CT_WCHAR_T:   rc = PL_cvt_i_wchar(rt, ret);  break;
-	    case CT_SHORT:     rc = PL_cvt_i_short(rt, ret);  break;
-	    case CT_USHORT:    rc = PL_cvt_i_ushort(rt, ret); break;
-	    case CT_INT:       rc = PL_cvt_i_int(rt, ret);    break;
-	    case CT_UINT:      rc = PL_cvt_i_uint(rt, ret);   break;
-	    case CT_LONG:      rc = PL_cvt_i_long(rt, ret);   break;
-	    case CT_ULONG:     rc = PL_cvt_i_ulong(rt, ret);  break;
-	    case CT_LONGLONG:  rc = PL_cvt_i_int64(rt, ret);  break;
-	    case CT_ULONGLONG: rc = PL_cvt_i_uint64(rt, ret); break;
-	    case CT_FLOAT:     rc = PL_cvt_i_single(rt, ret); break;
-	    case CT_DOUBLE:    rc = PL_cvt_i_float(rt, ret);  break;
-	    default:
-	      assert(0);
+	  if ( ctx->ret_type.ptrl > 0 )
+	  { rc = get_ptr(rt, ret, 0);
+	  } else
+	  { switch(ctx->ret_type.type)
+	    { case CT_CHAR:      rc = PL_cvt_i_char(rt, ret);   break;
+	      case CT_UCHAR:     rc = PL_cvt_i_uchar(rt, ret);  break;
+	      case CT_WCHAR_T:   rc = PL_cvt_i_wchar(rt, ret);  break;
+	      case CT_SHORT:     rc = PL_cvt_i_short(rt, ret);  break;
+	      case CT_USHORT:    rc = PL_cvt_i_ushort(rt, ret); break;
+	      case CT_INT:       rc = PL_cvt_i_int(rt, ret);    break;
+	      case CT_UINT:      rc = PL_cvt_i_uint(rt, ret);   break;
+	      case CT_LONG:      rc = PL_cvt_i_long(rt, ret);   break;
+	      case CT_ULONG:     rc = PL_cvt_i_ulong(rt, ret);  break;
+	      case CT_LONGLONG:  rc = PL_cvt_i_int64(rt, ret);  break;
+	      case CT_ULONGLONG: rc = PL_cvt_i_uint64(rt, ret); break;
+	      case CT_FLOAT:     rc = PL_cvt_i_single(rt, ret); break;
+	      case CT_DOUBLE:    rc = PL_cvt_i_float(rt, ret);  break;
+	      default:
+		assert(0);
+	    }
 	  }
 
 	  if ( !rc )
