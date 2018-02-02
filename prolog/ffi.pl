@@ -1286,6 +1286,10 @@ generalise(T0, T) :-
     !,
     compound_name_arity(T0, Name, Arity),
     compound_name_arity(T, Name, Arity).
+generalise(T0, T) :-
+    atomic(T0),
+    !,
+    T = T0.
 generalise(_, _).
 
 

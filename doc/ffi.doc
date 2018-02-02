@@ -459,6 +459,18 @@ silently ignored. This can be used together with \exam{:-
 if(current_predicate(Name/Arity)).} to deal with portability issues.
 \end{description}
 
+The arguments to this directive are expanded using rules for c_define/2.
+
+    \predicate{c_define}{2}{+Term, -Replacement}
+This \jargon{hook} is used for compiling c_import/3. As c_import/3 is
+processed using term_expansion/2 we cannot use rules. This is
+impractical as libraries and the called C functions and their arguments
+may be complex to write and version or platform dependent.  This can be
+resolved by defining the predicate c_define/2 and making it available in
+the context of the c_import/3 directive.
+
+Note that c_define/2 has \textbf{no} relation to C \verb$#define$.  See
+also cpp_macro/1.
 \end{description}
 
 \subsection{Handling closures}
