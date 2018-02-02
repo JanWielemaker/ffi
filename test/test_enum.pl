@@ -8,7 +8,7 @@
 test_enum :-
     run_tests([c_enum]).
 
-:- c_import("#include \"test/test_enum.c\"",
+:- c_import("#include \"test_enum.c\"",
             [ 'test/test_enum' ],
             [ set_dow(+(*(enum(dow))), +enum(dow)),
               get_dow(+(*(enum(dow))), [-enum(dow)]),

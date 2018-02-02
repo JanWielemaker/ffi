@@ -5,7 +5,7 @@
 :- use_module(library(plunit)).
 :- use_module('../prolog/ffi').
 
-:- c_import("#include \"test/test_union.c\"",
+:- c_import("#include \"test_union.c\"",
             [ 'test/test_union' ],
             [ set_d(-union(convert), +double)
             ]).

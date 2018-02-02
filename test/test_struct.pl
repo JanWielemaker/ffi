@@ -11,7 +11,7 @@
 test_struct :-
     run_tests([c_struct]).
 
-:- c_import("#include \"test/test_struct.c\"",
+:- c_import("#include \"test_struct.c\"",
             [ 'test/test_struct' ],
             [ get_point(-struct(point), [int]),
               set_point(+struct(point), +int, +int),

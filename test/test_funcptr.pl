@@ -13,7 +13,7 @@ function and storing one in a struct field.
 test_funcptr :-
     run_tests([ funcptr ]).
 
-:- c_import("#include \"test/test_funcptr.c\"",
+:- c_import("#include \"test_funcptr.c\"",
             [ 'test/test_funcptr' ],
             [ test_fi(twice(int, [int]), int, [int]),
               test_fstruct(struct(funcs), float, [float])
