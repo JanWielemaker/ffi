@@ -275,20 +275,22 @@ wrap_function(Signature as PName, _Optional, Types) -->
     (   { compound_name_arguments(Signature, FName, SigArgs),
           memberchk(function(FName, Ret, Params), Types)
         }
-    ->  { length(SigArgs, Arity),
-          matching_signature(FName, SigArgs, Ret, Params, SigParams, Types),
-          include(is_closure, SigParams, Closures),
-          length(Closures, NClosures),
-          PArity is Arity - NClosures,
-          functor(PHead, PName, PArity),
-          CSignature =.. [FName|SigParams],
-          prolog_load_context(module, M)
-        },
-        [ ffi:c_function(M:PHead, Params, Ret),
-          (:- dynamic(PName/PArity)),
-          (PHead :- ffi:define(M:PHead, CSignature))
-        ]
-    ;   []	% Already warned by c99_types
+    ->  (   { length(SigArgs, Arity),
+              matching_signature(FName, SigArgs, Ret, Params, SigParams, Types),
+              include(is_closure, SigParams, Closures),
+              length(Closures, NClosures),
+              PArity is Arity - NClosures,
+              functor(PHead, PName, PArity),
+              CSignature =.. [FName|SigParams],
+              prolog_load_context(module, M)
+            }
+        ->  [ ffi:c_function(M:PHead, Params, Ret),
+              (:- dynamic(PName/PArity)),
+              (PHead :- ffi:define(M:PHead, CSignature))
+            ]
+        ;   []                          % Ignore non-matching signature
+        )
+    ;   []                              % Already warned by c99_types
     ).
 wrap_function(Signature, Optional, Types) -->
     { compound_name_arity(Signature, Name, _)
@@ -318,7 +320,7 @@ matching_signature(Name, SigArgs, Ret, Params, SigParams, Types) :-
         fail
     ),
     (   Ret == void
-    ->  print_message(error, ffi(void_function(Name))),
+    ->  print_message(error, ffi(void_function(Name, PlRet))),
         fail
     ;   compatible_return(Name, PlRet, Ret, RetParam, Types),
         append(SigRealParams, [[RetParam]], SigParams)
@@ -1440,3 +1442,5 @@ message(incompatible_argument(Func, Prolog, C)) -->
     [ '~p: incompatible parameter: ~p -> ~p'-[Func, Prolog, C] ].
 message(nonvoid_function(Func, Ret)) -->
     [ '~p: return of "~w" is ignored'-[Func, Ret] ].
+message(void_function(Func, PlRet)) -->
+    [ '~p: void function defined to return ~p'-[Func, PlRet] ].
