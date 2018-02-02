@@ -559,6 +559,9 @@ read_array(I, Count, Data, [H|T]) :-
 read_array(_, _, _, []).
 \end{code}
 
+The predicate c_store/2 provides support for assigning a struct field
+with a closure that calls a Prolog predicate.
+
 
 \subsection{Module awareness}
 
