@@ -484,6 +484,10 @@ is_lib_flag(Flag) :-
     flag_lib(Flag, _).
 
 flag_lib(Flag, Lib) :-
+    compound(Flag),
+    !,
+    Lib = Flag.
+flag_lib(Flag, Lib) :-
     atom_concat('-l', Rest, Flag),
     !,
     atom_concat('lib', Rest, Lib).

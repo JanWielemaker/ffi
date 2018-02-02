@@ -105,7 +105,7 @@ c_lib_path(Name, Path) :-
 c_lib_path(Spec, Path) :-
     compound(Spec),
     !,
-    find_on_path(c_lib(Spec), Path).
+    find_on_path(Spec, Path).
 c_lib_path(Name, Path) :-
     ldconfig(Name, Path),
     !.
