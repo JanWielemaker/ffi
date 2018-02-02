@@ -58,8 +58,32 @@ the `doc` directory to build the (incomplete) documentation.
 
 Here is a [PDF
 version](https://github.com/JanWielemaker/ffi/wiki/files/ffi.pdf),
-created at Jan 25, 2018
+created at Feb 1, 2018
 
 ## Status
 
-Proof of concept. Used on Linux (Fedora 26 and Ubuntu 17.10) and MacOS.
+  - Portability
+    - Tested on Linux (Fedora 26 and Ubuntu 17.10) and MacOSX.  Mainly
+      limited by [libffi](https://sourceware.org/libffi/).
+
+  - Functionality
+    - All major foreseen features are implemented.
+    - It is likely that high-level conversions such as between a Prolog
+      list and C array will be added.  Such conversions are easily
+      written in Prolog though.
+
+  - API Stability
+    - Overall the API is not likely to change much.  Possibly the
+      `*` as prefix operator will be changed to postfix.  One may
+      wish to write `*(Type)` to avoid ambiguity.
+
+  - Documentation
+    - First incomplete draft.  Please also see the directories
+      `test` and `examples` for concrete code examples.  Notably
+      `examples/python` provides a rudimentary Python interface.
+
+  - Testing
+    - Only basic functionality is tested.  Many more combinatins of
+      types and different ways to define them need to be tested.
+
+
