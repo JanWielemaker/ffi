@@ -510,10 +510,12 @@ c99_header_ast(Header, Flags, AST) :-
         close(In)).
 
 open_gcc_cpp(Header, Flags, Out) :-
+    process_create_options(CreateOptions),
     append(Flags, ['-E', '-xc', -], CPPFlags),
     process_create(path(gcc), CPPFlags,
                    [ stdin(pipe(In)),
                      stdout(pipe(Out))
+                   | CreateOptions
                    ]),
     thread_create(
         setup_call_cleanup(
@@ -522,6 +524,11 @@ open_gcc_cpp(Header, Flags, Out) :-
             (   close(HIn),
                 close(In)
             )), _, [detached(true)]).
+
+process_create_options([cwd(Dir)]) :-
+    prolog_load_context(directory, Dir),
+    !.
+process_create_options([]).
 
 
 		 /*******************************
