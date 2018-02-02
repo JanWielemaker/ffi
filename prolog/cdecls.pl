@@ -202,10 +202,11 @@ ast_type(user_type(Name), AST, type(Name, typedef, Primitive)) :-
 %   handles with ordinary types. Second handles defined function pointer
 %   types.
 
-typedef(Name, AST, Primitive) :-
+typedef(Name, AST, PPrimitive) :-
     memberchk(decl(Specifier,
-                [ declarator(_, dd(Name, _))], _Attrs), AST),
-    selectchk(storage(typedef), Specifier, Primitive), !.
+                [ declarator(Ptrs, dd(Name, _))], _Attrs), AST),
+    selectchk(storage(typedef), Specifier, Primitive), !,
+    pointer_type(Ptrs, Primitive, PPrimitive).
 typedef(Name, AST, Primitive) :-        % typedef rtype (*type)(param, ...);
     memberchk(decl(Specifier,
                 [ declarator(_, dd(declarator([ptr([])], dd(Name,_)),
@@ -214,6 +215,11 @@ typedef(Name, AST, Primitive) :-        % typedef rtype (*type)(param, ...);
     selectchk(storage(typedef), Specifier, RType), !,
     parameters(Params0, Params),
     Primitive = [type(funcptr(RType, Params))].
+
+pointer_type(-, Types, Types).
+pointer_type([], Types, Types).
+pointer_type([ptr(_)|T], Types0, Types) :-
+    pointer_type(T, [*|Types0], Types).
 
 expand_fields(Fields0, Fields) :-
     maplist(expand_field, Fields0, Fields).
@@ -329,6 +335,9 @@ simplify_type(funcptr(Ret,Params), Types) -->
     !,
     { simplify_types(Ret0, Types, Ret)
     }.
+simplify_type(*(Type), Types) -->
+    [*], !,
+    simplify_type(Type, Types).
 simplify_type(Type, _Types) -->
     opt_const,
     simplify_type(Type).
