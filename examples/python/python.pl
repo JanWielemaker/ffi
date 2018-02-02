@@ -86,6 +86,11 @@ user:file_search_path(python_itf, Dir) :-
     source_file(py_init, File),
     file_directory_name(File, Dir).
 
+% define macros for c_import/3.  Note that the macro is matched
+% using =@=/2 (variant)
+c_define(py_return, *('PyObject', 'MyPy_DECREF')).
+c_define(py_object, *'PyObject').
+
 :- c_import("//#define Py_LIMITED_API 1
 	     #include \"mypython.c\"",
             [ '-lpython3.6m',
@@ -102,53 +107,49 @@ user:file_search_path(python_itf, Dir) :-
               'PyGILState_Ensure'([int]), % Actually enum ...
               'PyGILState_Release'(int),  % but we are not interested
 
-              'PyLong_FromLongLong'(int, [*('PyObject', 'MyPy_DECREF')]),
-              'PyFloat_FromDouble'(float, [*('PyObject', 'MyPy_DECREF')]),
-              'PyUnicode_FromString'(+string(utf8),
-                                     [*('PyObject', 'MyPy_DECREF')]),
-              'PyUnicode_FromWideChar'(+string(wchar_t), +int,
-                                       [*('PyObject', 'MyPy_DECREF')]),
+              'PyLong_FromLongLong'(int, [py_return]),
+              'PyFloat_FromDouble'(float, [py_return]),
+              'PyUnicode_FromString'(+string(utf8), [py_return]),
+              'PyUnicode_FromWideChar'(+string(wchar_t), +int, [py_return]),
 
-              'MyPyLong_Check'(*'PyObject', [-int]) as 'PyLong_Check',
-              'MyPyBool_Check'(*'PyObject', [-int]) as 'PyBool_Check',
-              'MyPyFloat_Check'(*'PyObject', [-int]) as 'PyFloat_Check',
-              'MyPyUnicode_Check'(*'PyObject', [-int]) as 'PyUnicode_Check',
-              'MyPyList_Check'(*'PyObject', [-int]) as 'PyList_Check',
-              'MyPyDict_Check'(*'PyObject', [-int]) as 'PyDict_Check',
+              'MyPyLong_Check'(py_object, [-int]) as 'PyLong_Check',
+              'MyPyBool_Check'(py_object, [-int]) as 'PyBool_Check',
+              'MyPyFloat_Check'(py_object, [-int]) as 'PyFloat_Check',
+              'MyPyUnicode_Check'(py_object, [-int]) as 'PyUnicode_Check',
+              'MyPyList_Check'(py_object, [-int]) as 'PyList_Check',
+              'MyPyDict_Check'(py_object, [-int]) as 'PyDict_Check',
 
-              'PyLong_AsLongLong'(*'PyObject', [-int]),
-              'PyBool_FromLong'(int, [*('PyObject', 'MyPy_DECREF')]),
-              'PyFloat_AsDouble'(*'PyObject', [-float]),
-              'PyUnicode_AsWideCharString'(*'PyObject', -int,
+              'PyLong_AsLongLong'(py_object, [-int]),
+              'PyBool_FromLong'(int, [py_return]),
+              'PyFloat_AsDouble'(py_object, [-float]),
+              'PyUnicode_AsWideCharString'(py_object, -int,
                                            [*(wchar_t, 'PyMem_Free')]),
 
-              'PyImport_Import'(*'PyObject', [*('PyObject', 'MyPy_DECREF')]),
+              'PyImport_Import'(py_object, [py_return]),
 
-              'PyObject_GetAttrString'(*'PyObject', +string,
-                                       [*('PyObject', 'MyPy_DECREF')]),
+              'PyObject_GetAttrString'(py_object, +string,
+                                       [py_return]),
 
-              'PyTuple_New'(int, [*('PyObject', 'MyPy_DECREF')]),
-              'PyTuple_SetItem'(*'PyObject', int, *'PyObject', [int]),
+              'PyTuple_New'(int, [py_return]),
+              'PyTuple_SetItem'(py_object, int, py_object, [int]),
 
-              'PyList_New'(int, [*('PyObject', 'MyPy_DECREF')]),
-              'PyList_Append'(*'PyObject', *'PyObject', [int]),
-              'PyList_GetItem'(*'PyObject', int, [*('PyObject')]),
-              'PyList_Size'(*'PyObject', [int]),
+              'PyList_New'(int, [py_return]),
+              'PyList_Append'(py_object, py_object, [int]),
+              'PyList_GetItem'(py_object, int, [py_object]),
+              'PyList_Size'(py_object, [int]),
 
-              'PyDict_New'([*('PyObject', 'MyPy_DECREF')]),
-              'PyDict_SetItemString'(*'PyObject', string(utf8), *'PyObject', [int]),
-              'PyDict_SetItem'(*'PyObject', *'PyObject', *'PyObject', [int]),
-              'PyDict_Next'(*'PyObject', *int,
-                            *(*('PyObject')), *(*('PyObject')), [int]),
+              'PyDict_New'([py_return]),
+              'PyDict_SetItemString'(py_object, string(utf8), py_object, [int]),
+              'PyDict_SetItem'(py_object, py_object, py_object, [int]),
+              'PyDict_Next'(py_object, *int, *py_object, *py_object, [int]),
 
-              'PyObject_CallObject'(*'PyObject', *'PyObject',
-                                    [*('PyObject', 'MyPy_DECREF')]),
+              'PyObject_CallObject'(py_object, py_object, [py_return]),
 
-              'PyErr_Occurred'([*('PyObject')]),
+              'PyErr_Occurred'([py_object]),
               'PyErr_Clear'(),
 
-              'MyPy_DECREF'(*'PyObject') as 'Py_DECREF',
-              'MyPy_INCREF'(*'PyObject') as 'Py_INCREF'
+              'MyPy_DECREF'(py_object) as 'Py_DECREF',
+              'MyPy_INCREF'(py_object) as 'Py_INCREF'
             ]).
 
 :- dynamic
