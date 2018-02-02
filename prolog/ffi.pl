@@ -44,6 +44,7 @@
             c_offset/6,                 % +Ptr0, +Off, +Type, +Size, +Count, -Ptr
             c_sizeof/2,                 % +Type, -Bytes
             c_alignof/2,                % +Type, -Bytes
+            c_address/2,                % +Ptr, -AsInt
 
             c_alloc/2,			% -Ptr, +Type
             c_load/2,                   % +Location, -Value
