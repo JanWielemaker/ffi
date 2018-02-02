@@ -1024,9 +1024,8 @@ c_alloc_string(term_t ptr, term_t data, term_t encoding)
 
 static foreign_t
 c_load_string5(term_t ptr, term_t len, term_t data, term_t type, term_t encoding)
-{ PL_blob_t *btype;
-  void *bp;
-  size_t clen;
+{ size_t clen;
+  c_ptr *ref;
 
   if ( len )
   { if ( !PL_get_size_ex(len, &clen) )
@@ -1035,10 +1034,8 @@ c_load_string5(term_t ptr, term_t len, term_t data, term_t type, term_t encoding
   { clen = (size_t)-1;
   }
 
-  if ( PL_get_blob(ptr, &bp, NULL, &btype) &&
-       btype == &c_ptr_blob )
-  { c_ptr *ref = bp;
-    atom_t aenc, atype;
+  if ( (ref=get_ptr_ref_ex(ptr, NULL)) )
+  { atom_t aenc, atype;
     int flags = 0;
 
     if ( !PL_get_atom_ex(encoding, &aenc) ||
