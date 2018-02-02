@@ -51,6 +51,7 @@ static atom_t ATOM_ulonglong;
 static atom_t ATOM_float;
 static atom_t ATOM_double;
 static atom_t ATOM_pointer;
+static atom_t ATOM_closure;
 static atom_t ATOM_void;
 
 static atom_t ATOM_struct;
@@ -510,6 +511,8 @@ get_type(term_t t, type_spec *tspec)
     else if ( qn == ATOM_ulong     ) tspec->type = CT_ULONG;
     else if ( qn == ATOM_longlong  ) tspec->type = CT_LONGLONG;
     else if ( qn == ATOM_ulonglong ) tspec->type = CT_ULONGLONG;
+    else if ( qn == ATOM_float     ) tspec->type = CT_FLOAT;
+    else if ( qn == ATOM_double    ) tspec->type = CT_DOUBLE;
     else if ( qn == ATOM_void      ) tspec->type = CT_VOID;
     else
       return PL_type_error("c_type", t0);
@@ -772,6 +775,19 @@ i_ptr(c_ptr *whole, term_t value, void **vp)
 
 
 static int
+i_closure(c_ptr *whole, term_t value, void **vp)
+{ if ( get_closure(value, vp) )		/* HACK: from ffi4pl.c */
+  { atom_t pa;
+
+    get_ptr_ref(value, &pa);
+    return add_dependency(whole, pa, (char*)vp - (char*)whole->ptr);
+  }
+
+  return FALSE;
+}
+
+
+static int
 PL_cvt_i_wchar(term_t t, void *vp)
 { if ( sizeof(wchar_t) == sizeof(short) ) /* assume this is optimized */
     return PL_cvt_i_short(t, vp);
@@ -819,6 +835,8 @@ c_store(term_t ptr, term_t offset, term_t type, term_t value)
 	return VALID(ref, off, double) && PL_cvt_i_float(value, vp);
       else if ( ta == ATOM_pointer )
 	return VALID(ref, off, void*) && i_ptr(ref, value, vp);
+      else if ( ta == ATOM_closure )
+	return VALID(ref, off, void*) && i_closure(ref, value, vp);
       else return PL_domain_error("c_type", type);
     }
   }
@@ -1056,6 +1074,7 @@ install_c_memory(void)
   MKATOM(float);
   MKATOM(double);
   MKATOM(pointer);
+  MKATOM(closure);
   MKATOM(void);
   MKATOM(iso_latin_1);
   MKATOM(utf8);

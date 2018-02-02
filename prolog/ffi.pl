@@ -1039,9 +1039,16 @@ c_store_(Ptr, Offset, Type, Value) :-
     ->  c_store(Ptr, Offset, Plain, Value)
     ;   Plain = enum(Set)
     ->  c_enum_in(Value, M:Set, IntValue),
-        c_store_(Ptr, Offset, M:int, IntValue)
+        c_store(Ptr, Offset, int, IntValue)
     ;   Plain = *(_EType)                       % TBD: validate
-    ->  c_store_(Ptr, Offset, pointer, Value)
+    ->  c_store(Ptr, Offset, pointer, Value)
+    ;   Plain = funcptr(Ret, Params)
+    ->  strip_module(M:Value, PM, Func1),
+        compound_name_arguments(Func1, Pred, SigArgs),
+        matching_signature(-, SigArgs, Ret, Params, SigParams, []),
+        compound_name_arguments(Func, Pred, SigParams),
+        closure_create(PM:Func, Closure),
+        c_store(Ptr, Offset, closure, Closure)
     ).
 
 %!  c_cast(:Type, +PtrIn, -PtrOut)

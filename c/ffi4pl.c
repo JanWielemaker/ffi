@@ -67,6 +67,8 @@ static atom_t ATOM_void;			/* void */
 static functor_t FUNCTOR_pointer2;
 static functor_t FUNCTOR_pointer3;
 
+static int	get_closure(term_t t, void **func);
+
 #include "cmemory.c"
 
 		 /*******************************
@@ -102,8 +104,6 @@ typedef struct ctx_closure
   type_spec	ret_type;		/* return type */
   type_spec    *arg_type;		/* argument types */
 } ctx_closure;
-
-static int	get_closure(term_t t, void **func);
 
 
 		 /*******************************

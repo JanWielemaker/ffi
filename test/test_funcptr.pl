@@ -1,4 +1,8 @@
+:- module(test_funcptr,
+          [ test_funcptr/0
+          ]).
 :- use_module('../prolog/ffi').
+:- use_module(library(plunit)).
 
 /** <module> Test closure handling
 
@@ -6,20 +10,32 @@ This test demonstrates closure handling,  both   passing  a closure to a
 function and storing one in a struct field.
 */
 
+test_funcptr :-
+    run_tests([ funcptr ]).
+
 :- c_import("#include \"test/test_funcptr.c\"",
             [ 'test/test_funcptr' ],
-            [ test(twice(int, [int]), int, [int]),
-              test_fstruct(struct(funcs), float, int, [float])
+            [ test_fi(twice(int, [int]), int, [int]),
+              test_fstruct(struct(funcs), float, [float])
             ]).
 
 twice(In, Out) :-
     Out is 2*In.
 
-t(N) :-
-    test(N, X),
-    writeln(X).
+:- begin_tests(funcptr).
 
-tf(D,I,R) :-
+test(funcparam, R == 4) :-
+    test_fi(2, R).
+
+test(struct_func, R =:= 4*3.4) :-
+    I = 4,
+    D = 3.4,
     c_alloc(FPtr, struct(funcs)),
     c_store(FPtr[mul_di], mul_di(float, int, [float])),
-    test_fstruct(FPtr, D, I, R).
+    c_store(FPtr[times], I),
+    test_fstruct(FPtr, D, R).
+
+mul_di(D, I, R) :-
+    R is D*I.
+
+:- end_tests(funcptr).

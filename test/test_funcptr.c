@@ -3,15 +3,16 @@ typedef rtype (*testf)(int);
 
 typedef struct funcs
 { double (*mul_di)(double, int);
+  int	times;
 } funcs;
 
 
 rtype
-test(testf func, int i)
+test_fi(testf func, int i)
 { return (func)(i);
 }
 
 double
-test_fstruct(funcs *f, double d, int i)
-{ return (*f->mul_di)(d, i);
+test_fstruct(funcs *f, double d)
+{ return (*f->mul_di)(d, f->times);
 }
