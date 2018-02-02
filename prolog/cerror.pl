@@ -34,7 +34,11 @@
 
 :- module(c_error,
           [ posix_status/1,                     % +Status
-            posix_status/4                      % +Status, +Op, +Type, +Arg
+            posix_status/4,                     % +Status, +Op, +Type, +Arg
+            posix_ptr_status/1,                 % +Status
+            posix_ptr_status/4,                 % +Status, +Op, +Type, +Arg
+            posix_raise_error/0,
+            posix_raise_error/3			% +Op, +Type, +Arg
           ]).
 :- use_module(ffi).
 
@@ -82,13 +86,45 @@ cpp_const('ENOMEM').
 posix_status(0) :-
     !.
 posix_status(_) :-
-    c_errno(Errno),
-    strerror(Errno, String),
-    throw(error(posix_error(Errno, String), _)).
+    posix_raise_error.
 
 posix_status(0, _, _, _) :-
     !.
 posix_status(_, Op, Type, Arg) :-
+    posix_raise_error(Op, Type, Arg).
+
+%!  posix_ptr_status(+Code) is det.
+%!  posix_ptr_status(+Code, +Action, +Type, +Argument) is det.
+%
+%   Handle the return code  from  POSIX   functions  that  return a NULL
+%   pointer on error.
+
+posix_ptr_status(Ptr) :-
+    c_nil(Ptr),
+    !,
+    posix_raise_error.
+posix_ptr_status(_).
+
+posix_ptr_status(Ptr, Op, Type, Arg) :-
+    c_nil(Ptr),
+    !,
+    posix_raise_error(Op, Type, Arg).
+posix_ptr_status(_, _, _, _).
+
+
+%!  posix_raise_error is det.
+%!  posix_raise_error(+Action, +Type, +Argument) is det.
+%
+%   Raise an error from a POSIX `errno` code.
+%
+%   @error posix_error(Errno, String)
+
+posix_raise_error :-
+    c_errno(Errno),
+    strerror(Errno, String),
+    throw(error(posix_error(Errno, String), _)).
+
+posix_raise_error(Op, Type, Arg) :-
     c_errno(Errno),
     strerror(Errno, String),
     posix_exception_context(Op, Type, Arg, String, Context),
@@ -114,9 +150,13 @@ posix_exception('ENOMEM', _Op, _Type, _Arg, Context) :- !,
 		 *            MESSAGES		*
 		 *******************************/
 
-:- multifile prolog:message_context//1.
+:- multifile
+    prolog:message_context//1,
+    prolog:error_message//1.
 
-prolog:message_context(context(_, posix(Op, Type, Arg, String))) -->
+prolog:message_context(context(_, posix(Op, Type, Arg, _String))) -->
     { nonvar(Op) },
-    [ nl, '    OS error in ~w on ~p ~p: ~p'-
-      [Op, Type, Arg, String] ].
+    [ ' in ~w on ~p ~p'-
+      [Op, Type, Arg] ].
+prolog:error_message(posix_error(Errno, String)) -->
+    [ '~p (errno=~p)'-[String, Errno] ].
