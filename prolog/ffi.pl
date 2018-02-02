@@ -174,8 +174,10 @@ c_import(Header, Flags, Functions) :-
         throw(error(context_error(nodirective,
                                   c_import(Header, Flags, Functions)), _)).
 
-system:term_expansion((:- c_import(Header, Flags, Functions)),
+system:term_expansion((:- c_import(Header0, Flags0, Functions0)),
                       Clauses) :-
+    c_macro_expand(c_import(Header0, Flags0, Functions0),
+                   c_import(Header, Flags, Functions)),
     \+ current_prolog_flag(xref, true),
     prolog_load_context(module, M),
     phrase(c_functions_needed(Functions), FunctionNames),
@@ -311,19 +313,19 @@ matching_signature(Name, SigArgs, Ret, Params, SigParams, Types) :-
     append(RealArgs, [[PlRet]], SigArgs),   % specified return
     !,
     (   same_length(RealArgs, Params)
-    ->  maplist(compatible_argument(Types), RealArgs, Params, SigRealParams)
+    ->  maplist(compatible_argument(Name, Types), RealArgs, Params, SigRealParams)
     ;   print_message(error, ffi(nonmatching_params(SigArgs, Params))),
         fail
     ),
     (   Ret == void
     ->  print_message(error, ffi(void_function(Name))),
         fail
-    ;   compatible_return(PlRet, Ret, RetParam, Types),
+    ;   compatible_return(Name, PlRet, Ret, RetParam, Types),
         append(SigRealParams, [[RetParam]], SigParams)
     ).
 matching_signature(Name, SigArgs, Ret, Params, SigParams, Types) :-
     (   same_length(SigArgs, Params)
-    ->  maplist(compatible_argument(Types), SigArgs, Params, SigParams)
+    ->  maplist(compatible_argument(Name, Types), SigArgs, Params, SigParams)
     ;   print_message(error, ffi(nonmatching_params(SigArgs, Params))),
         fail
     ),
@@ -332,14 +334,14 @@ matching_signature(Name, SigArgs, Ret, Params, SigParams, Types) :-
     ;   print_message(warning, ffi(nonvoid_function(Name, Ret)))
     ).
 
-compatible_argument(Types, PlArg, CArg, Param) :-
+compatible_argument(_Func, Types, PlArg, CArg, Param) :-
     compatible_arg(PlArg, CArg, Param, Types),
     !.
-compatible_argument(Types, PlArg, CArg, PlArg) :-
+compatible_argument(_Func, Types, PlArg, CArg, PlArg) :-
     compatible_arg(PlArg, CArg, Types),
     !.
-compatible_argument(_, PlArg, CArg, PlArg) :-
-    print_message(error, ffi(incompatible_argument(PlArg, CArg))).
+compatible_argument(Func, _, PlArg, CArg, PlArg) :-
+    print_message(error, ffi(incompatible_argument(Func, PlArg, CArg))).
 
 % compatible_arg/4
 compatible_arg(PlArg, _ArgName-CArg, Param, Types) :-
@@ -407,14 +409,14 @@ compatible_arg(*Type, *CType, Types) :-
     compatible_arg(Type, CType, Types).
 
 
-compatible_return(PlArg, CArg, RetParam, Types) :-
+compatible_return(_Func, PlArg, CArg, RetParam, Types) :-
     compatible_ret(PlArg, CArg, RetParam, Types),
     !.
-compatible_return(PlArg, CArg, PlArg, Types) :-
+compatible_return(_Func, PlArg, CArg, PlArg, Types) :-
     compatible_ret(PlArg, CArg, Types),
     !.
-compatible_return(PlArg, CArg, PlArg, _Types) :-
-    print_message(error, ffi(incompatible_return(PlArg, CArg))).
+compatible_return(Func, PlArg, CArg, PlArg, _Types) :-
+    print_message(error, ffi(incompatible_return(Func, PlArg, CArg))).
 
 % compatible_ret/4
 compatible_ret(-PlArg, CArg, Param, Types) :-
@@ -1252,6 +1254,42 @@ compile_typedef(Name, Type) -->
 
 
 		 /*******************************
+		 *            MACROS		*
+		 *******************************/
+
+%!  c_macro_expand(+T0, -T) is det.
+%
+%   Perform macro expansion for T0 using rules for c_define/2
+
+c_macro_expand(T0, T) :-
+    prolog_load_context(module, M),
+    current_predicate(M:c_define/2), !,
+    c_expand(M, T0, T).
+c_macro_expand(T, T).
+
+c_expand(M, T0, T) :-
+    generalise(T0, T1),
+    M:c_define(T1, E),
+    T0 =@= T1,
+    !,
+    T = E.
+c_expand(M, T0, T) :-
+    compound(T0),
+    !,
+    compound_name_arguments(T0, Name, Args0),
+    maplist(c_expand(M), Args0, Args),
+    compound_name_arguments(T, Name, Args).
+c_expand(_, T, T).
+
+generalise(T0, T) :-
+    compound(T0),
+    !,
+    compound_name_arity(T0, Name, Arity),
+    compound_name_arity(T, Name, Arity).
+generalise(_, _).
+
+
+		 /*******************************
 		 *        CPP CONSTANTS		*
 		 *******************************/
 
@@ -1389,11 +1427,12 @@ system:term_expansion(T0, T) :-
 :- multifile prolog:message//1.
 
 prolog:message(ffi(Msg)) -->
+    [ 'FFI: '-[] ],
     message(Msg).
 
-message(incompatible_return(Prolog, C)) -->
-    [ 'Incompatible return type: ~p <- ~p'-[Prolog, C] ].
-message(incompatible_argument(Prolog, C)) -->
-    [ 'Incompatible parameter: ~p -> ~p'-[Prolog, C] ].
+message(incompatible_return(Func, Prolog, C)) -->
+    [ '~p: incompatible return type: ~p <- ~p'-[Func, Prolog, C] ].
+message(incompatible_argument(Func, Prolog, C)) -->
+    [ '~p: incompatible parameter: ~p -> ~p'-[Func, Prolog, C] ].
 message(nonvoid_function(Func, Ret)) -->
-    [ 'Return of "~w" from function "~w" is ignored'-[Ret, Func] ].
+    [ '~p: return of "~w" is ignored'-[Func, Ret] ].
