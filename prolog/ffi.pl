@@ -504,7 +504,7 @@ define(QHead, CSignature) :-
     call(QHead).
 
 link_clause(M:Goal, CSignature,
-            (Head :- !, Body)) :-
+            (PHead :- !, Body)) :-
     c_function(M:Goal, ParamSpec, RetType),	% Also in dynamic part?
     maplist(param_type, ParamSpec, ParamTypes),
     phrase(signature_string(ParamTypes), ParamChars),
@@ -515,16 +515,17 @@ link_clause(M:Goal, CSignature,
         atom_codes(Ret, RetChars)
     ),
     functor(Goal, Name, PArity),
-    functor(Head, Name, PArity),
+    functor(PHead, Name, PArity),
     functor(CSignature, _, CArity),
-    functor(Head1, Name, CArity),
+    functor(CHead, Name, CArity),
     CSignature =.. [FName|SigArgs],
     prototype_return(Ret, M, SigArgs, PRet),
     find_symbol(M, FName, FuncPtr),
     debug(ctypes, 'Binding ~p (Ret=~p, Params=~p)', [Name, PRet, Params]),
     ffi_prototype_create(FuncPtr, default, PRet, Params, Prototype),
-    convert_args(SigArgs, 1, PArity, 1, CArity, Head, Head1, PreConvert, PostConvert),
-    Invoke = ffi:ffi_call(Prototype, Head1),
+    convert_args(SigArgs, 1, PArity, 1, CArity, PHead, CHead,
+                 PreConvert, PostConvert),
+    Invoke = ffi:ffi_call(Prototype, CHead),
     mkconj(PreConvert, Invoke, Body0),
     mkconj(Body0, PostConvert, Body).
 
@@ -555,6 +556,8 @@ prototype_return(Ret, _, _, Ret).
 
 %!  convert_args(+SigArgs, +PI, +PArity, +CI, +CArity,
 %!		 +PlHead, +CHead, -PreGoal, -PostGoal)
+%
+%   Establish the conversions between the Prolog head and the C head.
 
 convert_args([], _, _, _, _, _, _, true, true).
 convert_args([+closure(M:Closure)|T], PI, PArity, CI, CArity,
@@ -564,18 +567,18 @@ convert_args([+closure(M:Closure)|T], PI, PArity, CI, CArity,
     closure_create(M:Closure, CClosure),
     CI2 is CI + 1,
     convert_args(T, PI, PArity, CI2, CArity, PHead, CHead, GPre, GPost).
-convert_args([H|T], PI, PArity, CI, CArity, Head0, Head1, GPre, GPost) :-
-    arg(CI, Head0, Arg0),
-    arg(PI, Head1, Arg1),
-    (   convert_arg(H, Arg0, Arg1, GPre1, GPost1)
+convert_args([H|T], PI, PArity, CI, CArity, PHead, CHead, GPre, GPost) :-
+    arg(PI, PHead, PArg),
+    arg(CI, CHead, CArg),
+    (   convert_arg(H, PArg, CArg, GPre1, GPost1)
     ->  true
-    ;   Arg0 = Arg1,
+    ;   PArg = CArg,
         GPre1 = true,
         GPost1 = true
     ),
     PI2 is PI + 1,
     CI2 is CI + 1,
-    convert_args(T, PI2, PArity, CI2, CArity, Head0, Head1, GPre2, GPost2),
+    convert_args(T, PI2, PArity, CI2, CArity, PHead, CHead, GPre2, GPost2),
     mkconj(GPre1, GPre2, GPre),
     mkconj(GPost1, GPost2, GPost).
 
@@ -654,12 +657,16 @@ signature(enum(_))      --> "i".
 
 closure_create(M:Head, Closure) :-
     compound_name_arguments(Head, _, Args),
-    (   append(Params, [[Return]], Args)
+    (   append(Params0, [[Return]], Args)
     ->  true
-    ;   Params = Args,
+    ;   Params0 = Args,
         Return = void
     ),
+    maplist(strip_mode, Params0, Params),
     ffi_closure_create(M:Head, default, Return, Params, Closure).
+
+strip_mode(+Type, Type) :- !.
+strip_mode(Type, Type).
 
 
 		 /*******************************
