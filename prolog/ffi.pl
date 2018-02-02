@@ -553,7 +553,7 @@ find_symbol(_, FName, _) :-
 prototype_return(p, M, SigArgs, PRet) :-
     append(_, [[PlRet]], SigArgs),
     PlRet =.. [*,Type|T], !,
-    type_size(M:Type, Size),
+    elem_type_size(M:Type, Size),
     (   T == []
     ->  PRet = pointer(Type, Size)
     ;   T = [FreeName]
@@ -561,6 +561,12 @@ prototype_return(p, M, SigArgs, PRet) :-
         PRet = pointer(Type, Size, Free)
     ).
 prototype_return(Ret, _, _, Ret).
+
+elem_type_size(_:void, 0) :-            % elements of void* have no defined size
+    !.
+elem_type_size(Type, Size) :-
+    type_size(Type, Size).
+
 
 %!  convert_args(+SigArgs, +PI, +PArity, +CI, +CArity,
 %!		 +PlHead, +CHead, -PreGoal, -PostGoal)
