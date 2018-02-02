@@ -79,3 +79,5 @@ binary data.
   - [[c_typeof/2]]
   - [[c_sizeof/2]]
   - [[c_alignof/2]]
+  - [[c_address/2]]
+  - [[c_dim/3]]

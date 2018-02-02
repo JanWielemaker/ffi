@@ -45,6 +45,7 @@
             c_sizeof/2,                 % +Type, -Bytes
             c_alignof/2,                % +Type, -Bytes
             c_address/2,                % +Ptr, -AsInt
+            c_dim/3,                    % +Ptr, -Count, -ElemSize
 
             c_alloc/2,			% -Ptr, +Type
             c_load/2,                   % +Location, -Value
@@ -1431,6 +1432,16 @@ system:term_expansion(T0, T) :-
 %   True when Bytes is the mininal alignment for the C scalar type Type.
 %   Only supports basic C types. Fails   silently on user defined types.
 %   This value is used to compute the layout of structs.
+
+%!  c_address(+Ptr, -Address) is det.
+%
+%   True when Address is the (signed) integer address pointed at by Ptr.
+%   Used to define for example c_nil/1.
+
+%!  c_dim(+Ptr, -Count, -ElemSize) is det.
+%
+%   True when Ptr holds Count elements of  size ElemSize. Both Count and
+%   ElemSize are 0 (zero) if the value is not known.
 
 
 		 /*******************************

@@ -59,6 +59,7 @@ static atom_t ATOM_union;
 static atom_t ATOM_enum;
 
 static atom_t ATOM_iso_latin_1;
+static atom_t ATOM_octet;
 static atom_t ATOM_utf8;
 static atom_t ATOM_text;
 static atom_t ATOM_wchar_t;
@@ -655,6 +656,19 @@ c_typeof(term_t ptr, term_t type)
 }
 
 
+static foreign_t
+c_dim(term_t ptr, term_t count, term_t size)
+{ c_ptr *ref;
+
+  if ( (ref=get_ptr_ref_ex(ptr, NULL)) )
+  { return ( PL_unify_uint64(count, ref->count) &&
+	     PL_unify_uint64(size, ref->type.size) );
+  }
+
+  return FALSE;
+}
+
+
 static int
 valid_offset(c_ptr *ref, size_t off, size_t tsize, term_t offset)
 { if ( ref->count != SZ_UNKNOWN && ref->type.size != SZ_UNKNOWN )
@@ -967,6 +981,8 @@ c_alloc_string(term_t ptr, term_t data, term_t encoding)
   { flags |= REP_ISO_LATIN_1;
   } else if ( aenc == ATOM_utf8 )
   { flags |= REP_UTF8;
+  } else if ( aenc == ATOM_octet )
+  { flags |= REP_ISO_LATIN_1;
   } else if ( aenc == ATOM_text )
   { flags |= REP_MB;
   } else
@@ -1077,6 +1093,7 @@ install_c_memory(void)
   MKATOM(closure);
   MKATOM(void);
   MKATOM(iso_latin_1);
+  MKATOM(octet);
   MKATOM(utf8);
   MKATOM(text);
   MKATOM(wchar_t);
@@ -1104,6 +1121,7 @@ install_c_memory(void)
   PL_register_foreign("c_store",	4, c_store,	   0);
   PL_register_foreign("c_offset",	6, c_offset,	   0);
   PL_register_foreign("c_address",	2, c_address,	   0);
+  PL_register_foreign("c_dim",	        3, c_dim,	   0);
   PL_register_foreign("c_typeof",	2, c_typeof,	   0);
   PL_register_foreign("c_sizeof",	2, c_sizeof,	   0);
   PL_register_foreign("c_alignof",	2, c_alignof,	   0);
