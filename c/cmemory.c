@@ -353,7 +353,9 @@ get_ptr_ref(term_t t, atom_t *a)
 { atom_t ra;
   c_ptr *p;
   PL_blob_t *btype;
+  int tried = 0;
 
+retry:
   if ( PL_get_atom(t, &ra) &&
        (p=PL_blob_data(ra, NULL, &btype)) &&
        btype == &c_ptr_blob )
@@ -361,6 +363,14 @@ get_ptr_ref(term_t t, atom_t *a)
       *a = ra;
 
     return p;
+  } else if ( !tried++ )
+  { term_t plain = PL_new_term_ref();
+    module_t m = 0;
+
+    if ( PL_strip_module(t, &m, plain) )
+    { t = plain;
+      goto retry;
+    }
   }
 
   return NULL;
