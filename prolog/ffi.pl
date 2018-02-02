@@ -1027,7 +1027,23 @@ compound_type(union(_)).
 %!  c_store(:Location, +Value)
 %
 %   Store a C value indirect at Location.  See c_load/2 for the location
-%   syntax.
+%   syntax.  In  addition  to  the  conversions  provided  by  c_load/2,
+%   c_store/2 supports setting a struct field   to a _closure_. Consider
+%   the following declaration:
+%
+%   ```
+%   struct demo_func
+%   { int (*mul_i)(int, int);
+%   };
+%   ```
+%
+%   We can initialise an instance of this structure holding a C function
+%   pointer that calls the predicate mymul/3 as follows:
+%
+%   ```
+%       c_alloc(Ptr, struct(demo_func)),
+%       c_store(Ptr[mul_i], mymul(int, int, [int])),
+%   ```
 
 c_store(Spec, Value) :-
     c_address(Spec, Ptr, Offset, Type),
