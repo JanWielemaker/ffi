@@ -182,12 +182,16 @@ type(type(_, typedef, Types), AST, R0, R) -->
 
 ast_type(struct(Name), AST, type(Name, struct, Fields)) :-
     member(decl(Specifier, _Decl, _Attrs), AST),
-    memberchk(type(struct(Name, Fields)), Specifier), !.
+    memberchk(type(struct(Name, Fields0)), Specifier), !,
+    expand_fields(Fields0, Fields).
 ast_type(union(Name), AST, type(Name, union, Fields)) :-
     member(decl(Specifier, _Decl, _Attrs), AST),
-    memberchk(type(union(Name, Fields)), Specifier), !.
-ast_type(union(Name, Fields), _, type(Name, union, Fields)).
-ast_type(struct(Name, Fields), _, type(Name, struct, Fields)).
+    memberchk(type(union(Name, Fields0)), Specifier), !,
+    expand_fields(Fields0, Fields).
+ast_type(union(Name, Fields0), _, type(Name, union, Fields)) :-
+    expand_fields(Fields0, Fields).
+ast_type(struct(Name, Fields0), _, type(Name, struct, Fields)) :-
+    expand_fields(Fields0, Fields).
 ast_type(type(enum(Name, Members)), _, type(Name, enum, Members)).
 ast_type(user_type(Name), AST, type(Name, typedef, Primitive)) :-
     typedef(Name, AST, Primitive).
@@ -211,6 +215,18 @@ typedef(Name, AST, Primitive) :-        % typedef rtype (*type)(param, ...);
     parameters(Params0, Params),
     Primitive = [type(funcptr(RType, Params))].
 
+expand_fields(Fields0, Fields) :-
+    maplist(expand_field, Fields0, Fields).
+
+expand_field(f(RType,
+               [ d(declarator(_, dd(declarator([ptr([])], dd(Name,_)),
+                                    dds(Params0))))
+               ], Attrs),
+             f([type(funcptr(RType, Params))],
+               [d(declarator(-,dd(Name,-)))],
+               Attrs)) :- !,
+    parameters(Params0, Params).
+expand_field(Field, Field).
 
 		 /*******************************
 		 *          EXPAND TYPES	*
