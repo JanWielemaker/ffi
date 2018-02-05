@@ -33,7 +33,10 @@
 */
 
 :- module(python,
-          [ py_call/2,                  % +Module:Call, -Return
+          [ py_call/1,                  % +ModuleOrObj:Call
+            py_call/2,                  % +ModuleOrObj:Call, -Return
+            py_object/1,                % ?Object
+            py_object/2,                % ?Object, ?Class
 
             py_init/0,
             py_module/2,                % +Name, -Handle
@@ -210,12 +213,15 @@ py_module_sync(Name, Module) :-
 %   Get a handle to a Python function in a module.
 
 py_function(Module, Name, Function) :-
-    py_function_done(Module, Name, Function0),
+    atom(Module),
     !,
-    Function = Function0.
-py_function(Module, Name, Function) :-
-    with_mutex(python, py_gil(py_function_sync(Module, Name, Function0))),
-    Function = Function0.
+    (   py_function_done(Module, Name, Function0)
+    ->  Function = Function0
+    ;   with_mutex(python, py_gil(py_function_sync(Module, Name, Function0)))
+    ->  Function = Function0
+    ).
+py_function(Obj, Name, Function) :-
+    'PyObject_GetAttrString'(Obj, Name, Function).
 
 py_function_sync(Module, Name, Function) :-
     py_function_done(Module, Name, Function),
@@ -226,20 +232,30 @@ py_function_sync(Module, Name, Function) :-
     py_check_exception,
     asserta(py_function_done(Module, Name, Function)).
 
+%!  py_call(+Call) is det.
 %!  py_call(+Call, -Return) is det.
 %
-%   Call a Python function. Call is   of  the form `Module:Function(Arg,
-%   ...)`, where `Module`  is  the  Python   module  (*not*  the  Prolog
-%   module), `Function` is the name of a   function  in `Module` and the
-%   arguments are Prolog values  that  can   be  translated  into Python
-%   values.
+%   Call a Python function.  Call  is   of  the  form `Obj:Function(Arg,
+%   ...)`, where `Obj` is  either  a   Python  module  (*not* the Prolog
+%   module) or a Python instance, `Function` is   the name of a function
+%   on `Obj` and the arguments are Prolog  values that can be translated
+%   into Python values. `Function` can also be   a  plain atom, in which
+%   case the named attribute is extracted.
 
+py_call(Call) :-
+    py_gil(py_call_sync(Call, _Return)).
 py_call(Call, Return) :-
     py_gil(py_call_sync(Call, Return)).
 
-py_call_sync(Module:Call, Return) :-
+py_call_sync(Obj:Attr, Return) :-
+    atom(Attr),
+    !,
+    'PyObject_GetAttrString'(Obj, Attr, PyReturn),
+    py_check_exception,
+    python_to_prolog(PyReturn, Return).
+py_call_sync(Obj:Call, Return) :-
     compound_name_arity(Call, Func, Argc),
-    py_function(Module, Func, Function),
+    py_function(Obj, Func, Function),
     'PyTuple_New'(Argc, Argv),
     fill_tuple(0, Argc, Call, Argv),
     'PyObject_CallObject'(Function, Argv, PyReturn),
@@ -255,6 +271,25 @@ fill_tuple(I, Argc, Term, Tuple) :-
     'PyTuple_SetItem'(Tuple, I, Py, _Rc),
     fill_tuple(I2, Argc, Term, Tuple).
 fill_tuple(_, _, _, _).
+
+%!  py_object(?Ref) is nondet.
+%!  py_object(?Ref, ?ClassName) is nondet.
+%
+%   True if Ref is a Python object of the indicated class.
+
+py_object(Ref) :-
+    current_blob(Ref, c_ptr),
+    c_typeof(Ref, struct('_object')).
+
+py_object(Ref, ClassName) :-
+    current_blob(Ref, c_ptr),
+    c_typeof(Ref, struct('_object')),
+    'PyObject_GetAttrString'(Ref, '__class__', Class),
+    'PyObject_GetAttrString'(Class, '__name__', Unicode),
+    'PyUnicode_Check'(Unicode, 1),
+    'PyUnicode_AsWideCharString'(Unicode, Len, WString),
+    c_load_string(WString, Len, ClassName, atom, wchar_t).
+
 
 %!  prolog_to_python(+Prolog, -Python) is det.
 %
@@ -372,8 +407,7 @@ python_to_prolog(Py, Value) :-
     !,
     py_dict_pairs(Py, Pairs),
     dict_pairs(Value, py, Pairs).
-python_to_prolog(Py, _Value) :-
-    throw(error(python_convert_error(python(Py)), _)).
+python_to_prolog(Py, Py).
 
 py_list(I, Len, List, [H|T]) :-
     I < Len, !,

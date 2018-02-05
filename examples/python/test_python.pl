@@ -34,6 +34,10 @@ test(bool, Z == true) :-
     py_call(demo:trivial(true), Z).
 test(bool, Z == false) :-
     py_call(demo:trivial(false), Z).
+test(dog, Tricks == ["roll over"]) :-
+    py_call(dog:'Dog'('Fido'), Dog),
+    py_call(Dog:add_trick("roll over")),
+    py_call(Dog:tricks, Tricks).
 
 :- end_tests(python).
 
