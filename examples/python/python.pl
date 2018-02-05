@@ -35,8 +35,10 @@
 :- module(python,
           [ py_call/1,                  % +ModuleOrObj:Call
             py_call/2,                  % +ModuleOrObj:Call, -Return
+
             py_object/1,                % ?Object
             py_object/2,                % ?Object, ?Class
+            py_str/2,                   % +Object, -String
 
             py_init/0,
             py_module/2,                % +Name, -Handle
@@ -147,6 +149,7 @@ c_define(py_object, *'PyObject').
               'PyDict_Next'(py_object, *int, *py_object, *py_object, [int]),
 
               'PyObject_CallObject'(py_object, py_object, [py_return]),
+              'PyObject_Str'(py_object, [py_return]),
 
               'PyErr_Occurred'([py_object]),
               'PyErr_Clear'(),
@@ -289,6 +292,15 @@ py_object(Ref, ClassName) :-
     'PyUnicode_Check'(Unicode, 1),
     'PyUnicode_AsWideCharString'(Unicode, Len, WString),
     c_load_string(WString, Len, ClassName, atom, wchar_t).
+
+%!  py_str(+Obj, -String) is det.
+%
+%   String is the string representation of Obj.
+
+py_str(Obj, String) :-
+    'PyObject_Str'(Obj, Unicode),
+    'PyUnicode_AsWideCharString'(Unicode, Len, WString),
+    c_load_string(WString, Len, String, string, wchar_t).
 
 
 %!  prolog_to_python(+Prolog, -Python) is det.
@@ -452,14 +464,15 @@ python_to_prolog_key(Py, _Value) :-
 %   as a Prolog exception.
 %
 %   @tbd Map to Prolog
-%   @tbd The exception is borrowed.  How to handle reference counts.
+%   @tbd The exception is borrowed.  How to handle reference counts?
 
 py_check_exception :-
     'PyErr_Occurred'(Ex),
     (   c_nil(Ex)
     ->  true
-    ;   'PyErr_Clear'(),
-        throw(error(python_error(Ex)))
+    ;   py_str(Ex, String),
+        'PyErr_Clear'(),
+        throw(error(python_error(String), _))
     ).
 
 %!  py_gil(:Goal)
@@ -474,3 +487,23 @@ py_gil(Goal) :-
         'PyGILState_Ensure'(GILState),
         Goal,
         'PyGILState_Release'(GILState)).
+
+
+		 /*******************************
+		 *           MESSAGES		*
+		 *******************************/
+
+:- multifile prolog:error_message//1.
+
+prolog:error_message(python_error(String)) -->
+    [ 'Python error: ~p'-[String] ].
+
+
+		 /*******************************
+		 *            PORTRAY		*
+		 *******************************/
+
+user:portray(Python) :-
+    py_object(Python, Class),
+    c_address(Python, Addr),
+    format('<Python ~w>(0x~16r)', [Class, Addr]).
