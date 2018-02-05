@@ -1058,6 +1058,8 @@ c_load_string5(term_t ptr, term_t len, term_t data, term_t type, term_t encoding
 
     if ( aenc == ATOM_iso_latin_1 )
     { flags |= REP_ISO_LATIN_1;
+    } else if ( aenc == ATOM_octet )
+    { flags |= REP_ISO_LATIN_1;
     } else if ( aenc == ATOM_utf8 )
     { flags |= REP_UTF8;
     } else if ( aenc == ATOM_text )
