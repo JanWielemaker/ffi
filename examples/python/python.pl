@@ -253,7 +253,11 @@ py_call(Call, Return) :-
 py_call_sync(Obj:Attr, Return) :-
     atom(Attr),
     !,
-    'PyObject_GetAttrString'(Obj, Attr, PyReturn),
+    (   atom(Obj)
+    ->  py_module(Obj, O)
+    ;   O = Obj
+    ),
+    'PyObject_GetAttrString'(O, Attr, PyReturn),
     py_check_exception,
     python_to_prolog(PyReturn, Return).
 py_call_sync(Obj:Call, Return) :-
