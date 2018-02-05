@@ -777,6 +777,9 @@ translation_unit([H|T]) -->
       )
     },
     translation_unit(T).
+translation_unit(List) -->
+    skip_unit, !,
+    translation_unit(List).
 translation_unit([]) --> [].
 
 external_declaration(D) -->
@@ -799,6 +802,35 @@ declaration_list_opt([]) --> [].
 
 pp(pp(Line)) -->
     [pp(Line)].
+
+		 /*******************************
+		 *             SKIP		*
+		 *******************************/
+
+skip_unit -->
+    here(Start),
+    skip_unit([]),
+    here(End),
+    { diff(Start, End, Skipped),
+      (   memberchk('__extension__', Skipped)
+      ->  true
+      ;   print_message(warning, ffi(skipped_header, Skipped))
+      )
+    }.
+
+skip_unit(Stack) --> open_bracket(Close), !, skip_unit([Close|Stack]).
+skip_unit([Close|Stack]) --> [Close], !, skip_unit(Stack).
+skip_unit([]) --> [';'], !.
+skip_unit(Stack) --> [_], skip_unit(Stack).
+
+here(List, List, List).
+
+diff(Start, End, Skipped) :- Start == End, !, Skipped = [].
+diff([H|T0], End, [H|T]) :- diff(T0, End, T).
+
+open_bracket(')') --> ['('].
+open_bracket(']') --> ['['].
+open_bracket('}') --> ['{'].
 
 
 		 /*******************************
