@@ -5,8 +5,8 @@
 du :-
     debug(c99(unit)).
 
-:- c_import("#include \"test/test_struct.c\"",
-            [ 'test/test_struct' ],
+:- c_import("#include \"test_struct.c\"",
+            [ 'test_struct' ],
             [ dim_dim(+int, -int)
             ]).
 
