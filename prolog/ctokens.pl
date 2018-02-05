@@ -449,10 +449,16 @@ hexadecimal_escape_sequence(C) -->
 
 string_literal(S) -->
     "\"", s_char_sequence(Chars), "\"",
-    { string_chars(Str,Chars), S = str(Str) }.
+    sstring_literal_cont(More),
+    { mkstring(Chars, More, Str),
+      S = str(Str)
+    }.
 string_literal(S) -->
     "L\"", s_char_sequence(Chars), "\"",
-    { string_chars(Str,Chars), S = wstr(Str) }.
+    wstring_literal_cont(More),
+    { mkstring(Chars, More, Str),
+      S = wstr(Str)
+    }.
 
 s_char_sequence([H|T]) --> s_char(H), !, s_char_sequence(T).
 s_char_sequence([]) --> "".
@@ -464,6 +470,25 @@ no_s_char(0'\").
 no_s_char(0'\\).
 no_s_char(0'\n).
 
+sstring_literal_cont([H|T]) -->
+    blanks,
+    "\"", s_char_sequence(Chars), "\"", !,
+    { string_codes(H, Chars) },
+    sstring_literal_cont(T).
+sstring_literal_cont([]) --> "".
+
+wstring_literal_cont([H|T]) -->
+    blanks,
+    "L\"", s_char_sequence(Chars), "\"", !,
+    { string_codes(H, Chars) },
+    wstring_literal_cont(T).
+wstring_literal_cont([]) --> "".
+
+mkstring(Chars, [], Str) :- !,
+    string_codes(Str, Chars).
+mkstring(Chars, More, Str) :-
+    string_codes(Str0, Chars),
+    atomics_to_string([Str0|More], Str).
 
 %!  punctuator(-Punct)//
 %
