@@ -33,11 +33,12 @@
 */
 
 :- module(c99_grammar,
-          [ c99_parse//1,                        % -AST
+          [ c99_parse//1,               % -AST
             c99_parse_cont//1
           ]).
 :- use_module(library(debug)).
 :- use_module(ctokens).
+:- use_module(library(pprint)).         % debugging
 
 c99_parse(AST) -->
     { init_state },
@@ -771,7 +772,7 @@ translation_unit([H|T]) -->
     external_declaration(H), !,
     { update_types(H),
       (   debugging(c99(unit))
-      ->  pp(H)
+      ->  print_term(H, [output(user_error)]), nl(user_error)
       ;   true
       )
     },
@@ -820,7 +821,7 @@ update_types(decl(What, As, _GCC)) :-
     forall(( member(A, As),
              declarator_name(A, Name)
            ),
-             assertz(typedef(Name))).
+           assertz(typedef(Name))).
 update_types(_).
 
 anon_id(Sort, Id) :-
