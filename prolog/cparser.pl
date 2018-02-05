@@ -813,12 +813,16 @@ skip_unit -->
     here(End),
     { diff(Start, End, Skipped),
       (   memberchk('__extension__', Skipped)
-      ->  true
+      ->  (   debugging(c99(extension))
+          ->  print_message(informational, ffi(skipped_header, Skipped))
+          ;   true
+          )
       ;   print_message(warning, ffi(skipped_header, Skipped))
       )
     }.
 
 skip_unit(Stack) --> open_bracket(Close), !, skip_unit([Close|Stack]).
+skip_unit(['}']) --> ['}'], !.
 skip_unit([Close|Stack]) --> [Close], !, skip_unit(Stack).
 skip_unit([]) --> [';'], !.
 skip_unit(Stack) --> [_], skip_unit(Stack).
