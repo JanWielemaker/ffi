@@ -69,13 +69,15 @@
 
 c99_tokens(List) -->
     c99_token(H), !,
-    (   {H = pp(_)}
+    (   {skip_token(H)}
     ->  c99_tokens(List)
     ;   {List = [H|T]},
         c99_tokens(T)
     ).
 c99_tokens([]) -->
     blanks.
+
+skip_token(pp(_)).
 
 c99_token(Token) -->
     blanks,
