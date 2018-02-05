@@ -335,7 +335,7 @@ mkf(double, FC, E, double(V)) :- V is FC*E.
 fractional_constant(FC) -->
     digit_sequence(DC1), ".",
     digits(DC2),
-    {   DC2 == ""
+    {   DC2 == []
     ->  number_chars(FC, DC1)
     ;   append(DC1, [.|DC2], S),
         number_chars(FC, S)
