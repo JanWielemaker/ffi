@@ -98,10 +98,8 @@ c_define(py_object, *'PyObject').
 
 :- c_import("//#define Py_LIMITED_API 1
 	     #include \"mypython.c\"",
-            [ '-lpython3.6m',
-              python_itf(mypython),
-              '-I/usr/include/python3.6m',
-              '-I/usr/include/x86_64-linux-gnu/python3.6m'
+            [ pkg_config(python3, '--cflags', '--libs'),
+              python_itf(mypython)
             ],
             [ 'Py_SetProgramName'(+string(wchar_t)),
               'Py_Initialize'(),
