@@ -192,7 +192,7 @@ free_ptr(c_ptr *ref)
   if ( (freef=ref->type.free) )
   { void *p = ref->ptr;
 
-    if ( __sync_bool_compare_and_swap(&ref->ptr, p, NULL) )
+    if ( p && __sync_bool_compare_and_swap(&ref->ptr, p, NULL) )
     { DEBUG(5, Sdprintf("free_ptr(%p)\n", p));
 
       (*freef)(p);
