@@ -364,18 +364,31 @@ but incompatible with, glibc.
 The binding is realised using c_import/3
 
 \begin{description}
-    \predicate{c_import}{3}{+Header, +Libraries, +Functions}
-Import \arg{Functions} from \arg{Libraries}. The \arg{Header} is a
-string providing C source text that makes the types of the imported
-functions available. This text is handed to the configured
+    \predicate{c_import}{3}{+Header, +Flags, +Functions}
+Import \arg{Functions} from libraries provided by \arg{Flags}. The
+\arg{Header} is a string providing C source text that makes the types of
+the imported functions available. This text is handed to the configured
 C~preprocessor. Normally, this string contains a series of
-\exam{\#include <header>} statements.  For simple projects it is
-also possible to supply the actual C source file, e.g.,
-\verb$"#include \"my_c.c\""$ (note the escaped double quotes).
+\exam{\#include <header>} statements. For simple projects it is also
+possible to supply the actual C source file, e.g., \verb$"#include
+\"my_c.c\""$ (note the escaped double quotes).
 
-\arg{Libraries} is a list of libraries that provide the implementation.
-Resolving the specification of a library to the actual library file is
-provided by c_lib_path/2 from library(clocations).
+\arg{Flags} is a list of flags that both provide the optional C~flags
+such as \verb$-I$ and the libraries where the functions can be found.
+Libraries may be written as e.g., \verb$-lc$, \verb$libc$ or as a
+compound term for absolute_file_name/3. The library specification is
+resolved to the actual library file by c_lib_path/2 from
+library(clocations). Finally, a term \term{pkg_config}{Pkg, ...} may be
+specified. This runs the \program{pkg-config} program using the provided
+options to obtain the required flags. The example below attaches the
+\file{uchardet} library.\footnote{A complete implementation is in the
+file \file{uchardet.pl} of the \file{examples} directory.
+
+\begin{code}
+:- c_import("#include <uchardet.h>",
+            [ pkg_config(uchardet, '--cflags', '--libs') ],
+	    ...).
+\end{code}
 
 \arg{Functions} is a list of functions that must be made available as
 Prolog predicates. Each specification is a compound term whose name is

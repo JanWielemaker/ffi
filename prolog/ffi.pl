@@ -85,6 +85,7 @@
 :- use_module(library(debug)).
 :- use_module(library(error)).
 :- use_module(library(apply)).
+:- use_module(library(process)).
 
 :- use_module(cdecls).
 :- use_module(clocations).
@@ -179,11 +180,12 @@ c_import(Header, Flags, Functions) :-
 system:term_expansion((:- c_import(Header0, Flags0, Functions0)),
                       Clauses) :-
     c_macro_expand(c_import(Header0, Flags0, Functions0),
-                   c_import(Header, Flags, Functions)),
+                   c_import(Header, Flags1, Functions)),
     \+ current_prolog_flag(xref, true),
     prolog_load_context(module, M),
     phrase(c_functions_needed(Functions), FunctionNames),
     add_constants(M, Header, HeaderConst),
+    expand_flags(Flags1, Flags),
     partition(is_lib_flag, Flags, LibFlags, InclFlags),
     c99_types(HeaderConst, InclFlags, FunctionNames, Types, Constants),
     (   debugging(ffi(types))
@@ -193,6 +195,34 @@ system:term_expansion((:- c_import(Header0, Flags0, Functions0)),
     phrase(( c_constants(Constants),
              c_import(Functions, LibFlags, FunctionNames, Types)),
            Clauses).
+
+%!  expand_flags(+Flags0, -Flags) is det.
+%
+%   Expand   calls   to    pkg-config    written     down    as    e.g.,
+%   pkg_config(uchardet, '--cflags', '--libs')
+
+expand_flags(Flags0, Flags) :-
+    must_be(ground, Flags0),
+    maplist(expand_flag, Flags0, Flags1),
+    flatten(Flags1, Flags),
+    writeln(Flags).
+
+expand_flag(Flag, Flags) :-
+    compound(Flag),
+    compound_name_arguments(Flag, Name, Args),
+    pkg_config(Name),
+    !,
+    process_create(path('pkg-config'), Args,
+                   [ stdout(pipe(Out)) ]),
+    read_string(Out, _, String),
+    split_string(String, " \r\t\t", " \r\n\t", FlagStrings),
+    maplist(atom_string, Flags, FlagStrings).
+expand_flag(Flag, Flag).
+
+pkg_config(pkg_config).
+pkg_config('pkg-config').
+
+
 
 %!  c_functions_needed(+FuncSpecList)//
 %
