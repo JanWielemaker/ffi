@@ -204,8 +204,11 @@ system:term_expansion((:- c_import(Header0, Flags0, Functions0)),
 expand_flags(Flags0, Flags) :-
     must_be(ground, Flags0),
     maplist(expand_flag, Flags0, Flags1),
-    flatten(Flags1, Flags),
-    writeln(Flags).
+    (   Flags0 == Flags1
+    ->  Flags = Flags0
+    ;   flatten(Flags1, Flags),
+        debug(ffi(flags), 'Final flags: ~p', [Flags])
+    ).
 
 expand_flag(Flag, Flags) :-
     compound(Flag),
