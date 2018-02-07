@@ -142,11 +142,16 @@
 
 %!  ci_library(+Base, -FHandle)
 %
-%   Find a file handle for a foreign library
+%   Find a file handle for a foreign  library.   If  Base is of the form
+%   Base-Options pass the options to ffi_library_create/3.
 
 :- dynamic  ci_library_cache/2.
 :- volatile ci_library_cache/2.
 
+ci_library(Base-_Options, FHandle) :-
+    ci_library_cache(Base, FHandle0),
+    !,
+    FHandle = FHandle0.
 ci_library(Base, FHandle) :-
     ci_library_cache(Base, FHandle0),
     !,
@@ -158,9 +163,18 @@ ci_library_sync(Base, FHandle) :-
     ci_library_cache(Base, FHandle0),
     !,
     FHandle = FHandle0.
+ci_library_sync(Base-_Options, FHandle) :-
+    ci_library_cache(Base, FHandle0),
+    !,
+    FHandle = FHandle0.
+ci_library_sync(Base-Options, FHandle) :-
+    !,
+    c_lib_path(Base, Path),
+    ffi_library_create(Path, FHandle, Options),
+    assertz(ci_library_cache(Base, FHandle)).
 ci_library_sync(Base, FHandle) :-
     c_lib_path(Base, Path),
-    ffi_library_create(Path, FHandle),
+    ffi_library_create(Path, FHandle, []),
     assertz(ci_library_cache(Base, FHandle)).
 
 

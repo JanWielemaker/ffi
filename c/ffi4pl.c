@@ -62,6 +62,14 @@ static atom_t ATOM_cdecl;
 static atom_t ATOM_stdcall;
 static atom_t ATOM_fastcall;
 
+static atom_t ATOM_lazy;
+static atom_t ATOM_now;
+static atom_t ATOM_global;
+static atom_t ATOM_local;
+static atom_t ATOM_nodelete;
+static atom_t ATOM_noload;
+static atom_t ATOM_deepbind;
+
 static atom_t ATOM_void;			/* void */
 
 static functor_t FUNCTOR_pointer2;
@@ -234,11 +242,37 @@ ffi_library_free(void *ptr)
 static foreign_t
 ffi_library_create(term_t path, term_t lib, term_t options)
 { char *name;
+  int flags = RTLD_LAZY;
+  term_t tail = PL_copy_term_ref(options);
+  term_t head = PL_new_term_ref();
+
+  while(PL_get_list_ex(tail, head,tail))
+  { atom_t opt;
+
+    if ( !PL_get_atom_ex(head, &opt) )
+      return FALSE;
+
+    if ( opt == ATOM_lazy )
+      flags = (flags & ~(RTLD_LAZY|RTLD_NOW)) | RTLD_LAZY;
+    else if ( opt == ATOM_now )
+      flags = (flags & ~(RTLD_LAZY|RTLD_NOW)) | RTLD_NOW;
+    else if ( opt == ATOM_global )
+      flags |= RTLD_GLOBAL;
+    else if ( opt == ATOM_local )
+      flags |= RTLD_LOCAL;
+    else if ( opt == ATOM_nodelete )
+      flags |= RTLD_NODELETE;
+    else if ( opt == ATOM_noload )
+      flags |= RTLD_NOLOAD;
+    else if ( opt == ATOM_deepbind )
+      flags |= RTLD_DEEPBIND;
+  }
+  if ( !PL_get_nil_ex(tail) )
+    return FALSE;
 
   if ( PL_get_file_name(path, &name,
 			PL_FILE_OSPATH|PL_FILE_SEARCH|PL_FILE_READ) )
-  { int flags = RTLD_LAZY;
-    void *h;
+  { void *h;
 
     DEBUG(1, Sdprintf("Opening %s\n", name));
 
@@ -1049,6 +1083,14 @@ install(void)
   MKATOM(stdcall);
   MKATOM(fastcall);
 
+  MKATOM(lazy);
+  MKATOM(now);
+  MKATOM(global);
+  MKATOM(local);
+  MKATOM(nodelete);
+  MKATOM(noload);
+  MKATOM(deepbind);
+
   MKATOM(void);
 
   MKFUNCTOR(pointer, 2);
@@ -1056,7 +1098,7 @@ install(void)
 
   install_c_memory();
 
-  PL_register_foreign("ffi_library_create",   2, ffi_library_create,   0);
+  PL_register_foreign("ffi_library_create",   3, ffi_library_create,   0);
   PL_register_foreign("ffi_library_free",     1, pl_ffi_library_free,  0);
   PL_register_foreign("ffi_lookup_symbol",    3, ffi_lookup_symbol,    0);
   PL_register_foreign("ffi_prototype_create", 5, ffi_prototype_create, 0);
