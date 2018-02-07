@@ -104,6 +104,7 @@ c_define(py_object, *'PyObject').
             ],
             [ 'Py_SetProgramName'(+string(wchar_t)),
               'Py_Initialize'(),
+              'PySys_SetArgvEx'(int, *(*wchar_t), int),
               'PyRun_SimpleStringFlags'(string, 'PyCompilerFlags', [int]),
               'Py_FinalizeEx'([int]),
 
@@ -189,9 +190,27 @@ py_init_sync :-
     current_prolog_flag(os_argv, [Program|_]),
     'Py_SetProgramName'(Program),
     'Py_Initialize'(),
-%   'PyEval_InitThreads'(),
-%   set_prolog_gc_thread(false),
+    py_set_argv([]),
     asserta(py_init_done).
+
+%!  py_set_argv(Argv)
+%
+%   Set Python sys.argv. This  is  required   by  some  packages  (e.g.,
+%   `nltk`). Probably we want some option to set this in advance.
+
+py_set_argv(Argv) :-
+    length(Argv, Len),
+    c_alloc(Ptr, (*wchar_t)[Len]),
+    fill_argv(Argv, 0, Ptr),
+    'PySys_SetArgvEx'(Len, Ptr, 0).
+
+fill_argv([], _, _).
+fill_argv([H|T], I, Ptr) :-
+    c_alloc_string(A, H, wchar_t),
+    c_store(Ptr[I], A),
+    I2 is I+1,
+    fill_argv(T, I2, Ptr).
+
 
 %!  py_module(+Name, -Module) is det.
 %
