@@ -396,6 +396,10 @@ py_dict_add(Dict, Key-Value) :-
 %     | Dict   | dict              |
 
 python_to_prolog(Py, Value) :-
+    c_nil(Py),
+    !,
+    Value = null.
+python_to_prolog(Py, Value) :-
     'PyBool_Check'(Py, 1),
     !,
     'PyLong_AsLongLong'(Py, Value0),
