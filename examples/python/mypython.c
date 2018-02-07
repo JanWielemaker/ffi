@@ -77,6 +77,11 @@ MyPyList_Check(PyObject *o)
 }
 
 int
+MyPySequence_Check(PyObject *o)
+{ return PySequence_Check(o);
+}
+
+int
 MyPyDict_Check(PyObject *o)
 { return PyDict_Check(o);
 }

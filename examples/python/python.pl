@@ -122,6 +122,7 @@ c_define(py_object, *'PyObject').
               'MyPyFloat_Check'(py_object, [-int]) as 'PyFloat_Check',
               'MyPyUnicode_Check'(py_object, [-int]) as 'PyUnicode_Check',
               'MyPyList_Check'(py_object, [-int]) as 'PyList_Check',
+              'MyPySequence_Check'(py_object, [-int]) as 'PySequence_Check',
               'MyPyDict_Check'(py_object, [-int]) as 'PyDict_Check',
 
               'PyLong_AsLongLong'(py_object, [-int]),
@@ -140,8 +141,11 @@ c_define(py_object, *'PyObject').
 
               'PyList_New'(int, [py_return]),
               'PyList_Append'(py_object, py_object, [int]),
-              'PyList_GetItem'(py_object, int, [py_object]),
+              'PyList_GetItem'(py_object, int, [py_return]),
               'PyList_Size'(py_object, [int]),
+
+              'PySequence_Size'(py_object, [int]),
+              'PySequence_GetItem'(py_object, int, [py_return]),
 
               'PyDict_New'([py_return]),
               'PyDict_SetItemString'(py_object, string(utf8), py_object, [int]),
@@ -415,9 +419,9 @@ python_to_prolog(Py, Value) :-
     'PyUnicode_AsWideCharString'(Py, Len, WString),
     c_load_string(WString, Len, Value, string, wchar_t).
 python_to_prolog(Py, Value) :-
-    'PyList_Check'(Py, 1),
+    'PySequence_Check'(Py, 1),
     !,
-    'PyList_Size'(Py, Len),
+    'PySequence_Size'(Py, Len),
     py_list(0, Len, Py, Value).
 python_to_prolog(Py, Value) :-
     'PyDict_Check'(Py, 1),
@@ -433,6 +437,14 @@ py_list(I, Len, List, [H|T]) :-
     I2 is I+1,
     py_list(I2, Len, List, T).
 py_list(Len, Len, _, []).
+
+py_sequence(I, Len, List, [H|T]) :-
+    I < Len, !,
+    'PySequence_GetItem'(List, I, Item),
+    python_to_prolog(Item, H),
+    I2 is I+1,
+    py_sequence(I2, Len, List, T).
+py_sequence(Len, Len, _, []).
 
 py_dict_pairs(PyDict, Pairs) :-
     c_alloc(KeyP, *('PyObject')),
