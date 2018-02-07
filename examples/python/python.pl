@@ -154,6 +154,7 @@ c_define(py_object, *'PyObject').
               'PyObject_Str'(py_object, [py_return]),
 
               'PyErr_Occurred'([py_object]),
+              'PyErr_Fetch'(*py_object, *py_object, *py_object),
               'PyErr_Clear'(),
 
               'MyPy_DECREF'(py_object) as 'Py_DECREF',
@@ -484,15 +485,32 @@ python_to_prolog_key(Py, _Value) :-
 %
 %   @tbd Map to Prolog
 %   @tbd The exception is borrowed.  How to handle reference counts?
+%   @tbd Use PyErr_Fetch()
 
 py_check_exception :-
     'PyErr_Occurred'(Ex),
     (   c_nil(Ex)
     ->  true
-    ;   py_str(Ex, String),
-        'PyErr_Clear'(),
-        throw(error(python_error(String), _))
+    ;   py_err_fetch(Type, Value, Stack),
+        throw(error(python_error(Type, Value, Stack), _))
     ).
+
+%!  py_err_fetch(-Type, -Value, -Stack)
+%
+%   Fetch the current Python exception.
+%
+%   @bug The returned objects must be subject  to Py_DECREF(). This is a
+%   general shortcoming of the current ffi.
+
+py_err_fetch(Type, Value, Stack) :-
+    c_alloc(TypeP,  *('PyObject')),
+    c_alloc(ValueP, *('PyObject')),
+    c_alloc(StackP, *('PyObject')),
+    'PyErr_Fetch'(TypeP, ValueP, StackP),
+    c_load(TypeP, Type),
+    c_load(ValueP, Value),
+    c_load(StackP, Stack).
+
 
 %!  py_gil(:Goal)
 %
@@ -514,8 +532,15 @@ py_gil(Goal) :-
 
 :- multifile prolog:error_message//1.
 
-prolog:error_message(python_error(String)) -->
-    [ 'Python error: ~p'-[String] ].
+prolog:error_message(python_error(Type, Value, _Stack)) -->
+    { 'PyObject_Str'(Type, SType),
+      python_to_prolog(SType, PType),
+      'PyObject_Str'(Value, SValue),
+      python_to_prolog(SValue, PValue)
+    },
+    [ 'Python error ~w:'-[PType], nl,
+      '  ~w'-[PValue]
+    ].
 
 
 		 /*******************************
