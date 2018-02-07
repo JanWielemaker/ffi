@@ -555,7 +555,9 @@ find_symbol(_, FName, _) :-
 prototype_return(p, M, SigArgs, PRet) :-
     append(_, [[PlRet]], SigArgs),
     PlRet =.. [*,Type|T], !,
-    elem_type_size(M:Type, Size),
+    catch(elem_type_size(M:Type, Size),
+          error(existence_error(type,_),_),
+          Size = 0),
     (   T == []
     ->  PRet = pointer(Type, Size)
     ;   T = [FreeName]
