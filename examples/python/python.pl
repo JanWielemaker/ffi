@@ -290,6 +290,7 @@ py_object(Ref) :-
 
 py_object(Ref, ClassName) :-
     current_blob(Ref, c_ptr),
+    \+ c_nil(Ref),
     c_typeof(Ref, struct('_object')),
     'PyObject_GetAttrString'(Ref, '__class__', Class),
     'PyObject_GetAttrString'(Class, '__name__', Unicode),
