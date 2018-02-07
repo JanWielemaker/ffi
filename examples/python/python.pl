@@ -99,7 +99,8 @@ c_define(py_object, *'PyObject').
 :- c_import("//#define Py_LIMITED_API 1
 	     #include \"mypython.c\"",
             [ pkg_config(python3, '--cflags', '--libs'),
-              python_itf(mypython)
+              python_itf(mypython),
+              '--rtld_global'
             ],
             [ 'Py_SetProgramName'(+string(wchar_t)),
               'Py_Initialize'(),

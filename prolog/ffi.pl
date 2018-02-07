@@ -159,23 +159,26 @@ ci_library(Base, FHandle) :-
 ci_library(Base, FHandle) :-
     with_mutex(dyncall, ci_library_sync(Base, FHandle)).
 
-ci_library_sync(Base, FHandle) :-
+ci_library_sync(Base-_Options, FHandle) :-
     ci_library_cache(Base, FHandle0),
     !,
     FHandle = FHandle0.
-ci_library_sync(Base-_Options, FHandle) :-
+ci_library_sync(Base, FHandle) :-
     ci_library_cache(Base, FHandle0),
     !,
     FHandle = FHandle0.
 ci_library_sync(Base-Options, FHandle) :-
     !,
     c_lib_path(Base, Path),
-    ffi_library_create(Path, FHandle, Options),
+    convlist(rtld, Options, Flags),
+    ffi_library_create(Path, FHandle, Flags),
     assertz(ci_library_cache(Base, FHandle)).
 ci_library_sync(Base, FHandle) :-
     c_lib_path(Base, Path),
     ffi_library_create(Path, FHandle, []),
     assertz(ci_library_cache(Base, FHandle)).
+
+rtld(rtld(Flag), Flag).
 
 
 		 /*******************************
@@ -525,13 +528,18 @@ wchar_t_type(Type) :-
 %   Create '$c_lib'(Lib, Functions) facts that describe which functions
 %   are provided by which library.
 
-libs([], _) --> [].
-libs([H|T], Functions) -->
-    (   {flag_lib(H, Lib)}
-    ->  [ '$c_lib'(Lib, Functions) ]
-    ;   []
-    ),
-    libs(T, Functions).
+libs(Flags, Functions) -->
+    { convlist(flag_lib, Flags, Specs),
+      partition(load_option, Specs, Options, Libs)
+    },
+    lib_clauses(Libs, Functions, Options).
+
+load_option(rtld(_)).
+
+lib_clauses([], _, _) --> [].
+lib_clauses([H|T], Functions, Options) -->
+    [ '$c_lib'(H-Options, Functions) ],
+    lib_clauses(T, Functions, Options).
 
 is_lib_flag(Flag) :-
     flag_lib(Flag, _).
@@ -544,6 +552,10 @@ flag_lib(Flag, Lib) :-
     atom_concat('-l', Rest, Flag),
     !,
     atom_concat('lib', Rest, Lib).
+flag_lib(Flag, Lib) :-
+    atom_concat('--rtld_', Opt, Flag),
+    !,
+    Lib = rtld(Opt).
 flag_lib(Lib, Lib) :-
     \+ sub_atom(Lib, 0, _, _, '-').
 
