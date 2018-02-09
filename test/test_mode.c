@@ -12,7 +12,17 @@ test_v_os(char **sp)			/* output string */
 }
 
 void
-test_v_Os(char **sp)			/* output owned string */
+test_v_ofs(char **sp)			/* output owned string */
 { *sp = strdup("hello world");
+}
+
+const char *
+test_s(void)
+{ return "hello world";
+}
+
+const char *
+test_fs(void)
+{ return strdup("hello world");
 }
 
