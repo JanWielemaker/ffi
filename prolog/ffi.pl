@@ -673,6 +673,7 @@ c_output_argument_type(string).
 c_output_argument_type(string(_Encoding)).
 c_output_argument_type(atom).
 c_output_argument_type(atom(_Encoding)).
+c_output_argument_type(*(_)).
 
 
 %!  convert_args(+SigArgs, +PI, +PArity, +CI, +CArity,
