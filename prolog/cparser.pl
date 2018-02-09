@@ -602,7 +602,10 @@ initializer(init(IL)) -->
 
 initializer_list([H|T]) -->
     initializer1(H), !,
-    initializer_list(T).
+    (   [',']
+    ->  initializer_list(T)
+    ;   []
+    ).
 initializer_list([]) --> [].
 
 initializer1(init(D,I)) -->
