@@ -516,7 +516,7 @@ unify_output(term_t t, const type_spec *tp, const argstore *as)
   { type_spec tspec = *tp;
 
     tspec.ptrl--;
-    return unify_ptr(t, as->p, 1, &tspec);
+    return unify_ptr(t, as->p, SZ_UNKNOWN, &tspec);
   } else
   { switch(tp->type)
     { case CT_VOID:	 return TRUE;
