@@ -39,9 +39,11 @@ test(test_v_os, S == "hello world") :-
     test_v_os(S).
 test(test_v_ofs, S == "hello world") :-
     test_v_ofs(S).
-test(test_v_oip, P == "hello world") :-
-    test_v_oip(P).
-
+test(test_v_oip, [E0,E1,E2] == [1,2,3]) :-
+    test_v_oip(Ptr),
+    c_load(Ptr[0], E0),
+    c_load(Ptr[1], E1),
+    c_load(Ptr[2], E2).
                                         % RETURN
 test(test_s, S == "hello world") :-
     test_s(S).
