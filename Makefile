@@ -8,9 +8,10 @@ PACKSODIR=lib/$(ARCH)
 FFI4PL=lib/$(ARCH)/ffi4pl.$(SOEXT)
 LIBS=-lffi
 CFLAGS=-shared -fPIC
-TESTSO=	test/test_struct.$(SOEXT) \
-	test/test_union.$(SOEXT) \
+TESTSO=	test/test_mode.$(SOEXT) \
 	test/test_enum.$(SOEXT) \
+	test/test_struct.$(SOEXT) \
+	test/test_union.$(SOEXT) \
 	test/test_funcptr.$(SOEXT)
 
 all:	env $(FFI4PL)

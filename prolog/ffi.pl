@@ -434,15 +434,15 @@ compatible_arg(+PlArg, CArg, Types) :-
     !,
     compatible_arg(PlArg, CArg, Types).
 compatible_arg(Type, Type, _) :- !.
-compatible_arg(-Type, *(Type), _) :- !.
-compatible_arg(-struct(Name),   *(struct(Name)), _).
+compatible_arg(-PType, *(CType), Types) :- !,
+    compatible_arg(PType, CType, Types).
 compatible_arg(struct(Name),    *(struct(Name)), _).
 compatible_arg(*struct(Name),   *(struct(Name)), _).
-compatible_arg(-union(Name),    *(union(Name)), _).
 compatible_arg(union(Name),     *(union(Name)), _).
 compatible_arg(*union(Name),    *(union(Name)), _).
 compatible_arg(string,          *(char), _).
 compatible_arg(string(wchar_t), *(Type), _) :- !, wchar_t_type(Type).
+compatible_arg(string(Enc),     *(char), _) :- Enc \== wchar_t.
 compatible_arg(string(Enc),     *(char), _) :- Enc \== wchar_t.
 compatible_arg(*TypeName,       CType, Types) :-
     atom(TypeName),
@@ -613,10 +613,12 @@ prototype_types([H0|T0], [SA|ST], RetType, M, [H|T], PRet) :-
     prototype_type(H0, M, SA, H),
     prototype_types(T0, ST, RetType, M, T, PRet).
 
+%!  prototype_type(+CType, +Module, +PrologType, -ParamType) is det.
+
 prototype_type(funcptr(_,_), _, _, closure) :-
     !.
-prototype_type(*CType, _, -ScalarType, -CType) :-
-    c_sizeof(ScalarType, _Size),
+prototype_type(*CType, _, -OutputType, -CType) :-
+    c_output_argument_type(OutputType),
     !.
 prototype_type(*Type0, M, Sig, *Type) :-
     !,
@@ -635,6 +637,14 @@ prototype_type(union(Name), M, _Sig, union(Name, Size)) :-
           error(existence_error(type,_),_),
           Size = 0).
 prototype_type(Type, _, _, Type).
+
+c_output_argument_type(ScalarType) :-
+    c_sizeof(ScalarType, _Size).
+c_output_argument_type(string).
+c_output_argument_type(string(_Encoding)).
+c_output_argument_type(atom).
+c_output_argument_type(atom(_Encoding)).
+
 
 %!  convert_args(+SigArgs, +PI, +PArity, +CI, +CArity,
 %!		 +PlHead, +CHead, -PreGoal, -PostGoal)
@@ -674,6 +684,18 @@ convert_arg(-struct(Name), Ptr, Ptr,
 convert_arg(-union(Name), Ptr, Ptr,
             c_alloc(Ptr, union(Name)),
             true).
+convert_arg(-string, String, Ptr,
+            true,
+            c_load_string(Ptr, String, string, text)).
+convert_arg(-string(Enc), String, Ptr,
+            true,
+            c_load_string(Ptr, String, string, Enc)).
+convert_arg(-atom, String, Ptr,
+            true,
+            c_load_string(Ptr, String, atom, text)).
+convert_arg(-atom(Enc), String, Ptr,
+            true,
+            c_load_string(Ptr, String, atom, Enc)).
 convert_arg(string(Enc),  String, Ptr,
             c_alloc_string(Ptr, String, Enc),
             true).
@@ -696,6 +718,11 @@ convert_arg([string(Enc)], String, Ptr,
             c_load_string(Ptr, String, string, Enc)).
 convert_arg([string], String, Ptr, Pre, Post) :-
     convert_arg([-string(text)], String, Ptr, Pre, Post).
+convert_arg([atom(Enc)], String, Ptr,
+            true,
+            c_load_string(Ptr, String, atom, Enc)).
+convert_arg([atom], String, Ptr, Pre, Post) :-
+    convert_arg([-atom(text)], String, Ptr, Pre, Post).
 convert_arg([enum(Enum)], Id, Int,
             true,
             c_enum_out(Id, Enum, Int)).
