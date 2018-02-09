@@ -138,7 +138,7 @@ get_abi(term_t cc, ffi_abi *v)
 static int
 get_free_func(term_t t, void **func)
 { ctx_symbol *ep;
-  type_spec tspec = {CT_STRUCT, 0, ATOM_c_symbol};
+  type_spec tspec = {CT_STRUCT, 0, 0, ATOM_c_symbol};
 
   if ( get_ptr(t, &ep, &tspec) )
   { *func = ep->func;
@@ -276,7 +276,7 @@ ffi_library_create(term_t path, term_t lib, term_t options)
 static foreign_t
 pl_ffi_library_free(term_t lib)
 { ctx_library *libh;
-  type_spec tspec = {CT_STRUCT, 0, ATOM_c_library};
+  type_spec tspec = {CT_STRUCT, 0, 0, ATOM_c_library};
 
   if ( get_ptr(lib, &libh, &tspec) )
   { void *h = libh->lib;
@@ -305,7 +305,7 @@ static foreign_t
 ffi_lookup_symbol(term_t lib, term_t name, term_t func)
 { ctx_library *libh;
   char *fname;
-  type_spec tspec = {CT_STRUCT, 0, ATOM_c_library};
+  type_spec tspec = {CT_STRUCT, 0, 0, ATOM_c_library};
 
   if ( get_ptr(lib, &libh, &tspec) &&
        PL_get_chars(name, &fname, CVT_ATOM|CVT_EXCEPTION) )
@@ -448,7 +448,7 @@ ffi_prototype_create(term_t entry, term_t cc,
 		     term_t func)
 { ctx_symbol *ep;
   ffi_abi abi;
-  type_spec tspec = {CT_STRUCT, 0, ATOM_c_symbol};
+  type_spec tspec = {CT_STRUCT, 0, 0, ATOM_c_symbol};
   ctx_prototype *ctx = NULL;
   size_t argc;
 
@@ -556,7 +556,7 @@ typedef struct oarg
 static foreign_t
 pl_ffi_call(term_t prototype, term_t goal)
 { ctx_prototype *ctx;
-  type_spec tspec = {CT_STRUCT, 0, ATOM_c_function};
+  type_spec tspec = {CT_STRUCT, 0, 0, ATOM_c_function};
 
 
   if ( get_ptr(prototype, &ctx, &tspec) )
@@ -884,7 +884,7 @@ call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp)
 static int
 get_closure(term_t t, void **func)
 { ctx_closure *ctx;
-  type_spec tspec = {CT_STRUCT, 0, ATOM_c_closure};
+  type_spec tspec = {CT_STRUCT, 0, 0, ATOM_c_closure};
 
   if ( get_ptr(t, &ctx, &tspec) )
   { *func = ctx->func;
