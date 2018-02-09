@@ -1,6 +1,11 @@
 #include <string.h>			/* get strdup() */
 #include <stdlib.h>			/* get free() prototype */
 
+typedef struct point
+{ int x, y;
+} point;
+
+
 		 /*******************************
 		 *	      OUTPUT		*
 		 *******************************/
@@ -26,6 +31,29 @@ test_v_oip(int **sp)			/* output int* */
 
   *sp = data;
 }
+
+void
+test_v_ofip(int **sp)			/* output owned int* */
+{ int *data = malloc(sizeof(*data)*3);
+
+  data[0] = 1;
+  data[1] = 2;
+  data[2] = 3;
+
+  *sp = data;
+}
+
+void
+test_v_ofsp(point **sp)			/* output owned struct * */
+{ point *data = malloc(sizeof(*data));
+
+  data->x = 1;
+  data->y = 2;
+
+  *sp = data;
+}
+
+
 
 		 /*******************************
 		 *	      RETURN		*

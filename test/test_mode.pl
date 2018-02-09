@@ -25,6 +25,8 @@ test_output_leaks(Iterations) :-
               test_v_os(-string),
               test_v_ofs(-string~free),
               test_v_oip(-(*(int))),
+              test_v_ofip(-(*(int)~free)),
+              test_v_ofsp(-(*struct(point)~free)),
                                         % return
               test_s([string]),
               test_fs([string~free])
@@ -40,6 +42,11 @@ test(test_v_os, S == "hello world") :-
 test(test_v_ofs, S == "hello world") :-
     test_v_ofs(S).
 test(test_v_oip, [E0,E1,E2] == [1,2,3]) :-
+    test_v_oip(Ptr),
+    c_load(Ptr[0], E0),
+    c_load(Ptr[1], E1),
+    c_load(Ptr[2], E2).
+test(test_v_ofip, [E0,E1,E2] == [1,2,3]) :-
     test_v_oip(Ptr),
     c_load(Ptr[0], E0),
     c_load(Ptr[1], E1),
