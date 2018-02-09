@@ -10,9 +10,9 @@ test_enum :-
 
 :- c_import("#include \"test_enum.c\"",
             [ 'test/test_enum' ],
-            [ set_dow(+(*(enum(dow))), +enum(dow)),
-              get_dow(+(*(enum(dow))), [-enum(dow)]),
-              get_dow2(+(*(enum(dow))), -enum(dow))
+            [ set_dow(*(enum(dow)), enum(dow)),
+              get_dow(*(enum(dow)), [enum(dow)]),
+              get_dow2(*(enum(dow)), -enum(dow))
             ]).
 
 :- begin_tests(c_enum).

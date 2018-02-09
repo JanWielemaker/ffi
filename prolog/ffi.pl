@@ -665,6 +665,7 @@ prototype_type(Type, _, _, Type).
 
 c_output_argument_type(ScalarType) :-
     c_sizeof(ScalarType, _Size).
+c_output_argument_type(enum(_)).
 c_output_argument_type(string).
 c_output_argument_type(string(_Encoding)).
 c_output_argument_type(atom).
@@ -732,9 +733,9 @@ convert_arg(string, String, Ptr, Pre, Post) :-
 convert_arg(enum(Enum), Id, Int,
             c_enum_in(Id, Enum, Int),
             true).
-convert_arg(-enum(Enum), Id, Ptr,
-            c_alloc(Ptr, enum(Enum)),
-            c_load(Ptr, Id)).
+convert_arg(-enum(Enum), Id, Int,
+            true,
+            c_enum_out(Id, Enum, Int)).
 
 % return value.  We allow for -Value, but do not demand it as the
 % return value can only be an output.
@@ -1306,7 +1307,7 @@ enum_module(M, PI) :-
 
 %!  c_enum_in(+Name, :Enum, -Int) is det.
 %
-%   Convert an input element for an enum to a value.
+%   Convert an input element for an enum name to an integer.
 
 c_enum_in(Id, Enum, Value) :-
     c_current_enum(Id, Enum, Value),
@@ -1314,9 +1315,9 @@ c_enum_in(Id, Enum, Value) :-
 c_enum_in(Id, Enum, _Value) :-
     existence_error(enum_id, Id, Enum).
 
-%!  c_enum_in(+Name, :Enum, -Int) is det.
+%!  c_enum_out(-Name, :Enum, +Int) is det.
 %
-%   Convert an input element for an enum to a value.
+%   Convert an output element for an integer to an enum name.
 
 c_enum_out(Id, Enum, Value) :-
     c_current_enum(Id, Enum, Value),
