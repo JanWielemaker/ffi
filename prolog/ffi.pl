@@ -79,6 +79,7 @@
             c_errno/1,                  % -Integer
 
             op(200, fy, *),             % for pointer type declarations
+            op(100, xfx, ~),            % Type~FreeFunc
             op(20, yf, [])
           ]).
 :- use_module(library(lists)).
@@ -264,10 +265,25 @@ c_function_needed(Spec as _, Optional) -->
 c_function_needed(Spec, Optional) -->
     { compound_name_arguments(Spec, Name, Args) },
     needed(Name, Optional),
-    (   {append(_,[[*(_,Free)]], Args)}
-    ->  needed(Free, Optional)
-    ;   []
-    ).
+    free_needed(Args, Optional).
+
+free_needed([], _) --> [].
+free_needed([H|T], Optional) --> free_arg(H, Optional), free_needed(T, Optional).
+
+free_arg(_Type~Free, Optional) -->
+    !,
+    needed(Free, Optional).
+free_arg(*(_Type,Free), Optional) -->   % deprecated
+    !,
+    needed(Free, Optional).
+free_arg([Ret], Optional) -->
+    !,
+    free_arg(Ret, Optional).
+free_arg(-Output, Optional) -->
+    !,
+    free_arg(Output, Optional).
+free_arg(_, _) -->
+    [].
 
 needed(Name, optional) -->
     [[Name]].
@@ -434,6 +450,8 @@ compatible_arg(+PlArg, CArg, Types) :-
     !,
     compatible_arg(PlArg, CArg, Types).
 compatible_arg(Type, Type, _) :- !.
+compatible_arg(-PType~_Free, *(CType), Types) :- !,
+    compatible_arg(PType, CType, Types).
 compatible_arg(-PType, *(CType), Types) :- !,
     compatible_arg(PType, CType, Types).
 compatible_arg(struct(Name),    *(struct(Name)), _).
@@ -495,7 +513,10 @@ compatible_ret(*(TypeName), *(CType), *(CType), Types) :-
 compatible_ret(-PlArg, CArg, Types) :-
     !,
     compatible_ret(PlArg, CArg, Types).
-compatible_ret(*(Type,_Free), CType, Types) :-
+compatible_ret(Type~_Free, CType, Types) :-
+    !,
+    compatible_ret(Type, CType, Types).
+compatible_ret(*(Type,_Free), CType, Types) :- % deprecated
     !,
     compatible_ret(*(Type), CType, Types).
 compatible_ret(Type, Type, _) :- !.
@@ -617,6 +638,10 @@ prototype_types([H0|T0], [SA|ST], RetType, M, [H|T], PRet) :-
 
 prototype_type(funcptr(_,_), _, _, closure) :-
     !.
+prototype_type(*(*CType), M, -OutputType~FreeName, -(*(CType,Free))) :-
+    c_output_argument_type(OutputType),
+    find_symbol(M, FreeName, Free),
+    !.
 prototype_type(*CType, _, -OutputType, -CType) :-
     c_output_argument_type(OutputType),
     !.
@@ -678,6 +703,9 @@ convert_args([H|T], PI, PArity, CI, CArity, PHead, CHead, GPre, GPost) :-
 convert_arg(+Type, Prolog, C, Pre, Post) :-
     !,
     convert_arg(Type, Prolog, C, Pre, Post).
+convert_arg(-Type~_Free, Prolog, C, Pre, Post) :-
+    !,
+    convert_arg(-Type, Prolog, C, Pre, Post).
 convert_arg(-struct(Name), Ptr, Ptr,
             c_alloc(Ptr, struct(Name)),
             true).
@@ -713,6 +741,9 @@ convert_arg(-enum(Enum), Id, Ptr,
 convert_arg([-(X)], Out, In, Pre, Post) :-
     !,
     convert_arg([X], Out, In, Pre, Post).
+convert_arg([Type~_Free], Out, In, Pre, Post) :-
+    !,
+    convert_arg([Type], Out, In, Pre, Post).
 convert_arg([string(Enc)], String, Ptr,
             true,
             c_load_string(Ptr, String, string, Enc)).
