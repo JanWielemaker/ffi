@@ -92,9 +92,13 @@ user:file_search_path(python_itf, Dir) :-
     file_directory_name(File, Dir).
 
 % define macros for c_import/3.  Note that the macro is matched
-% using =@=/2 (variant)
+% using =@=/2 (variant).
+%
+% `py_object` is a simple alias to avoid the ugly stars and quotes
+% `py_owned` is used for PyObject instances that we _own_ and therefore
+% must release when we are done with them.
 c_define(py_object, *'PyObject').
-c_define(py_return, py_object~'MyPy_DECREF').
+c_define(py_owned, py_object~'MyPy_DECREF').
 
 :- c_import("//#define Py_LIMITED_API 1
 	     #include \"mypython.c\"",
@@ -112,10 +116,10 @@ c_define(py_return, py_object~'MyPy_DECREF').
               'PyGILState_Ensure'([int]), % Actually enum ...
               'PyGILState_Release'(int),  % but we are not interested
 
-              'PyLong_FromLongLong'(int, [py_return]),
-              'PyFloat_FromDouble'(float, [py_return]),
-              'PyUnicode_FromString'(+string(utf8), [py_return]),
-              'PyUnicode_FromWideChar'(+string(wchar_t), +int, [py_return]),
+              'PyLong_FromLongLong'(int, [py_owned]),
+              'PyFloat_FromDouble'(float, [py_owned]),
+              'PyUnicode_FromString'(+string(utf8), [py_owned]),
+              'PyUnicode_FromWideChar'(+string(wchar_t), +int, [py_owned]),
 
               'MyPyLong_Check'(py_object, [-int]) as 'PyLong_Check',
               'MyPyBool_Check'(py_object, [-int]) as 'PyBool_Check',
@@ -126,37 +130,37 @@ c_define(py_return, py_object~'MyPy_DECREF').
               'MyPyDict_Check'(py_object, [-int]) as 'PyDict_Check',
 
               'PyLong_AsLongLong'(py_object, [-int]),
-              'PyBool_FromLong'(int, [py_return]),
+              'PyBool_FromLong'(int, [py_owned]),
               'PyFloat_AsDouble'(py_object, [-float]),
               'PyUnicode_AsWideCharString'(py_object, -int,
                                            [*(wchar_t, 'PyMem_Free')]),
 
-              'PyImport_Import'(py_object, [py_return]),
+              'PyImport_Import'(py_object, [py_owned]),
 
               'PyObject_GetAttrString'(py_object, +string,
-                                       [py_return]),
+                                       [py_owned]),
 
-              'PyTuple_New'(int, [py_return]),
+              'PyTuple_New'(int, [py_owned]),
               'PyTuple_SetItem'(py_object, int, py_object, [int]),
 
-              'PyList_New'(int, [py_return]),
+              'PyList_New'(int, [py_owned]),
               'PyList_Append'(py_object, py_object, [int]),
-              'PyList_GetItem'(py_object, int, [py_return]),
+              'PyList_GetItem'(py_object, int, [py_owned]),
               'PyList_Size'(py_object, [int]),
 
               'PySequence_Size'(py_object, [int]),
-              'PySequence_GetItem'(py_object, int, [py_return]),
+              'PySequence_GetItem'(py_object, int, [py_owned]),
 
-              'PyDict_New'([py_return]),
+              'PyDict_New'([py_owned]),
               'PyDict_SetItemString'(py_object, string(utf8), py_object, [int]),
               'PyDict_SetItem'(py_object, py_object, py_object, [int]),
               'PyDict_Next'(py_object, *int, *py_object, *py_object, [int]),
 
-              'PyObject_CallObject'(py_object, py_object, [py_return]),
-              'PyObject_Str'(py_object, [py_return]),
+              'PyObject_CallObject'(py_object, py_object, [py_owned]),
+              'PyObject_Str'(py_object, [py_owned]),
 
               'PyErr_Occurred'([py_object]),
-              'PyErr_Fetch'(*py_object, *py_object, *py_object),
+              'PyErr_Fetch'(-py_owned, -py_owned, -py_owned),
               'PyErr_Clear'(),
 
               'MyPy_DECREF'(py_object) as 'Py_DECREF',
@@ -502,35 +506,14 @@ python_to_prolog_key(Py, _Value) :-
 %
 %   Check whether there is an exception in  the environment and raise it
 %   as a Prolog exception.
-%
-%   @tbd Map to Prolog
-%   @tbd The exception is borrowed.  How to handle reference counts?
-%   @tbd Use PyErr_Fetch()
 
 py_check_exception :-
     'PyErr_Occurred'(Ex),
     (   c_nil(Ex)
     ->  true
-    ;   py_err_fetch(Type, Value, Stack),
+    ;   'PyErr_Fetch'(Type, Value, Stack),
         throw(error(python_error(Type, Value, Stack), _))
     ).
-
-%!  py_err_fetch(-Type, -Value, -Stack)
-%
-%   Fetch the current Python exception.
-%
-%   @bug The returned objects must be subject  to Py_DECREF(). This is a
-%   general shortcoming of the current ffi.
-
-py_err_fetch(Type, Value, Stack) :-
-    c_alloc(TypeP,  *('PyObject')),
-    c_alloc(ValueP, *('PyObject')),
-    c_alloc(StackP, *('PyObject')),
-    'PyErr_Fetch'(TypeP, ValueP, StackP),
-    c_load(TypeP, Type),
-    c_load(ValueP, Value),
-    c_load(StackP, Stack).
-
 
 %!  py_gil(:Goal)
 %
