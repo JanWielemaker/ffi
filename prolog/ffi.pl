@@ -493,6 +493,9 @@ compatible_return(Func, PlArg, CArg, PlArg, _Types) :-
 % compatible_ret/4
 compatible_ret(-PlArg, CArg, Param, Types) :-
     compatible_ret(PlArg, CArg, Param, Types).
+compatible_ret(PlArg~Free, CArg, Param~Free, Types) :-
+    !,
+    compatible_ret(PlArg, CArg, Param, Types).
 compatible_ret(int, CArg, CArg, _) :-
     int_type(CArg),
     !.

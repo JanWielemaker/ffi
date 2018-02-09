@@ -93,7 +93,7 @@ user:file_search_path(python_itf, Dir) :-
 
 % define macros for c_import/3.  Note that the macro is matched
 % using =@=/2 (variant)
-c_define(py_return, *('PyObject', 'MyPy_DECREF')).
+c_define(py_return, *('PyObject')~'MyPy_DECREF').
 c_define(py_object, *'PyObject').
 
 :- c_import("//#define Py_LIMITED_API 1
