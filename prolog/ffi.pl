@@ -1383,13 +1383,14 @@ c_expand(M, T0, T) :-
     M:c_define(T1, E),
     T0 =@= T1,
     !,
-    T = E.
+    c_expand(M, E, T).
 c_expand(M, T0, T) :-
     compound(T0),
-    !,
     compound_name_arguments(T0, Name, Args0),
     maplist(c_expand(M), Args0, Args),
-    compound_name_arguments(T, Name, Args).
+    compound_name_arguments(T1, Name, Args),
+    T1 \== T0, !,
+    c_expand(M, T1, T).
 c_expand(_, T, T).
 
 generalise(T0, T) :-
