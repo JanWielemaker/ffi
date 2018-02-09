@@ -105,6 +105,7 @@ typedef enum c_type
   CT_ULONGLONG,
   CT_FLOAT,
   CT_DOUBLE,
+  CT_CLOSURE,
   CT_POINTER,
   CT_STRUCT,
   CT_UNION,
@@ -127,6 +128,8 @@ typedef struct c_ptr
   c_dep *deps;				/* Dependency */
 } c_ptr;
 
+
+static int get_free_func(term_t t, void **func);
 
 static int
 add_dependency(c_ptr *ref, atom_t adep, size_t offset)
@@ -470,6 +473,21 @@ retry:
 		 *	  PROLOG BINDING	*
 		 *******************************/
 
+/* Handle one of
+
+   - struct(Type)
+   - struct(Type, Size)
+   - union(Type)
+   - union(Type, Size)
+   - enum(Type)
+
+   Where Type is one of `char`, `uchar`, ...
+
+   The spec is wrapped in zero or more *(Type) terms, setting the `ptrl`
+   (pointer level) field. The outermost term can be *(Type, Free),
+   causing Free to be called if the pointer is released.
+*/
+
 static int
 get_type(term_t t, type_spec *tspec)
 { atom_t qn;
@@ -483,10 +501,17 @@ get_type(term_t t, type_spec *tspec)
   if ( !PL_strip_module(t, &m, t) )		/* module just ignored for now */
     return FALSE;
 
-  while ( (rc=PL_get_name_arity(t, &qn, &arity)) && arity == 1 )
-  { if ( qn == ATOM_star )
+  while ( (rc=PL_get_name_arity(t, &qn, &arity)) && arity > 0 )
+  { if ( qn == ATOM_star && arity <= (tspec->ptrl == 0 ? 2 : 1) )
     { if ( tspec->ptrl == 0 )
-	t = PL_copy_term_ref(t);
+      {	t = PL_copy_term_ref(t);
+	if ( arity == 2 )
+	{ term_t a = PL_new_term_ref();
+	  _PL_get_arg(2, t, a);
+	  if ( !get_free_func(a, &tspec->free) )
+	    return FALSE;
+	}
+      }
       _PL_get_arg(1, t, t);
       tspec->ptrl++;
       continue;
@@ -495,36 +520,58 @@ get_type(term_t t, type_spec *tspec)
 
       _PL_get_arg(1, t, a);
       if ( PL_get_atom_ex(a, &tspec->name) )
-      { if ( qn == ATOM_struct )
+      { if ( qn == ATOM_struct && arity <= 2 )
 	  tspec->type = CT_STRUCT;
-	else if ( qn == ATOM_union )
+	else if ( qn == ATOM_union && arity <= 2 )
 	  tspec->type = CT_UNION;
-	else if ( qn == ATOM_enum )
+	else if ( qn == ATOM_enum && arity == 1)
 	  tspec->type = CT_ENUM;
 	else
 	  return PL_type_error("c_type", t0);
       } else
 	return PL_type_error("c_type", t0);
 
+      if ( arity == 2 )
+      { _PL_get_arg(2, t, a);
+	if ( !PL_get_size_ex(a, &tspec->size) )
+	  return FALSE;
+      }
+
       return TRUE;
     }
   }
 
   if ( rc && arity == 0 )
-  { if      ( qn == ATOM_char      ) tspec->type = CT_CHAR;
-    else if ( qn == ATOM_uchar     ) tspec->type = CT_UCHAR;
-    else if ( qn == ATOM_wchar_t   ) tspec->type = CT_WCHAR_T;
-    else if ( qn == ATOM_short     ) tspec->type = CT_SHORT;
-    else if ( qn == ATOM_ushort    ) tspec->type = CT_USHORT;
-    else if ( qn == ATOM_int       ) tspec->type = CT_INT;
-    else if ( qn == ATOM_uint      ) tspec->type = CT_UINT;
-    else if ( qn == ATOM_long      ) tspec->type = CT_LONG;
-    else if ( qn == ATOM_ulong     ) tspec->type = CT_ULONG;
-    else if ( qn == ATOM_longlong  ) tspec->type = CT_LONGLONG;
-    else if ( qn == ATOM_ulonglong ) tspec->type = CT_ULONGLONG;
-    else if ( qn == ATOM_float     ) tspec->type = CT_FLOAT;
-    else if ( qn == ATOM_double    ) tspec->type = CT_DOUBLE;
-    else if ( qn == ATOM_void      ) tspec->type = CT_VOID;
+  { if      ( qn == ATOM_char      ) tspec->type = CT_CHAR,
+				     tspec->size = sizeof(char);
+    else if ( qn == ATOM_uchar     ) tspec->type = CT_UCHAR,
+				     tspec->size = sizeof(char);
+    else if ( qn == ATOM_wchar_t   ) tspec->type = CT_WCHAR_T,
+				     tspec->size = sizeof(wchar_t);
+    else if ( qn == ATOM_short     ) tspec->type = CT_SHORT,
+				     tspec->size = sizeof(short);
+    else if ( qn == ATOM_ushort    ) tspec->type = CT_USHORT,
+				     tspec->size = sizeof(short);
+    else if ( qn == ATOM_int       ) tspec->type = CT_INT,
+				     tspec->size = sizeof(int);
+    else if ( qn == ATOM_uint      ) tspec->type = CT_UINT,
+				     tspec->size = sizeof(int);
+    else if ( qn == ATOM_long      ) tspec->type = CT_LONG,
+				     tspec->size = sizeof(long);
+    else if ( qn == ATOM_ulong     ) tspec->type = CT_ULONG,
+				     tspec->size = sizeof(long);
+    else if ( qn == ATOM_longlong  ) tspec->type = CT_LONGLONG,
+				     tspec->size = sizeof(long long);
+    else if ( qn == ATOM_ulonglong ) tspec->type = CT_ULONGLONG,
+				     tspec->size = sizeof(long long);
+    else if ( qn == ATOM_float     ) tspec->type = CT_FLOAT,
+				     tspec->size = sizeof(float);
+    else if ( qn == ATOM_double    ) tspec->type = CT_DOUBLE,
+				     tspec->size = sizeof(double);
+    else if ( qn == ATOM_void      ) tspec->type = CT_VOID,
+				     tspec->size = 0;
+    else if ( qn == ATOM_closure   ) tspec->type = CT_CLOSURE,
+				     tspec->size = sizeof(void *);
     else
       return PL_type_error("c_type", t0);
 

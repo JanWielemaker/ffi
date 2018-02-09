@@ -96,10 +96,10 @@ typedef struct ctx_prototype
 { ffi_cif	cif;			/* libffi cif */
   void         *func;
   int		argc;
-  const char   *rformat;
-  const char   *pformat;
-  ffi_type    **atypes;
-  type_spec	ret;
+  ffi_type    **ffi_type;
+  ffi_type     *ffi_ret;
+  type_spec    *arg_type;
+  type_spec	ret_type;
 } ctx_prototype;
 
 typedef struct ctx_closure
@@ -136,47 +136,18 @@ get_abi(term_t cc, ffi_abi *v)
 }
 
 
-int
-get_return(term_t t, type_spec *rspec, char **format)
-{ int nofree;
+static int
+get_free_func(term_t t, void **func)
+{ ctx_symbol *ep;
+  type_spec tspec = {CT_STRUCT, 0, ATOM_c_symbol};
 
-  memset(rspec, 0, sizeof(*rspec));
-
-  if ( (nofree = PL_is_functor(t, FUNCTOR_pointer2)) ||
-       PL_is_functor(t, FUNCTOR_pointer3) )
-  { term_t a = PL_new_term_ref();
-    static char *p = "p";
-
-    _PL_get_arg(1, t, a);
-    if ( !get_type(a, rspec) )
-      return FALSE;
-    _PL_get_arg(2, t, a);
-    if ( !PL_get_size_ex(a, &rspec->size) )
-      return FALSE;
-
-    if ( !nofree )
-    { ctx_symbol *ep;
-      type_spec tspec = {CT_STRUCT, 0, ATOM_c_symbol};
-
-      _PL_get_arg(3, t, a);
-      if ( get_ptr(a, &ep, &tspec) )
-	rspec->free = ep->func;
-      else
-	return FALSE;
-    }
-
-    *format = p;
-  } else
-  { if ( !PL_get_chars(t, format, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) )
-      return FALSE;
-    rspec->type = CT_VOID;
-    rspec->ptrl = 0;
-    rspec->size = SZ_UNKNOWN;
+  if ( get_ptr(t, &ep, &tspec) )
+  { *func = ep->func;
+    return TRUE;
   }
 
-  return TRUE;
+  return FALSE;
 }
-
 
 
 		 /*******************************
@@ -369,112 +340,88 @@ ffi_lookup_symbol(term_t lib, term_t name, term_t func)
 }
 
 
+static ffi_type *
+ffi_type_wchar_t(void)
+{ if ( sizeof(wchar_t) == sizeof(int) )
+    return &ffi_type_sint;
+  else
+    return &ffi_type_ushort;			/* Windows; signed or not? */
+}
+
+static ffi_type *
+to_ffi_type(const type_spec *tspec)
+{ if ( tspec->ptrl > 0 )
+    return &ffi_type_pointer;
+
+  switch(tspec->type)
+  { case CT_CHAR:	return &ffi_type_schar;
+    case CT_UCHAR:	return &ffi_type_uchar;
+    case CT_WCHAR_T:	return ffi_type_wchar_t();
+    case CT_SHORT:	return &ffi_type_sshort;
+    case CT_USHORT:	return &ffi_type_ushort;
+    case CT_ENUM:
+    case CT_INT:	return &ffi_type_sint;
+    case CT_UINT:	return &ffi_type_uint;
+    case CT_LONG:	return &ffi_type_slong;
+    case CT_ULONG:	return &ffi_type_ulong;
+    case CT_LONGLONG:	return &ffi_type_sint64;
+    case CT_ULONGLONG:	return &ffi_type_uint64;
+    case CT_FLOAT:	return &ffi_type_float;
+    case CT_DOUBLE:	return &ffi_type_double;
+    case CT_CLOSURE:	return &ffi_type_pointer;
+    default:
+      return NULL;
+  }
+}
+
 static int
-ci_signature(const char *s, ffi_type **types)
-{ ffi_type **o = types;
-  int size = 0;					/* -2..2 */
-  int u = FALSE;
-
-  for(; *s; s++)
-  { switch(*s)
-    { case 'u':					/* modifiers */
-	u = TRUE;
-        /*FALLTHROUGH*/
-      case '+':
-      case '-':
-	continue;
-      case 'h':
-	size--;
-        continue;
-      case 'l':
-	size++;
-        continue;
-
-      case 'i':
-	switch(size)
-	{ case -2: *o++ = u ? &ffi_type_uchar  : &ffi_type_schar;  break;
-          case -1: *o++ = u ? &ffi_type_ushort : &ffi_type_sshort; break;
-	  case  0: *o++ = u ? &ffi_type_uint   : &ffi_type_sint;   break;
-	  case  1: *o++ = u ? &ffi_type_ulong  : &ffi_type_slong;  break;
-	  case  2: *o++ = u ? &ffi_type_uint64 : &ffi_type_sint64; break;
-	  default:
-	    PL_syntax_error("invalid signature", NULL);
-	    return -1;
-	}
-        break;
-      case 'f':
-	switch(size)
-	{ case  0: *o++ = &ffi_type_float; break;
-	  case  1: *o++ = &ffi_type_double; break;
-	  case  2: *o++ = &ffi_type_longdouble; break;
-	  default:
-	    PL_syntax_error("invalid signature", NULL);
-	    return -1;
-	}
-        break;
-      case 'p':
-      case 'c':
-	switch(size)
-	{ case 0: *o++ = &ffi_type_pointer; break;
-	  default:
-	    PL_syntax_error("invalid signature", NULL);
-	    return -1;
-	}
-        break;
-      default:
-	PL_syntax_error("invalid signature", NULL);
-        return -1;
-    }
-
-    size = 0;
-    u = FALSE;
+get_ffi_type(term_t t, type_spec *pl_type, ffi_type **ffi_type, int isret)
+{ if ( !get_type(t, pl_type) )
+    return FALSE;
+  if ( !(*ffi_type = to_ffi_type(pl_type)) )
+  { if ( isret && pl_type->type == CT_VOID )
+      *ffi_type = &ffi_type_void;
+    else
+      return PL_domain_error("c_type", t);
   }
 
-  return o-types;
+  return TRUE;
 }
 
 
 static int
-ret_signature(const char *rformat, ffi_type **r_type)
-{ if ( rformat[0] )
-    return ci_signature(rformat, r_type);
+get_types(term_t args, type_spec *pl_types, ffi_type **ffi_types)
+{ term_t tail = PL_copy_term_ref(args);
+  term_t head = PL_new_term_ref();
+  int i;
 
-  *r_type = &ffi_type_void;
+  for(i=0; PL_get_list(tail, head, tail); i++ )
+  { if ( !get_ffi_type(head, &pl_types[i], &ffi_types[i], FALSE) )
+      return FALSE;
+  }
+
   return TRUE;
 }
 
 
 static void
 ci_function_free(void *ptr)
-{ ctx_prototype *p = ptr;
+{ ctx_prototype *ctx = ptr;
 
-  if ( p->atypes )
-    free(p->atypes);
+  if ( ctx )
+  { if ( ctx->arg_type )
+      free(ctx->arg_type);
+    if ( ctx->ffi_type )
+      free(ctx->ffi_type);
 
-  free(p);
+    free(ctx);
+  }
 }
 
 
 /** 'ffi_prototype_create'(+Function, +ABI, +Return, +Params, -Prototype)
 
-Create a function prototype for Function   (a  function pointer). Return
-and Params are normally text strings/atoms that   encode  the C types as
-follows:
-
-  | 'u'        | unsigned	       |
-  | '+', '-'   | Input output (unused) |
-  | 'h'        | smaller size          |
-  | 'l'        | larger size	       |
-
-A sequence of the above is followed by the primary type:
-
-  | 'i'        | integer               |
-  | 'f'        | float                 |
-  | 'p'        | pointer               |
-  | 'c'        | closure pointer       |
-
-For example `uhi` is and unsigned short, `lf`   is  a double, `lli` is a
-long long, etc.
+Create a function prototype for Function   (a  function pointer).
 
 The Return arg can be a text encoding a  single value as above or one of
 the terms pointer(+Type, +Size) or pointer(+Type, +Size +FreeFunc). This
@@ -492,60 +439,46 @@ ffi_prototype_create(term_t entry, term_t cc,
 		     term_t func)
 { ctx_symbol *ep;
   ffi_abi abi;
-  char *rformat;
-  char *pformat;
-  ffi_type *r_type;
-  ffi_type *a_types[MAX_ARGC];
-  int argc;
-  type_spec rspec;
   type_spec tspec = {CT_STRUCT, 0, ATOM_c_symbol};
+  ctx_prototype *ctx = NULL;
+  size_t argc;
+
+  if ( PL_skip_list(parms, 0, &argc) != PL_LIST )
+    return PL_type_error("list", parms);
+
+  if ( !(ctx = calloc(1, sizeof(*ctx))) ||
+       !(ctx->arg_type = malloc(sizeof(*ctx->arg_type)*argc)) ||
+       !(ctx->ffi_type = malloc(sizeof(*ctx->ffi_type)*argc)) )
+  { PL_resource_error("memory");
+    goto error;
+  }
+  ctx->argc = argc;
 
   if ( get_ptr(entry, &ep, &tspec) &&
        get_abi(cc, &abi) &&
-       get_return(ret, &rspec, &rformat) &&
-       PL_get_chars(parms, &pformat, CVT_ATOM|CVT_STRING|CVT_EXCEPTION) &&
-       ret_signature(rformat, &r_type) &&
-       (argc=ci_signature(pformat, a_types)) >= 0 )
-  { ctx_prototype *p = malloc(sizeof(*p));
-    ffi_type    **at = malloc(argc*sizeof(*at));
+       get_ffi_type(ret, &ctx->ret_type, &ctx->ffi_ret, TRUE) &&
+       get_types(parms, ctx->arg_type, ctx->ffi_type) )
+  { ffi_status rc;
 
     DEBUG(1, Sdprintf("Prototype args ok (argc=%d)\n", argc));
 
-    if ( p && at )
-    { ffi_status rc;
-
-      memset(p, 0, sizeof(*p));
-      memcpy(at, a_types, argc*sizeof(*at));
-
-      rc = ffi_prep_cif(&p->cif, abi, argc, r_type, at);
-      if ( rc != FFI_OK )
-      { free(p);
-	return ffi_error(rc);
-      }
-
-      p->func	 = ep->func;
-      p->argc	 = argc;
-      p->rformat = strdup(rformat);
-      p->pformat = strdup(pformat);
-      p->atypes  = at;
-      p->ret     = rspec;
-
-      DEBUG(1, Sdprintf("Created prototype\n"));
-
-      if ( unify_part_ptr(func,
-			  p, sizeof(*p), ATOM_c_function,
-			  ci_function_free) )
-	return TRUE;
+    rc = ffi_prep_cif(&ctx->cif, abi, ctx->argc, ctx->ffi_ret, ctx->ffi_type);
+    if ( rc != FFI_OK )
+    { ffi_error(rc);
+      goto error;
     }
+    ctx->func = ep->func;
 
-    if (  p ) free(p);
-    if ( at ) free(at);
+    DEBUG(1, Sdprintf("Created prototype\n"));
 
-    if ( !PL_exception(0) )
-      PL_resource_error("memory");
-
-    return FALSE;
+    if ( unify_part_ptr(func,
+			ctx, sizeof(*ctx), ATOM_c_function,
+			ci_function_free) )
+      return TRUE;
   }
+
+error:
+  ci_function_free(ctx);
 
   return FALSE;
 }
@@ -578,197 +511,148 @@ pl_ffi_call(term_t prototype, term_t goal)
   { void *argv[ctx->argc];
     argstore as[ctx->argc];
     argstore rv;
-    int argc = 0;
+    int argi;
     term_t arg = PL_new_term_ref();
-    const char *pfmt;
-    int unsig = FALSE;
-    int size = 0;				/* -2..2 */
-    int io = 0;					/* -1: output, +1: input */
 
-    for(pfmt = ctx->pformat; *pfmt; pfmt++)
-    { switch(*pfmt)
-      { case 'u':				/* modifiers */
-	  unsig = TRUE;
-	  continue;
-	case 'h':
-	  size--;
-	  continue;
-	case 'l':
-	  size++;
-	  continue;
-	case '+':
-	  io = 1;
-	  continue;
-	case '-':
-	  io = -1;
-	  continue;
-      }
+    for(argi=0; argi<ctx->argc; argi++)
+    { const type_spec *t = &ctx->arg_type[argi];
 
-      (void)io;					/* what to do? */
-
-      if ( !PL_get_arg(argc+1, goal, arg) )
-      { return ( PL_put_integer(arg, argc+1) &&
+      if ( !PL_get_arg(argi+1, goal, arg) )
+      { return ( PL_put_integer(arg, argi+1) &&
 		 PL_existence_error("d_arg", arg) );
       }
 
-      switch(*pfmt)
-      { case 'i':				/* scalars */
-	  switch(size)
-	  { case -2:
-	      if ( unsig )
-	      { if ( !PL_cvt_i_uchar(arg, &as[argc].uc) )
-		  return FALSE;
-	      } else
-	      { if ( !PL_cvt_i_char(arg, &as[argc].c) )
-		  return FALSE;
-	      }
-	      argv[argc] = &as[argc].c;
-	      break;
-	    case -1:
-	      if ( unsig )
-	      { if ( !PL_cvt_i_ushort(arg, &as[argc].us) )
-		  return FALSE;
-	      } else
-	      { if ( !PL_cvt_i_short(arg, &as[argc].s) )
-		  return FALSE;
-	      }
-	      argv[argc] = &as[argc].s;
-	      break;
-	    case 0:
-	      if ( unsig )
-	      { if ( !PL_cvt_i_uint(arg, &as[argc].ui) )
-		  return FALSE;
-	      } else
-	      { if ( !PL_cvt_i_int(arg, &as[argc].i) )
-		  return FALSE;
-	      }
-	      argv[argc] = &as[argc].i;
-	      break;
-	    case 1:
-	      if ( unsig )
-	      { if ( !PL_cvt_i_ulong(arg, &as[argc].ul) )
-		  return FALSE;
-	      } else
-	      { if ( !PL_cvt_i_long(arg, &as[argc].l) )
-		  return FALSE;
-	      }
-	      argv[argc] = &as[argc].l;
-	      break;
-	    case 2:
-	      if ( unsig )
-	      { if ( !PL_cvt_i_uint64(arg, &as[argc].ull) )
-		  return FALSE;
-	      } else
-	      { if ( !PL_cvt_i_int64(arg, &as[argc].ll) )
-		  return FALSE;
-	      }
-	      argv[argc] = &as[argc].ll;
-	      break;
-	    default:
-	      assert(0);
-	  }
-	  break;
-	case 'f':
-	  switch(size)
-	  { case 0:
-	      if ( !PL_cvt_i_single(arg, &as[argc].f) )
+      if ( t->ptrl > 0 )
+      { if ( !get_ptr(arg, &as[argi].p, 0) )
+	  return FALSE;
+	DEBUG(2, Sdprintf("Got ptr %p\n", as[argi].p));
+	argv[argi] = &as[argi].p;
+      } else
+      { switch(t->type)
+	{ case CT_CHAR:
+	    if ( !PL_cvt_i_char(arg, &as[argi].c) )
+	      return FALSE;
+	    argv[argi] = &as[argi].c;
+	    break;
+	  case CT_UCHAR:
+	    if ( !PL_cvt_i_uchar(arg, &as[argi].uc) )
+	      return FALSE;
+	    argv[argi] = &as[argi].uc;
+	    break;
+	  case CT_WCHAR_T:
+	    if ( sizeof(wchar_t) == sizeof(int) )
+	    { if ( !PL_cvt_i_int(arg, &as[argi].i) )
 		return FALSE;
-	      argv[argc] = &as[argc].f;
-	      break;
-	    case 1:
-	      if ( !PL_cvt_i_float(arg, &as[argc].d) )
+	      argv[argi] = &as[argi].i;
+	    } else if ( sizeof(wchar_t) == sizeof(short) )
+	    { if ( !PL_cvt_i_ushort(arg, &as[argi].us) )
 		return FALSE;
-	      argv[argc] = &as[argc].d;
-	      break;
-	    default:
+	      argv[argi] = &as[argi].us;
+	    } else
 	      assert(0);
-	  }
-	  break;
-	case 'p':				/* pointers */
-	  if ( !get_ptr(arg, &as[argc].p, 0) )
-	    return FALSE;
-	  DEBUG(2, Sdprintf("Got ptr %p\n", as[argc].p));
-	  argv[argc] = &as[argc].p;
-	  break;
-	case 'c':			/* closure */
-	  if ( !get_closure(arg, &as[argc].p) )
-	    return FALSE;
-	  DEBUG(2, Sdprintf("Got closure ptr %p\n", as[argc].p));
-	  argv[argc] = &as[argc].p;
-	  break;
-	default:
-	  assert(0);
+	    break;
+	  case CT_SHORT:
+	    if ( !PL_cvt_i_short(arg, &as[argi].s) )
+	      return FALSE;
+	    argv[argi] = &as[argi].s;
+	    break;
+	  case CT_USHORT:
+	    if ( !PL_cvt_i_ushort(arg, &as[argi].us) )
+	      return FALSE;
+	    argv[argi] = &as[argi].us;
+	    break;
+	  case CT_ENUM:
+	  case CT_INT:
+	    if ( !PL_cvt_i_int(arg, &as[argi].i) )
+	      return FALSE;
+	    argv[argi] = &as[argi].i;
+	    break;
+	  case CT_UINT:
+	    if ( !PL_cvt_i_uint(arg, &as[argi].ui) )
+	      return FALSE;
+	    argv[argi] = &as[argi].ui;
+	    break;
+	  case CT_LONG:
+	    if ( !PL_cvt_i_long(arg, &as[argi].l) )
+	      return FALSE;
+	    argv[argi] = &as[argi].l;
+	    break;
+	  case CT_ULONG:
+	    if ( !PL_cvt_i_ulong(arg, &as[argi].ul) )
+	      return FALSE;
+	    argv[argi] = &as[argi].ul;
+	    break;
+	  case CT_LONGLONG:
+	    if ( !PL_cvt_i_int64(arg, &as[argi].ll) )
+	      return FALSE;
+	    argv[argi] = &as[argi].ll;
+	    break;
+	  case CT_ULONGLONG:
+	    if ( !PL_cvt_i_uint64(arg, &as[argi].ull) )
+	      return FALSE;
+	    argv[argi] = &as[argi].ull;
+	    break;
+	  case CT_FLOAT:
+	    if ( !PL_cvt_i_single(arg, &as[argi].f) )
+	      return FALSE;
+	    argv[argi] = &as[argi].f;
+	    break;
+	  case CT_DOUBLE:
+	    if ( !PL_cvt_i_float(arg, &as[argi].d) )
+	      return FALSE;
+	    argv[argi] = &as[argi].d;
+	    break;
+	  case CT_CLOSURE:
+	    if ( !get_closure(arg, &as[argi].p) )
+	      return FALSE;
+	    argv[argi] = &as[argi].p;
+	    break;
+	  default:
+	    assert(0);
+	}
       }
-
-      argc++;
-      unsig = FALSE;
-      size = 0;
-      io = 0;
     }
 
-    if ( ctx->rformat && ctx->rformat[0] )
-    { if ( !PL_get_arg(argc+1, goal, arg) )
-      { return ( PL_put_integer(arg, argc+1) &&
+    if ( ctx->ret_type.type != CT_VOID )
+    { if ( !PL_get_arg(argi+1, goal, arg) )
+      { return ( PL_put_integer(arg, argi+1) &&
 		 PL_existence_error("d_arg", arg) );
       }
     }
 
     ffi_call(&ctx->cif, ctx->func, &rv.p, argv);
 
-    if ( ctx->rformat && ctx->rformat[0] )
-    { unsig = FALSE;
-      size  = 0;				/* -2..2 */
-      io    = 0;				/* -1: output, +1: input */
+    if ( ctx->ret_type.ptrl > 0 )
+    { type_spec tspec = ctx->ret_type;
 
-      for(pfmt=ctx->rformat; *pfmt; pfmt++)
-      { switch(*pfmt)
-	{ case 'u':				/* modifiers */
-	    unsig = TRUE;
-	    continue;
-	  case 'h':
-	    size--;
-	    continue;
-	  case 'l':
-	    size++;
-	    continue;
-	  case '+':
-	    io = 1;
-	    continue;
-	  case '-':
-	    io = -1;
-	    continue;
-
-	  case 'i':
-	    switch(size)
-	    { case -2:
-		return unsig ? PL_unify_uint64(arg, rv.uc)
-	                     : PL_unify_int64(arg, rv.c);
-	      case -1:
-		return unsig ? PL_unify_uint64(arg, rv.us)
-	                     : PL_unify_int64(arg, rv.s);
-	      case  0:
-		return unsig ? PL_unify_uint64(arg, rv.ui)
-	                     : PL_unify_int64(arg, rv.i);
-	      case  1:
-		return unsig ? PL_unify_uint64(arg, rv.ul)
-	                     : PL_unify_int64(arg, rv.l);
-	      case  2:
-		return unsig ? PL_unify_uint64(arg, rv.ull)
-	                     : PL_unify_int64(arg, rv.ll);
-	    }
-	  case 'f':
-	    switch(size)
-	    { case 0:
-		return PL_cvt_o_float(rv.f, arg);
-	      case 1:
-		return PL_cvt_o_float(rv.d, arg);
-	    }
-	  case 'p':
-	    return unify_ptr(arg, rv.p, 1, &ctx->ret);
-	}
-      }
+      tspec.ptrl--;
+      return unify_ptr(arg, rv.p, 1, &tspec);
     } else
-    { return TRUE;			/* void function */
+    { switch(ctx->ret_type.type)
+      { case CT_VOID:	   return TRUE;
+	case CT_CHAR:      return PL_unify_int64 (arg, rv.c);
+	case CT_UCHAR:     return PL_unify_uint64(arg, rv.uc);
+        case CT_WCHAR_T:
+	  if ( sizeof(wchar_t) == sizeof(int) )
+	    return PL_unify_int64 (arg, rv.i);
+	  else if ( sizeof(wchar_t) == sizeof(short) )
+	    return PL_unify_uint64 (arg, rv.us);
+	  else
+	    assert(0);
+	case CT_SHORT:     return PL_unify_int64 (arg, rv.s);
+	case CT_USHORT:    return PL_unify_uint64(arg, rv.us);
+        case CT_ENUM:
+	case CT_INT:       return PL_unify_int64 (arg, rv.i);
+	case CT_UINT:      return PL_unify_uint64(arg, rv.ui);
+	case CT_LONG:      return PL_unify_int64 (arg, rv.l);
+	case CT_ULONG:     return PL_unify_uint64(arg, rv.ul);
+	case CT_LONGLONG:  return PL_unify_int64 (arg, rv.ll);
+	case CT_ULONGLONG: return PL_unify_uint64(arg, rv.ull);
+	case CT_FLOAT:     return PL_unify_float (arg, rv.f);
+	case CT_DOUBLE:    return PL_unify_float (arg, rv.d);
+        default:
+	  assert(0);
+      }
     }
   }
 
@@ -781,39 +665,6 @@ pl_ffi_call(term_t prototype, term_t goal)
 		 *******************************/
 
 static void call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp);
-
-static ffi_type *
-ffi_type_wchar_t(void)
-{ if ( sizeof(wchar_t) == sizeof(int) )
-    return &ffi_type_sint;
-  else
-    return &ffi_type_ushort;			/* Windows; signed or not? */
-}
-
-
-static ffi_type *
-to_ffi_type(const type_spec *tspec)
-{ if ( tspec->ptrl > 0 )
-    return &ffi_type_pointer;
-
-  switch(tspec->type)
-  { case CT_CHAR:	return &ffi_type_schar;
-    case CT_UCHAR:	return &ffi_type_uchar;
-    case CT_WCHAR_T:	return ffi_type_wchar_t();
-    case CT_SHORT:	return &ffi_type_sshort;
-    case CT_USHORT:	return &ffi_type_ushort;
-    case CT_INT:	return &ffi_type_sint;
-    case CT_UINT:	return &ffi_type_uint;
-    case CT_LONG:	return &ffi_type_slong;
-    case CT_ULONG:	return &ffi_type_ulong;
-    case CT_LONGLONG:	return &ffi_type_sint64;
-    case CT_ULONGLONG:	return &ffi_type_uint64;
-    case CT_FLOAT:	return &ffi_type_float;
-    case CT_DOUBLE:	return &ffi_type_double;
-    default:
-      return NULL;
-  }
-}
 
 static void
 free_closure(ctx_closure *ctx)
@@ -833,14 +684,11 @@ ffi_closure_create(term_t qpred,
 		   term_t closure)
 { module_t m = NULL;
   term_t pred = PL_new_term_ref();
-  term_t tail = PL_copy_term_ref(args);
-  term_t head = PL_new_term_ref();
   atom_t pname;
   size_t parity;
   ctx_closure *ctx;
   ffi_abi fabi;
   ffi_type *rtype;
-  size_t i;
 
   if ( !(ctx = malloc(sizeof(*ctx))) )
     return PL_resource_error("memory");
@@ -873,15 +721,8 @@ ffi_closure_create(term_t qpred,
     goto error;
   }
 
-  for(i=0; PL_get_list(tail, head, tail); i++ )
-  { if ( !get_type(head, &ctx->arg_type[i]) )
-      goto error;
-    if ( !(ctx->ffi_type[i] = to_ffi_type(&ctx->arg_type[i])) )
-    { assert(ctx->ffi_type[i] == &ffi_type_sint);
-      PL_domain_error("c_type", head);
-      goto error;
-    }
-  }
+  if ( !get_types(args, ctx->arg_type, ctx->ffi_type) )
+    goto error;
 
   if ( !(ctx->closure = ffi_closure_alloc(sizeof(ffi_closure), &ctx->func)) )
   { PL_resource_error("memory");

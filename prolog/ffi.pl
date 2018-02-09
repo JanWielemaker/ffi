@@ -575,31 +575,25 @@ define(QHead, CSignature) :-
 link_clause(M:Goal, CSignature,
             (PHead :- !, Body)) :-
     c_function(M:Goal, ParamSpec, RetType),	% Also in dynamic part?
-    maplist(param_type, ParamSpec, ParamTypes),
-    phrase(signature_string(ParamTypes), ParamChars),
-    atom_codes(Params, ParamChars),
-    (   RetType == void
-    ->  Ret = ''
-    ;   phrase(signature_string([RetType]), RetChars),
-        atom_codes(Ret, RetChars)
-    ),
+    maplist(strip_param_name, ParamSpec, ParamTypes),
     functor(Goal, Name, PArity),
     functor(PHead, Name, PArity),
     functor(CSignature, _, CArity),
     functor(CHead, Name, CArity),
     CSignature =.. [FName|SigArgs],
-    prototype_return(Ret, M, SigArgs, PRet),
     find_symbol(M, FName, FuncPtr),
-    debug(ctypes, 'Binding ~p (Ret=~p, Params=~p)', [Name, PRet, Params]),
-    ffi_prototype_create(FuncPtr, default, PRet, Params, Prototype),
+    prototype_types(ParamTypes, SigArgs, RetType, M, PParams, PRet),
+    debug(ffi(prototype),
+          'Binding ~p (Ret=~p, Params=~p)', [Name, PRet, PParams]),
+    ffi_prototype_create(FuncPtr, default, PRet, PParams, Prototype),
     convert_args(SigArgs, 1, PArity, 1, CArity, PHead, CHead,
                  PreConvert, PostConvert),
     Invoke = ffi:ffi_call(Prototype, CHead),
     mkconj(PreConvert, Invoke, Body0),
     mkconj(Body0, PostConvert, Body).
 
-param_type(_Name-Type, Type) :- !.
-param_type(Type, Type).
+strip_param_name(_Name-Type, Type) :- !.
+strip_param_name(Type, Type).
 
 find_symbol(M, FName, Symbol) :-
     M:'$c_lib'(Lib, Funcs),
@@ -611,25 +605,33 @@ find_symbol(M, FName, Symbol) :-
 find_symbol(_, FName, _) :-
     existence_error(c_function, FName).
 
-prototype_return(p, M, SigArgs, PRet) :-
-    append(_, [[PlRet]], SigArgs),
-    PlRet =.. [*,Type|T], !,
-    catch(elem_type_size(M:Type, Size),
-          error(existence_error(type,_),_),
-          Size = 0),
-    (   T == []
-    ->  PRet = pointer(Type, Size)
-    ;   T = [FreeName]
-    ->  find_symbol(M, FreeName, Free),
-        PRet = pointer(Type, Size, Free)
-    ).
-prototype_return(Ret, _, _, Ret).
+prototype_types([], [[SA]], RetType, M, [], PRet) :-
+    !,
+    prototype_type(RetType, M, SA, PRet).
+prototype_types([], [], _RetType, _M, [], void).
+prototype_types([H0|T0], [SA|ST], RetType, M, [H|T], PRet) :-
+    prototype_type(H0, M, SA, H),
+    prototype_types(T0, ST, RetType, M, T, PRet).
 
-elem_type_size(_:void, 0) :-            % elements of void* have no defined size
+prototype_type(funcptr(_,_), _, _, closure) :-
     !.
-elem_type_size(Type, Size) :-
-    type_size(Type, Size).
-
+prototype_type(*Type0, M, Sig, *Type) :-
+    !,
+    prototype_type(Type0, M, Sig, Type).
+prototype_type(*(Type0, Free), M, Sig, *(Type, Free)) :-
+    !,
+    prototype_type(Type0, M, Sig, Type).
+prototype_type(struct(Name), M, _Sig, struct(Name, Size)) :-
+    !,
+    catch(type_size(M:struct(Name), Size),
+          error(existence_error(type,_),_),
+          Size = 0).
+prototype_type(union(Name), M, _Sig, union(Name, Size)) :-
+    !,
+    catch(type_size(M:union(Name), Size),
+          error(existence_error(type,_),_),
+          Size = 0).
+prototype_type(Type, _, _, Type).
 
 %!  convert_args(+SigArgs, +PI, +PArity, +CI, +CArity,
 %!		 +PlHead, +CHead, -PreGoal, -PostGoal)
@@ -702,29 +704,6 @@ convert_arg([enum(Enum)], Id, Int,
 mkconj(true, G, G) :- !.
 mkconj(G, true, G) :- !.
 mkconj(G1, G2, (G1,G2)).
-
-%!  signature_string(+Types)//
-%
-%   Get string description of the argument for the C layer
-
-signature_string([]) --> [].
-signature_string([H|T]) --> signature(H), signature_string(T).
-
-signature(char)         --> "hhi".
-signature(uchar)        --> "uhhi".
-signature(short)        --> "hi".
-signature(ushort)       --> "uhi".
-signature(int)          --> "i".
-signature(uint)         --> "ui".
-signature(long)         --> "li".
-signature(ulong)        --> "uli".
-signature(longlong)     --> "lli".
-signature(ulonglong)    --> "ulli".
-signature(float)        --> "f".
-signature(double)       --> "lf".
-signature(*(_))         --> "p".
-signature(funcptr(_,_)) --> "c".
-signature(enum(_))      --> "i".
 
 %!  closure_create(:Head, -Closure) is det.
 %
