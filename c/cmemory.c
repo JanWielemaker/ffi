@@ -113,9 +113,12 @@ typedef enum c_type
   CT_VOID
 } c_type;
 
+#define CTF_OUTPUT	0x0001		/* Output argument */
+
 typedef struct type_spec
 { c_type	 type;			/* CT_* */
-  int		 ptrl;			/* pointer level */
+  short		 ptrl;			/* pointer level */
+  short		 flags;			/* bitwise or of CTF_* */
   atom_t	 name;			/* struct, union or enum name */
   size_t	 size;			/* Element size */
   void          *free;			/* Free function */
@@ -801,7 +804,7 @@ c_load(term_t ptr, term_t offset, term_t type, term_t value)
 	return VALID(ref, off, double) && PL_unify_float(value, *p);
       } else if ( ta == ATOM_pointer )
       { void **p = vp;
-	type_spec tspec = {CT_VOID, 0, 0, SZ_UNKNOWN, NULL};
+	type_spec tspec = {CT_VOID, 0, 0, 0, SZ_UNKNOWN, NULL};
 
 	return VALID(ref, off, void*) &&
 	       unify_ptr(value, *p, 1, &tspec);
@@ -1047,7 +1050,7 @@ c_alloc_string(term_t ptr, term_t data, term_t encoding)
     { pl_wchar_t *ws;
 
       if ( PL_get_wchars(data, &len, &ws, flags) )
-      { type_spec tspec = {CT_WCHAR_T, 0, 0, sizeof(wchar_t), PL_free};
+      { type_spec tspec = {CT_WCHAR_T, 0, 0, 0, sizeof(wchar_t), PL_free};
 
 	if ( unify_ptr(ptr, ws, (len+1), &tspec) )
 	  return TRUE;
@@ -1058,7 +1061,7 @@ c_alloc_string(term_t ptr, term_t data, term_t encoding)
   }
 
   if ( PL_get_nchars(data, &len, &s, flags) )
-  { type_spec tspec = {CT_CHAR, 0, 0, sizeof(char), PL_free};
+  { type_spec tspec = {CT_CHAR, 0, 0, 0, sizeof(char), PL_free};
 
     if ( unify_ptr(ptr, s, len+1, &tspec) )
       return TRUE;

@@ -72,8 +72,7 @@ static atom_t ATOM_deepbind;
 
 static atom_t ATOM_void;			/* void */
 
-static functor_t FUNCTOR_pointer2;
-static functor_t FUNCTOR_pointer3;
+static functor_t FUNCTOR_minus1;
 
 static int	get_closure(term_t t, void **func);
 
@@ -186,7 +185,7 @@ static int
 unify_part_ptr(term_t t,
 	       void *ptr, size_t size, atom_t type,
 	       freefunc free)
-{ type_spec tspec = {CT_STRUCT, 0, type, size, free};
+{ type_spec tspec = {CT_STRUCT, 0, 0, type, size, free};
 
   return unify_ptr(t, ptr, 1, &tspec);
 }
@@ -376,8 +375,18 @@ to_ffi_type(const type_spec *tspec)
 
 static int
 get_ffi_type(term_t t, type_spec *pl_type, ffi_type **ffi_type, int isret)
-{ if ( !get_type(t, pl_type) )
-    return FALSE;
+{ if ( !isret && PL_is_functor(t, FUNCTOR_minus1) )
+  { term_t t2 = PL_new_term_ref();
+
+    _PL_get_arg(1, t, t2);
+    if ( !get_type(t2, pl_type) )
+      return FALSE;
+    pl_type->flags |= CTF_OUTPUT;
+  } else
+  { if ( !get_type(t, pl_type) )
+      return FALSE;
+  }
+
   if ( !(*ffi_type = to_ffi_type(pl_type)) )
   { if ( isret && pl_type->type == CT_VOID )
       *ffi_type = &ffi_type_void;
@@ -733,7 +742,7 @@ ffi_closure_create(term_t qpred,
        FFI_OK )
   { if ( ffi_prep_closure_loc(ctx->closure, &ctx->cif, call_closure,
 			      ctx, ctx->func) == FFI_OK )
-    { type_spec tspec = {CT_STRUCT, 0, ATOM_c_closure,
+    { type_spec tspec = {CT_STRUCT, 0, 0, ATOM_c_closure,
 			  sizeof(*ctx), free_closure};
       return unify_ptr(closure, ctx, 1, &tspec);
     }
@@ -934,8 +943,7 @@ install(void)
 
   MKATOM(void);
 
-  MKFUNCTOR(pointer, 2);
-  MKFUNCTOR(pointer, 3);
+  FUNCTOR_minus1 = PL_new_functor(PL_new_atom("-"), 1);
 
   install_c_memory();
 
