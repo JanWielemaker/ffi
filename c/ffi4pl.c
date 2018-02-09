@@ -46,7 +46,7 @@
 #include <string.h>
 #include <assert.h>
 
-#define MAX_ARGC 100
+#define MAX_OUTPUT_ARGS 16
 
 static unsigned int debug = 0;
 
@@ -510,6 +510,49 @@ typedef union argstore
 } argstore;
 
 
+static int
+unify_output(term_t t, const type_spec *tp, const argstore *as)
+{ if ( tp->ptrl > 0 )
+  { type_spec tspec = *tp;
+
+    tspec.ptrl--;
+    return unify_ptr(t, as->p, 1, &tspec);
+  } else
+  { switch(tp->type)
+    { case CT_VOID:	 return TRUE;
+      case CT_CHAR:      return PL_unify_int64 (t, as->c);
+      case CT_UCHAR:     return PL_unify_uint64(t, as->uc);
+      case CT_WCHAR_T:
+	if ( sizeof(wchar_t) == sizeof(int) )
+	  return PL_unify_int64 (t, as->i);
+	else if ( sizeof(wchar_t) == sizeof(short) )
+	  return PL_unify_uint64 (t, as->us);
+	else
+	  assert(0);
+      case CT_SHORT:     return PL_unify_int64 (t, as->s);
+      case CT_USHORT:    return PL_unify_uint64(t, as->us);
+      case CT_ENUM:
+      case CT_INT:       return PL_unify_int64 (t, as->i);
+      case CT_UINT:      return PL_unify_uint64(t, as->ui);
+      case CT_LONG:      return PL_unify_int64 (t, as->l);
+      case CT_ULONG:     return PL_unify_uint64(t, as->ul);
+      case CT_LONGLONG:  return PL_unify_int64 (t, as->ll);
+      case CT_ULONGLONG: return PL_unify_uint64(t, as->ull);
+      case CT_FLOAT:     return PL_unify_float (t, as->f);
+      case CT_DOUBLE:    return PL_unify_float (t, as->d);
+      default:
+	assert(0);
+    }
+  }
+}
+
+
+typedef struct oarg
+{ argstore     *disp;
+  term_t	term;
+  int		anum;
+} oarg;
+
 static foreign_t
 pl_ffi_call(term_t prototype, term_t goal)
 { ctx_prototype *ctx;
@@ -522,6 +565,9 @@ pl_ffi_call(term_t prototype, term_t goal)
     argstore rv;
     int argi;
     term_t arg = PL_new_term_ref();
+    oarg oargs[MAX_OUTPUT_ARGS];
+    int oarg_count = 0;
+    int i;
 
     for(argi=0; argi<ctx->argc; argi++)
     { const type_spec *t = &ctx->arg_type[argi];
@@ -531,7 +577,16 @@ pl_ffi_call(term_t prototype, term_t goal)
 		 PL_existence_error("d_arg", arg) );
       }
 
-      if ( t->ptrl > 0 )
+      if ( (t->flags&CTF_OUTPUT) )
+      { if ( oarg_count == MAX_OUTPUT_ARGS )
+	  return PL_representation_error("ffi_output_arg_count");
+
+	oargs[oarg_count].anum = argi;
+	oargs[oarg_count].disp = &as[argi];
+	oargs[oarg_count].term = PL_copy_term_ref(arg);
+	argv[argi] = &oargs[oarg_count].disp;
+	oarg_count++;
+      } else if ( t->ptrl > 0 )
       { if ( !get_ptr(arg, &as[argi].p, 0) )
 	  return FALSE;
 	DEBUG(2, Sdprintf("Got ptr %p\n", as[argi].p));
@@ -631,38 +686,15 @@ pl_ffi_call(term_t prototype, term_t goal)
 
     ffi_call(&ctx->cif, ctx->func, &rv.p, argv);
 
-    if ( ctx->ret_type.ptrl > 0 )
-    { type_spec tspec = ctx->ret_type;
-
-      tspec.ptrl--;
-      return unify_ptr(arg, rv.p, 1, &tspec);
-    } else
-    { switch(ctx->ret_type.type)
-      { case CT_VOID:	   return TRUE;
-	case CT_CHAR:      return PL_unify_int64 (arg, rv.c);
-	case CT_UCHAR:     return PL_unify_uint64(arg, rv.uc);
-        case CT_WCHAR_T:
-	  if ( sizeof(wchar_t) == sizeof(int) )
-	    return PL_unify_int64 (arg, rv.i);
-	  else if ( sizeof(wchar_t) == sizeof(short) )
-	    return PL_unify_uint64 (arg, rv.us);
-	  else
-	    assert(0);
-	case CT_SHORT:     return PL_unify_int64 (arg, rv.s);
-	case CT_USHORT:    return PL_unify_uint64(arg, rv.us);
-        case CT_ENUM:
-	case CT_INT:       return PL_unify_int64 (arg, rv.i);
-	case CT_UINT:      return PL_unify_uint64(arg, rv.ui);
-	case CT_LONG:      return PL_unify_int64 (arg, rv.l);
-	case CT_ULONG:     return PL_unify_uint64(arg, rv.ul);
-	case CT_LONGLONG:  return PL_unify_int64 (arg, rv.ll);
-	case CT_ULONGLONG: return PL_unify_uint64(arg, rv.ull);
-	case CT_FLOAT:     return PL_unify_float (arg, rv.f);
-	case CT_DOUBLE:    return PL_unify_float (arg, rv.d);
-        default:
-	  assert(0);
-      }
+    for(i=0; i<oarg_count; i++)
+    { int ai = oargs[i].anum;
+      if ( !unify_output(oargs[i].term,
+			 &ctx->arg_type[ai],
+			 oargs[i].disp) )
+	return FALSE;
     }
+
+    return unify_output(arg, &ctx->ret_type, &rv);
   }
 
   return FALSE;
