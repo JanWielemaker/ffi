@@ -349,7 +349,7 @@ ffi_type_wchar_t(void)
 
 static ffi_type *
 to_ffi_type(const type_spec *tspec)
-{ if ( tspec->ptrl > 0 )
+{ if ( tspec->ptrl > 0 || (tspec->flags&CTF_OUTPUT) )
     return &ffi_type_pointer;
 
   switch(tspec->type)

@@ -615,6 +615,9 @@ prototype_types([H0|T0], [SA|ST], RetType, M, [H|T], PRet) :-
 
 prototype_type(funcptr(_,_), _, _, closure) :-
     !.
+prototype_type(*CType, _, -ScalarType, -CType) :-
+    c_sizeof(ScalarType, _Size),
+    !.
 prototype_type(*Type0, M, Sig, *Type) :-
     !,
     prototype_type(Type0, M, Sig, Type).
@@ -682,10 +685,6 @@ convert_arg(enum(Enum), Id, Int,
 convert_arg(-enum(Enum), Id, Ptr,
             c_alloc(Ptr, enum(Enum)),
             c_load(Ptr, Id)).
-convert_arg(-ScalarType, Value, Ptr,
-            c_calloc(Ptr, ScalarType, Size, 1),
-            c_load(Ptr, 0, ScalarType, Value)) :-
-    c_sizeof(ScalarType, Size).
 
 % return value.  We allow for -Value, but do not demand it as the
 % return value can only be an output.
