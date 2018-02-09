@@ -1,6 +1,10 @@
 #include <string.h>			/* get strdup() */
 #include <stdlib.h>			/* get free() prototype */
 
+		 /*******************************
+		 *	      OUTPUT		*
+		 *******************************/
+
 void
 test_v_oi(int *i)			/* output integer */
 { *i = 42;
@@ -16,12 +20,23 @@ test_v_ofs(char **sp)			/* output owned string */
 { *sp = strdup("hello world");
 }
 
-const char *
+void
+test_v_oip(int **sp)			/* output int* */
+{ static int data[] = {1,2,3};
+
+  *sp = data;
+}
+
+		 /*******************************
+		 *	      RETURN		*
+		 *******************************/
+
+const char *				/* return string */
 test_s(void)
 { return "hello world";
 }
 
-const char *
+const char *				/* return owned string */
 test_fs(void)
 { return strdup("hello world");
 }

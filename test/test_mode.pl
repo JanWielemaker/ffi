@@ -21,21 +21,28 @@ test_output_leaks(Iterations) :-
             [ 'test/test_mode',
               '-lc'
             ],
-            [ test_v_oi(-int),
+            [ test_v_oi(-int),          % output
               test_v_os(-string),
               test_v_ofs(-string~free),
+              test_v_oip(-(*(int))),
+                                        % return
               test_s([string]),
               test_fs([string~free])
             ]).
 
 :- begin_tests(c_mode).
 
+                                        % OUTPUT
 test(test_v_oi, I == 42) :-
     test_v_oi(I).
 test(test_v_os, S == "hello world") :-
     test_v_os(S).
 test(test_v_ofs, S == "hello world") :-
     test_v_ofs(S).
+test(test_v_oip, P == "hello world") :-
+    test_v_oip(P).
+
+                                        % RETURN
 test(test_s, S == "hello world") :-
     test_s(S).
 test(test_fs, S == "hello world") :-
