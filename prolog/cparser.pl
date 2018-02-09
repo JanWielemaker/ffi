@@ -814,10 +814,10 @@ skip_unit -->
     { diff(Start, End, Skipped),
       (   memberchk('__extension__', Skipped)
       ->  (   debugging(c99(extension))
-          ->  print_message(informational, ffi(skipped_header, Skipped))
+          ->  print_message(informational, ffi(skipped_header(Skipped)))
           ;   true
           )
-      ;   print_message(warning, ffi(skipped_header, Skipped))
+      ;   print_message(warning, ffi(skipped_header(Skipped)))
       )
     }.
 
@@ -878,3 +878,17 @@ declarator_name(declarator(_Ptr, dd(Name, _)), Name) :-
 % typedef ssize_t (*Sread_function)(void *handle, char *buf, size_t bufsize);
 declarator_name(declarator(_Ptr, dd(Declarator,_)), Name) :-
     declarator_name(Declarator, Name).
+
+
+		 /*******************************
+		 *            MESSAGES		*
+		 *******************************/
+
+:- multifile
+    prolog:message//1.
+
+prolog:message(ffi(Msg)) -->
+    message(Msg).
+
+message(skipped_header(Tokens)) -->
+    [ 'FFI: Could not parse ~p'-[Tokens] ].
