@@ -27,13 +27,13 @@ $(FFI4PL): c/ffi4pl.c c/cmemory.c Makefile
 	mkdir -p $(PACKSODIR)
 	$(LD) $(LDSOFLAGS) -o $@ c/ffi4pl.c $(LIBS)
 
-test/test.$(SOEXT): test/test.c
+test/test_mode.$(SOEXT): test/test_mode.c
+	$(CC) $(CFLAGS) -o $@ $<
+test/test_enum.$(SOEXT): test/test_enum.c
 	$(CC) $(CFLAGS) -o $@ $<
 test/test_struct.$(SOEXT): test/test_struct.c
 	$(CC) $(CFLAGS) -o $@ $<
 test/test_union.$(SOEXT): test/test_union.c
-	$(CC) $(CFLAGS) -o $@ $<
-test/test_enum.$(SOEXT): test/test_enum.c
 	$(CC) $(CFLAGS) -o $@ $<
 test/test_funcptr.$(SOEXT): test/test_funcptr.c
 	$(CC) $(CFLAGS) -o $@ $<
@@ -43,6 +43,7 @@ tags:
 
 check:	$(TESTSO)
 	$(SWIPL) -q -g test_cmem -t halt test/test_cmem.pl
+	$(SWIPL) -q -g test_mode -t halt test/test_mode.pl
 	$(SWIPL) -q -g test_enum -t halt test/test_enum.pl
 	$(SWIPL) -q -g test_struct -t halt test/test_struct.pl
 	$(SWIPL) -q -g test_union -t halt test/test_union.pl
