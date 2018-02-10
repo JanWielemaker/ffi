@@ -53,10 +53,15 @@ c99_parse_cont(AST) -->
 		 *       A.2.1 Expression	*
 		 *******************************/
 
-primary_expression(E) --> [id(E)].
+primary_expression(E) --> opt_extension, [id(E)].
 primary_expression(E) --> constant(E).
 primary_expression(E) --> string_literal(E).
 primary_expression(E) --> ['('], expression(E), [')'].
+primary_expression(E) --> opt_extension, ['('],
+			  compound_statement(E), [')']. % GCC extension
+
+opt_extension --> ['__extension__'], !.
+opt_extension --> [].
 
 constant(i(I)) --> [i(I)].
 constant(l(I)) --> [l(I)].
