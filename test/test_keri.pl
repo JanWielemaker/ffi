@@ -13,8 +13,13 @@ test_keri :-
               test_int_in(int),
               test_int_out(-int),
               test_int_in_out(*int),
-              test_null_return([string]),
-              test_null_in(string)
+              test_null_return([*char]),
+              test_null_return([string]) as test_null_return_string,
+              test_null_in(*char),
+              test_null_in(string) as test_null_in_string,
+              test_null_out(-(*char)),
+              test_null_out(-string) as test_null_out_string,
+              test_null_in_out(*(*char))
             ]).
 
 :- begin_tests(keri).
@@ -31,13 +36,30 @@ test(test_int_in_out, X == 24) :-
     test_int_in_out(Ptr),
     c_load(Ptr, X).
 
-test(test_null_return, error(domain_error(non_null_pointer, _))) :-
+test(test_null_return) :-
     test_null_return(S),
+    c_is_nil(S).
+test(test_null_return_string, error(domain_error(non_null_pointer, _))) :-
+    test_null_return_string(S),
     c_is_nil(S).
 test(test_null_in) :-
     c_nil(NULL),
     test_null_in(NULL),
     assertion(no_assertion).
+test(test_null_in_string, error(type_error(text, _))) :-
+    c_nil(NULL),
+    test_null_in_string(NULL).
+test(test_null_out) :-
+    test_null_out(X),
+    assertion(c_is_nil(X)).
+test(test_null_out_string, error(domain_error(non_null_pointer, _))) :-
+    test_null_out_string(_).
+test(test_null_in_out) :-
+    c_nil(Nil),
+    c_alloc(Ptr, *char = Nil),
+    test_null_in_out(Ptr),
+    c_load(Ptr, Out),
+    assertion(c_is_nil(Out)).
 
 :- end_tests(keri).
 
