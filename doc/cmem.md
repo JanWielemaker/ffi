@@ -63,6 +63,7 @@ and enum(Name).
   - [[c_load/2]]
   - [[c_store/2]]
   - [[c_nil/1]]
+  - [[c_is_nil/1]]
 
 ## The low level interface
 

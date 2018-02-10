@@ -317,7 +317,7 @@ py_object(Ref) :-
 
 py_object(Ref, ClassName) :-
     current_blob(Ref, c_ptr),
-    \+ c_nil(Ref),
+    \+ c_is_nil(Ref),
     c_typeof(Ref, struct('_object')),
     'PyObject_GetAttrString'(Ref, '__class__', Class),
     'PyObject_GetAttrString'(Class, '__name__', Unicode),
@@ -421,7 +421,7 @@ py_dict_add(Dict, Key-Value) :-
 %     | Dict   | dict              |
 
 python_to_prolog(Py, Value) :-
-    c_nil(Py),
+    c_is_nil(Py),
     !,
     Value = null.
 python_to_prolog(Py, Value) :-
@@ -509,7 +509,7 @@ python_to_prolog_key(Py, _Value) :-
 
 py_check_exception :-
     'PyErr_Occurred'(Ex),
-    (   c_nil(Ex)
+    (   c_is_nil(Ex)
     ->  true
     ;   'PyErr_Fetch'(Type, Value, Stack),
         throw(error(python_error(Type, Value, Stack), _))

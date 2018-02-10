@@ -100,13 +100,13 @@ posix_status(_, Op, Type, Arg) :-
 %   pointer on error.
 
 posix_ptr_status(Ptr) :-
-    c_nil(Ptr),
+    c_is_nil(Ptr),
     !,
     posix_raise_error.
 posix_ptr_status(_).
 
 posix_ptr_status(Ptr, Op, Type, Arg) :-
-    c_nil(Ptr),
+    c_is_nil(Ptr),
     !,
     posix_raise_error(Op, Type, Arg).
 posix_ptr_status(_, _, _, _).

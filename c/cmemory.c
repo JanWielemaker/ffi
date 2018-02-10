@@ -78,6 +78,8 @@ static functor_t FUNCTOR_enum1;
 static functor_t FUNCTOR_array2;
 static functor_t FUNCTOR_star1;
 
+static atom_t PTR_NULL;
+
 static pthread_mutex_t dep_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define SZ_UNKNOWN (~(size_t)0)
@@ -475,6 +477,44 @@ retry:
 static int
 null_pointer_error(term_t ptr)
 { return PL_domain_error("non_null_pointer", ptr);
+}
+
+
+static int
+unify_null_ptr(term_t t)
+{ if ( !PTR_NULL )
+  { type_spec tspec = {CT_VOID, 0, 0, 0, SZ_UNKNOWN, NULL};
+
+    if ( unify_ptr(t, NULL, SZ_UNKNOWN, &tspec) )
+    { if ( PL_get_atom(t, &PTR_NULL) )
+	PL_register_atom(PTR_NULL);
+      else
+	assert(0);
+      return TRUE;
+    }
+
+    return FALSE;
+  } else
+  { return PL_unify_atom(t, PTR_NULL);
+  }
+}
+
+
+static foreign_t
+c_nil(term_t t)
+{ return unify_null_ptr(t);
+}
+
+
+static foreign_t
+c_is_nil(term_t ptr)
+{ c_ptr *ref;
+
+  if ( (ref=get_ptr_ref(ptr, NULL)) &&
+       ref->ptr == NULL )
+    return TRUE;
+
+  return FALSE;
 }
 
 
@@ -1198,4 +1238,6 @@ install_c_memory(void)
   PL_register_foreign("c_alloc_string",	3, c_alloc_string, 0);
   PL_register_foreign("c_load_string",	4, c_load_string4, 0);
   PL_register_foreign("c_load_string",	5, c_load_string5, 0);
+  PL_register_foreign("c_nil",		1, c_nil,          0);
+  PL_register_foreign("c_is_nil",	1, c_is_nil,       0);
 }

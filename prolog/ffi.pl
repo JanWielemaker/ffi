@@ -51,7 +51,8 @@
             c_load/2,                   % +Location, -Value
             c_store/2,                  % +Location, +Value
             c_cast/3,                   % +Type, +PtrIn, -PtrOut
-            c_nil/1,                    % +Ptr
+            c_nil/1,                    % -Ptr
+            c_is_nil/1,                 % @Ptr
 
             c_struct/2,                 % +Name, +Fields
             c_union/2,                  % +Name, +Fields
@@ -1212,12 +1213,13 @@ c_cast(Type, In, Out) :-
     type_size(Type, Size),
     c_offset(In, 0, Type, Size, _, Out).
 
-%!  c_nil(+Ptr) is semidet.
+%!  c_nil(-Ptr) is det.
 %
-%   True if Ptr is a NULL pointer.
+%   Unify Ptr with a (void) NULL pointer.
 
-c_nil(Ptr) :-
-    c_address(Ptr, 0).
+%!  c_is_nil(@Ptr) is semidet.
+%
+%   True when Ptr is a pointer object representing a NULL pointer.
 
 %!  c_address(+Spec, -Ptr, -Offset, -Type)
 %
@@ -1539,7 +1541,6 @@ system:term_expansion(T0, T) :-
 %!  c_address(+Ptr, -Address) is det.
 %
 %   True when Address is the (signed) integer address pointed at by Ptr.
-%   Used to define for example c_nil/1.
 
 %!  c_dim(+Ptr, -Count, -ElemSize) is det.
 %

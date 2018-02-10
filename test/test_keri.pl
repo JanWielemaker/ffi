@@ -33,16 +33,17 @@ test(test_int_in_out, X == 24) :-
 
 test(test_null_return, error(domain_error(non_null_pointer, _))) :-
     test_null_return(S),
-    c_nil(S).
+    c_is_nil(S).
 test(test_null_in) :-
-    test_null_in(null),
+    c_nil(NULL),
+    test_null_in(NULL),
     assertion(no_assertion).
 
 :- end_tests(keri).
 
 no_assertion :-
     get_assertion(Assertion),
-    (   c_nil(Assertion)
+    (   c_is_nil(Assertion)
     ->  true
     ;   c_load(Assertion[assertion], P0), c_load_string(P0, Message, string, text),
         c_load(Assertion[file], P1),      c_load_string(P1, File, string, text),

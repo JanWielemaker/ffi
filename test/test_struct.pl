@@ -60,7 +60,7 @@ point_list(L) :-
     point_list(Pts, L).
 
 point_list(Pts, L) :-
-    c_nil(Pts),
+    c_is_nil(Pts),
     !,
     L = [].
 point_list(Pts, [point(X,Y)|T]) :-
