@@ -149,7 +149,7 @@ cpp_const('ST_NOATIME').
 
 :- c_import("#include <sys/vfs.h>",
             [ libc ],
-            [ statfs(+string, -struct(statfs), [-int])
+            [ statfs(string, -struct(statfs), [int])
             ]).
 \end{code}
 
@@ -346,7 +346,7 @@ cpp_const('_STAT_VER').
              #include <sys/stat.h>
              #include <unistd.h>",
             [ libc ],
-            [ '__xstat'(+int,+string,-struct(stat),[-int])
+            [ '__xstat'(int,string,-struct(stat),[int])
             ]).
 
 stat(File, Stat) :-
@@ -370,8 +370,8 @@ Import \arg{Functions} from libraries provided by \arg{Flags}. The
 the imported functions available. This text is handed to the configured
 C~preprocessor. Normally, this string contains a series of
 \exam{\#include <header>} statements. For simple projects it is also
-possible to supply the actual C source file, e.g., \verb$"#include
-\"my_c.c\""$ (note the escaped double quotes).
+possible to supply the actual C source file, e.g.,
+\verb$"#include \"my_c.c\""$ (note the escaped double quotes).
 
 \arg{Flags} is a list of flags that both provide the optional C~flags
 such as \verb$-I$ and the libraries where the functions can be found.
@@ -382,7 +382,7 @@ library(clocations). Finally, a term \term{pkg_config}{Pkg, ...} may be
 specified. This runs the \program{pkg-config} program using the provided
 options to obtain the required flags. The example below attaches the
 \file{uchardet} library.\footnote{A complete implementation is in the
-file \file{uchardet.pl} of the \file{examples} directory.
+file \file{uchardet.pl} of the \file{examples} directory.}
 
 \begin{code}
 :- c_import("#include <uchardet.h>",
@@ -430,6 +430,11 @@ and \const{wchar_t}.  This Prolog type is compatible with the C~type
 \ctype{char*}, except when \arg{Encoding} is \ctype{wchar_t}.  In this
 case the C~type must be a pointer to an integer type of the same size
 as \ctype{wchar_t}.
+    \termitem{atom}{}
+\nodescription
+    \termitem{atom}{Encoding}
+As \const{string} and \term{string}{Encoding} but when used for output
+arguments the variable is unified with an atom rather than a string.
     \termitem{struct}{Name}
 Argument is a structure of the given name. If this is an input argument,
 a pointer to a structure must be supplied.  If it is an output argument
@@ -452,10 +457,15 @@ atoms and the integer representation.
 Argument is a \jargon{closure}. The arguments of the function term are
 the predicate arguments for the predicate to which the closure is mapped
 and is subject to the same rules as the predicate arguments described in
-this list.
+this list.  See \secref{ffi-closure}
 \end{description}
 
-In addition, the following constructs are supported:
+For \jargon{output} arguments (the function return or using a pointer
+argument that is filled by the function) we need to deal with
+\jargon{ownership transfer}. This is achieved using the construct
+\term{~}{Type, FreeFunc}. See \secref{ffi-ownership} for details.
+
+Finally, the following constructs are supported:
 
 \begin{description}
     \definition{\arg{Function}(\arg{Arg}, ...) as \arg{PredicateName}}
@@ -480,13 +490,89 @@ processed using term_expansion/2 we cannot use rules. This is
 impractical as libraries and the called C functions and their arguments
 may be complex to write and version or platform dependent.  This can be
 resolved by defining the predicate c_define/2 and making it available in
-the context of the c_import/3 directive.
+the context of the c_import/3 directive. See
+\file{examples/python/python.pl} for examples.
 
 Note that c_define/2 has \textbf{no} relation to C \verb$#define$.  See
 also cpp_macro/1.
 \end{description}
 
+
+\subsection{Data ownership considerations}
+\label{sec:ffi-ownership}
+
+An important aspect of C~interfaces is dealing with \jargon{ownership}
+of data. Arithmetic values are simply copied, avoiding this issue.
+Arrays (including strings) and structures however are often dynamically
+allocated on the \jargon{heap} and must be released at some point.  We
+distinguish three conventions:
+
+\begin{enumerate}
+    \item The called function returns a pointer to a static memory
+area.  In this case the receiver can read the returned data and must
+copy data it wishes to keep before calling the API again.  This style
+lost popularity as it is not \jargon{thread-safe}.
+
+    \item Many modern APIs force the receiver to allocate memory for
+receiving the data. Especially for small amount of data (often
+structures) the (C) client can use an \jargon{automatic} variable to
+receive the data, e.g.,
+
+\begin{code}
+    { struct stat buf;
+
+      if ( stat(".", &buf) == 0 )
+        ...
+    }
+\end{code}
+
+This style is problematic if the amount of data is unknown and therefore
+the buffer can be too small. In this case the API often returns
+incomplete data and an error indicating the data is incomplete and often
+the required size of the buffer.
+
+    \item Finally, the API may return a pointer to dynamically allocated
+memory. In this case the API also provides a function that allows the
+client to tell the API it is finished with the data. The release
+function may either decrement a \jargon{reference count} or immediately
+destroy the data.  For example, most of the functions from the C~library
+that use this style demand the caller to call free() when they no longer
+need the data.
+\end{enumerate}
+
+The Prolog FFI can deal with all three styles. In the second scenario we
+cannot use automatic variables as the lifetime of the Prolog call is not
+immedately related to a C~stack frame. Instead, we use c_alloc/2 to
+allocate space for the output. Memory allocated with c_alloc/2 is
+subject to \jargon{atom garbage collection}. For the first and last
+option, the FFI library creates a pointer object just as c_alloc/2. As
+the called function created the object we cannot call free() on it.
+
+The default is to do nothing. This is correct for the first style but
+causes memory leaks for the third style. In this case, the argument may
+be declared using \term{~}{Type, FreeFunc}. Below are a
+couple of examples. The first is a trivial example based on the
+C~standard library function strdup(). The other two examples are taken
+from the Python interface. Most of the Python interface functions return
+a pointer to a \ctype{PyObject} type where the receiver is required to
+call Py_DECREF() when done. PyDict_New() returns such an object and
+PyErr_Fetch() returns three objects using the output argument calling
+convention. Note that we call MyPy_DECREF() which is defined in the
+small support library because (1) Py_DECREF() is a macro and (2) Prolog
+will call the release function in the garbage collection thread and
+Python does not allow Py_DECREF() to be called asynchronously.
+
+\begin{code}
+1.  strdup(string, [~(string, free)])
+2.  'PyDict_New'([~(*'PyObject', 'MyPy_DECREF')])
+3.  'PyErr_Fetch'(-(~(*'PyObject', 'MyPy_DECREF')),
+	          -(~(*'PyObject', 'MyPy_DECREF')),
+		  -(~(*'PyObject', 'MyPy_DECREF')))
+\end{code}
+
+
 \subsection{Handling closures}
+\label{sec:ffi-closure}
 
 The term \jargon{closure} refers to a pointer to a C~function that is
 passed to a C~function or placed in a structure. The registered
