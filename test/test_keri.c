@@ -1,6 +1,37 @@
+#define __assert_fail __sys_assert_fail
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
+
+static struct assert_data
+{ const char *assertion;
+  const char *file;
+  unsigned int line;
+  const char *function;
+  int failed;
+} assert_failure;
+
+void __my_assert_fail(const char *assertion,
+		      const char *file,
+		      unsigned int line,
+		      const char *function)
+{ assert_failure.assertion = assertion;
+  assert_failure.file = file;
+  assert_failure.line = line;
+  assert_failure.function = function;
+  assert_failure.failed = 1;
+}
+
+#undef __assert_fail
+#define __assert_fail __my_assert_fail
+
+struct assert_data *
+get_assertion(void)
+{ if ( assert_failure.failed )
+  { assert_failure.failed = 0;
+    return &assert_failure;
+  }
+}
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 * Parameter direction
