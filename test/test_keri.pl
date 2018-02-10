@@ -10,7 +10,11 @@ test_keri :-
             [ test_keri ],
             [ get_assertion([*struct(assert_data)]),
               test_int_return([-int]),
-              test_int_in(int)
+              test_int_in(int),
+              test_int_out(-int),
+              test_int_in_out(*int),
+              test_null_return([string]),
+              test_null_in(string)
             ]).
 
 :- begin_tests(keri).
@@ -19,6 +23,19 @@ test(test_int_return, X == 42) :-
     test_int_return(X).
 test(test_int_in) :-
     test_int_in(42),
+    assertion(no_assertion).
+test(test_int_out, X == 42) :-
+    test_int_out(X).
+test(test_int_in_out, X == 24) :-
+    c_alloc(Ptr, int=42),
+    test_int_in_out(Ptr),
+    c_load(Ptr, X).
+
+test(test_null_return, error(domain_error(non_null_pointer, _))) :-
+    test_null_return(S),
+    c_nil(S).
+test(test_null_in) :-
+    test_null_in(null),
     assertion(no_assertion).
 
 :- end_tests(keri).
