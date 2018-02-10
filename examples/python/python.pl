@@ -449,7 +449,7 @@ python_to_prolog(Py, Value) :-
     'PySequence_Check'(Py, 1),
     !,
     'PySequence_Size'(Py, Len),
-    py_list(0, Len, Py, Value).
+    py_sequence(0, Len, Py, Value).
 python_to_prolog(Py, Value) :-
     'PyDict_Check'(Py, 1),
     !,
