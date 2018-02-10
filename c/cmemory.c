@@ -472,6 +472,12 @@ retry:
 }
 
 
+static int
+null_pointer_error(term_t ptr)
+{ return PL_domain_error("non_null_pointer", ptr);
+}
+
+
 		 /*******************************
 		 *	  PROLOG BINDING	*
 		 *******************************/
@@ -744,17 +750,19 @@ valid_offset(c_ptr *ref, size_t off, size_t tsize, term_t offset)
 
 static foreign_t
 c_load(term_t ptr, term_t offset, term_t type, term_t value)
-{ PL_blob_t *btype;
-  void *bp;
+{ c_ptr *ref;
   size_t off;
 
-  if ( PL_get_blob(ptr, &bp, NULL, &btype) &&
-       btype == &c_ptr_blob &&
+  if ( (ref=get_ptr_ref_ex(ptr, NULL)) &&
        PL_get_size_ex(offset, &off) )
   { atom_t ta;
     size_t tarity;
-    c_ptr *ref = bp;
-    void *vp = (void*)((char *)ref->ptr + off);
+    void *vp;
+
+    if ( !ref->ptr )
+      null_pointer_error(ptr);
+
+    vp = (void*)((char *)ref->ptr + off);
 
     if ( PL_get_atom(type, &ta) )
     { if ( ta == ATOM_char )
@@ -1087,6 +1095,9 @@ c_load_string5(term_t ptr, term_t len, term_t data, term_t type, term_t encoding
   if ( (ref=get_ptr_ref_ex(ptr, NULL)) )
   { atom_t aenc, atype;
     int flags = 0;
+
+    if ( ref->ptr == NULL )
+      return null_pointer_error(ptr);
 
     if ( !PL_get_atom_ex(encoding, &aenc) ||
 	 !PL_get_atom_ex(type, &atype) )
