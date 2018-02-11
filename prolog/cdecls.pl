@@ -118,7 +118,7 @@ skeleton(prototype(Return, RDecl, Params), Func,
                   _Block)).
 
 
-parameters([param([type(void)], _)], []) :-
+parameters([param([type(void)], ad(-,dad(-,-)))], []) :-
     !.
 parameters(Params0, Params) :-
     maplist(param, Params0, Params).
