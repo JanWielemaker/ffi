@@ -1,6 +1,7 @@
 # SWI-Prolog FFI examples
 
-This directory contains both simple and real examples.
+This directory contains both simple and real examples. Please also study
+the test cases in the test directory.
 
   - *math.pl* is a real starter example, illustrating connecting a
     couple of functions from `-lm`.
@@ -14,3 +15,4 @@ This directory contains both simple and real examples.
     representation.  This is a complicated example due to the
     extensive use of _in_out_ arguments as well as the interaction
     with the Prolog stream library.
+
