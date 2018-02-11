@@ -128,58 +128,46 @@
 
 
 		 /*******************************
-		 *    LIBRARIES AND SYMBOLS	*
+		 *           LIBRARIES		*
 		 *******************************/
 
-%!  dc_load_library(+Path, -Handle)
-%
-%   Load the given library
-
-%!  dc_free_library(+Handle)
-%
-%   Free a given library
-
-%!  dc_find_symbol(+Handle, +Name, -FuncPtr)
-%
-%   True when FuncPtr is a pointer to Name in the library Handle
-
-%!  ci_library(+Base, -FHandle)
+%!  c_library(+Base, -FHandle)
 %
 %   Find a file handle for a foreign  library.   If  Base is of the form
 %   Base-Options pass the options to ffi_library_create/3.
 
-:- dynamic  ci_library_cache/2.
-:- volatile ci_library_cache/2.
+:- dynamic  c_library_cache/2.
+:- volatile c_library_cache/2.
 
-ci_library(Base-_Options, FHandle) :-
-    ci_library_cache(Base, FHandle0),
+c_library(Base-_Options, FHandle) :-
+    c_library_cache(Base, FHandle0),
     !,
     FHandle = FHandle0.
-ci_library(Base, FHandle) :-
-    ci_library_cache(Base, FHandle0),
+c_library(Base, FHandle) :-
+    c_library_cache(Base, FHandle0),
     !,
     FHandle = FHandle0.
-ci_library(Base, FHandle) :-
-    with_mutex(dyncall, ci_library_sync(Base, FHandle)).
+c_library(Base, FHandle) :-
+    with_mutex(dyncall, c_library_sync(Base, FHandle)).
 
-ci_library_sync(Base-_Options, FHandle) :-
-    ci_library_cache(Base, FHandle0),
+c_library_sync(Base-_Options, FHandle) :-
+    c_library_cache(Base, FHandle0),
     !,
     FHandle = FHandle0.
-ci_library_sync(Base, FHandle) :-
-    ci_library_cache(Base, FHandle0),
+c_library_sync(Base, FHandle) :-
+    c_library_cache(Base, FHandle0),
     !,
     FHandle = FHandle0.
-ci_library_sync(Base-Options, FHandle) :-
+c_library_sync(Base-Options, FHandle) :-
     !,
     c_lib_path(Base, Path),
     convlist(rtld, Options, Flags),
     ffi_library_create(Path, FHandle, Flags),
-    assertz(ci_library_cache(Base, FHandle)).
-ci_library_sync(Base, FHandle) :-
+    assertz(c_library_cache(Base, FHandle)).
+c_library_sync(Base, FHandle) :-
     c_lib_path(Base, Path),
     ffi_library_create(Path, FHandle, []),
-    assertz(ci_library_cache(Base, FHandle)).
+    assertz(c_library_cache(Base, FHandle)).
 
 rtld(rtld(Flag), Flag).
 
@@ -625,7 +613,7 @@ find_symbol(M, FName, Symbol) :-
     M:'$c_lib'(Lib, Funcs),
     member(Func, Funcs),
     optional(Func, FName, _Optional),
-    ci_library(Lib, FH),
+    c_library(Lib, FH),
     ffi_lookup_symbol(FH, FName, Symbol),
     !.
 find_symbol(_, FName, _) :-
