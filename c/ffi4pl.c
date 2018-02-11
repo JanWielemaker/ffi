@@ -581,6 +581,7 @@ pl_ffi_call(term_t prototype, term_t goal)
       { if ( oarg_count == MAX_OUTPUT_ARGS )
 	  return PL_representation_error("ffi_output_arg_count");
 
+	memset(&as[argi], 0, sizeof(as[argi]));
 	oargs[oarg_count].anum = argi;
 	oargs[oarg_count].disp = &as[argi];
 	oargs[oarg_count].term = PL_copy_term_ref(arg);
