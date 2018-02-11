@@ -74,6 +74,7 @@ binary data.
 
   - [[c_calloc/4]]
   - [[c_free/1]]
+  - [[c_disown/1]]
   - [[c_load/4]]
   - [[c_store/4]]
   - [[c_offset/6]]
