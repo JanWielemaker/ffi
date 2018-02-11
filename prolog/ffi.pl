@@ -1043,10 +1043,10 @@ c_current_union_field(M:Name, Field, M:Type) :-
 %       Same as above, using a specific encoding.  Encoding is one of
 %       `text` (as above), `utf8` or `iso_latin_1`.
 %
-%       $ Scalar[] = List :
-%       If the type is a basic C scalar type and the data is a list,
-%       allocate an array of the length of the list and store each
-%       element in the corresponding location of the array.
+%       $ Type[] = List :
+%       If Data is a list, allocate an array of the length of the
+%       list and store each element in the corresponding location of the
+%       array.
 %
 %       $ Type = Value :
 %       Same as =|Type[] = [Value]|=.
@@ -1506,6 +1506,22 @@ system:term_expansion(T0, T) :-
 %   high level predicates.
 %   @arg Count is the number of elements in the array.
 
+%!  c_alloc_string(-Ptr, +Data, +Encoding) is det.
+%
+%   Create a C `char` or `wchar_t` string from Prolog text Data. Data is
+%   an atom, string, code list,  char  list   or  integer.  The  text is
+%   encoded according to  Encoding,  which   is  one  of  `iso_latin_1`,
+%   `utf8`, `octet`, `text` or  `wchar_t`.   The  encodings  `octet` and
+%   `iso_latin_1`   are   synonym.   The   conversion    may   raise   a
+%   `representation_error` exception if the   encoding  cannot represent
+%   all code points in Data. The  resulting   string  or  wide string is
+%   nul-terminated. Note that Data may contain  code point 0 (zero). The
+%   length of the string can  be   accessed  using c_dim/3. The reported
+%   length includes the terminating nul code.
+%
+%   This predicate is normally accessed through the high level interface
+%   provided by c_alloc/2.
+
 %!  c_free(+Ptr) is det.
 %
 %   Free the chunk associated with Ptr by calling the registered release
@@ -1537,6 +1553,18 @@ system:term_expansion(T0, T) :-
 %   the chunk behind the pointer is  known,   Offset  is validated to be
 %   inside the chunk represented by Ptr.  Pointers may
 
+%!  c_load_string(+Ptr, -Data, +As, +Encoding) is det.
+%!  c_load_string(+Ptr, +Length, -Data, +As, +Encoding) is det.
+%
+%   Assuming Ptr points at text, either `char` or `wchar_t`, extract the
+%   value to Prolog. The c_load_string/4  variant   assumes  the text is
+%   nul-terminated.
+%
+%   @arg As defines the resulting Prolog type and is one of `atom`,
+%   `string`, `codes` or `chars`
+%   @arg Encoding is one of `iso_latin_1`, `octet`, `utf8`, `text`
+%   or `wchar_t`.
+
 %!  c_offset(+Ptr0, +Offset, +Type, +Size, +Count, -Ptr) is det.
 %
 %   Get a pointer to some  location  inside   the  chunk  Ptr0.  This is
@@ -1565,7 +1593,8 @@ system:term_expansion(T0, T) :-
 %   c_offset/6.
 %
 %   @arg Type is an atom or term of the shape struct(Name), union(Name)
-%   or enum(Name).
+%   or enum(Name).  Type may be mapped in zero or more *(Type) terms,
+%   representing the levels of pointer indirection.
 
 %!  c_sizeof(+Type, -Bytes) is semidet.
 %
