@@ -360,8 +360,9 @@ is_closure(+closure(_)).
 matching_signature(Name, SigArgs, Ret, Params, SigParams, Types) :-
     append(RealArgs, [[PlRet]], SigArgs),   % specified return
     !,
-    (   same_length(RealArgs, Params)
-    ->  maplist(compatible_argument(Name, Types), RealArgs, Params, SigRealParams)
+    (   matching_param_length(RealArgs, Params, PlArgs, _VArgs, CParams)
+    ->  maplist(compatible_argument(Name, Types),
+                PlArgs, CParams, SigRealParams)
     ;   print_message(error, ffi(nonmatching_params(Name, SigArgs, Params))),
         fail
     ),
@@ -372,8 +373,9 @@ matching_signature(Name, SigArgs, Ret, Params, SigParams, Types) :-
         append(SigRealParams, [[RetParam]], SigParams)
     ).
 matching_signature(Name, SigArgs, Ret, Params, SigParams, Types) :-
-    (   same_length(SigArgs, Params)
-    ->  maplist(compatible_argument(Name, Types), SigArgs, Params, SigParams)
+    (   matching_param_length(SigArgs, Params, PlArgs, _VArgs, CParams)
+    ->  maplist(compatible_argument(Name, Types),
+                PlArgs, CParams, SigParams)
     ;   print_message(error, ffi(nonmatching_params(Name, SigArgs, Params))),
         fail
     ),
@@ -381,6 +383,28 @@ matching_signature(Name, SigArgs, Ret, Params, SigParams, Types) :-
     ->  true
     ;   print_message(warning, ffi(nonvoid_function(Name, Ret)))
     ).
+
+%!  matching_param_length(+PlParms, +CParms,
+%!                        -ReqPlArgs, -VarPlArgs, -RegCParms) is semidet.
+%
+%   Check that the argument count  of   the  Prolog  specification and C
+%   function match.
+%
+%   @arg ReqPlArgs Prolog arguments that must be matched
+%   @arg VarPlArgs Prolog variadic arguments (matches against `...`)
+%   @arg RegCParms C arguments that must be matched
+
+matching_param_length(PlParms, CParams, ReqPlParams, VarPlParams, ReqCParams) :-
+    append(ReqCParams, ['...'], CParams),
+    !,
+    length(ReqCParams, CArgc),
+    length(ReqPlParams, CArgc),
+    append(ReqPlParams, VarPlParams, PlParms),
+    assertion(VarPlParams == []).                  % TBD: handle variadic args
+matching_param_length(PlParms, CParams, PlParms, [], CParams) :-
+    same_length(PlParms, CParams).
+
+%!  compatible_argument(+Func, +Types, +PlArg, +CArg, -Param)
 
 compatible_argument(_Func, Types, PlArg, CArg, Param) :-
     compatible_arg(PlArg, CArg, Param, Types),
@@ -608,13 +632,29 @@ find_symbol(M, FName, Symbol) :-
 find_symbol(_, FName, _) :-
     existence_error(c_function, FName).
 
+%!  prototype_types(+CParms, +PlParms, +CRet, +Module,
+%!                  -CTypes, -CRetType)
+%
+%   Create the argument and return type specification for the prototype.
+
 prototype_types([], [[SA]], RetType, M, [], PRet) :-
     !,
     prototype_type(RetType, M, SA, PRet).
 prototype_types([], [], _RetType, _M, [], void).
+prototype_types([...], PlParms, CRet, M, CTypes, CRetType) :-
+    !,
+    variadic_prototype(PlParms, CRet, M, CTypes, CRetType).
 prototype_types([H0|T0], [SA|ST], RetType, M, [H|T], PRet) :-
     prototype_type(H0, M, SA, H),
     prototype_types(T0, ST, RetType, M, T, PRet).
+
+
+variadic_prototype([[SA]], RetType, M, [], PRet) :-
+    !,
+    prototype_type(RetType, M, SA, PRet).
+variadic_prototype(_PlParms, _CRet, _M, _CTypes, _CRetType) :-
+    assertion(fail).
+
 
 %!  prototype_type(+CType, +Module, +PrologType, -ParamType) is det.
 

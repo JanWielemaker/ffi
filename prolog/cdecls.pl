@@ -129,7 +129,9 @@ param(param(Specifiers, declarator(Decl, dd(Name,_))), Name-Type) :-
     pointers(Decl, BasicType, Type).
 param(param(Specifiers, ad(Decl, dad(-, -))), Type) :-
     memberchk(type(BasicType), Specifiers),
+    !,
     pointers(Decl, BasicType, Type).
+param(param([], ...), ...).
 
 pointers(-, Type, Type).
 pointers([], Type, Type).
