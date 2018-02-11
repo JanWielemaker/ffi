@@ -45,7 +45,7 @@ test_marshall :-
               ]).
 
 :- c_import("#include \"test_marshall.c\"",
-            [ test/test_marshall ],
+            [ test_marshall ],
             [ get_assertion([*struct(assert_data)]),
               test_int_return([-int]),
               test_int_in(int),

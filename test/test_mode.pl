@@ -20,8 +20,8 @@ test_output_leaks(Iterations) :-
     run_tests([c_mode_leak]).
 
 :- c_import("#include \"test_mode.c\"",
-            [ 'test/test_mode',
-              '-lc'
+            [ test_mode,
+              '-lc'                     % get free()
             ],
             [ test_v_oi(-int),          % output
               test_v_os(-string),

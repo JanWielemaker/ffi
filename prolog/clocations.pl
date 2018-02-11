@@ -33,7 +33,7 @@
 */
 
 :- module(c_locations,
-          [ c_lib_path/2,               % +Name, -Path
+          [ c_lib_path/3,               % +Name, -Path, +Options
 
             ldconfig/4,                 % ?Name, ?Path, ?Version, ?Flags
             ldconfig_flush/0
@@ -42,7 +42,9 @@
 :- use_module(library(readutil)).
 :- use_module(library(process)).
 :- use_module(library(apply)).
+:- use_module(library(option)).
 :- use_module(library(dcg/basics)).
+:- use_module(library(filesex)).
 
 /** <module> Define resource locations for the ffi library
 
@@ -64,11 +66,11 @@ a C library.  Hooks may be used to extend this predicate:
 
 :- multifile
     user:file_search_path/2,
-    library_path_hook/2,
+    library_path_hook/3,                        % +Spec, -Path, +Options
     compatible_architecture/1,
     cpu_alias/2.
 
-%!  c_lib_path(+Spec, -Path) is det.
+%!  c_lib_path(+Spec, -Path, +Options) is det.
 %
 %   Find a shared object from Spec.   Spec is one of:
 %
@@ -88,32 +90,43 @@ a C library.  Hooks may be used to extend this predicate:
 %
 %   @tbd Extend the platform specific search strategies.
 
-%!  library_path_hook(+Name, -Path) is semidet.
+%!  library_path_hook(+Name, -Path, +Options) is semidet.
 %
 %   Multifile hook that can  be  defined  to   resolve  a  library  to a
 %   concrete file.  The hook is tried as first option by c_lib_path/2.
 
-c_lib_path(Name, Path) :-
-    library_path_hook(Name, Path),
+c_lib_path(Name, Path, Options) :-
+    library_path_hook(Name, Path, +Options),
     !.
-c_lib_path(Name, Path) :-
+c_lib_path(Name, Path, Options) :-
     atomic(Name),
-    add_extension(Name, File),
+    relative_file(Name, AbsName, Options),
+    add_extension(AbsName, File),
     exists_file(File),
     !,
     Path = File.
-c_lib_path(Spec, Path) :-
+c_lib_path(Spec, Path, _Options) :-
     compound(Spec),
     !,
     find_on_path(Spec, Path).
-c_lib_path(Name, Path) :-
+c_lib_path(Name, Path, _Options) :-
     ldconfig(Name, Path),
     !.
-c_lib_path(Spec, Path) :-
+c_lib_path(Spec, Path, _Options) :-
     find_on_path(c_lib(Spec), Path),
     !.
-c_lib_path(Name, _Path) :-
+c_lib_path(Name, _Path, _Options) :-
     existence_error(c_library, Name).
+
+relative_file(Name, AbsName, _Options) :-
+    is_absolute_file_name(Name),
+    !,
+    AbsName = Name.
+relative_file(Name, AbsName, Options) :-
+    option(relative_to(Dir), Options),
+    !,
+    directory_file_path(Dir, Name, AbsName).
+relative_file(Name, Name, _).
 
 add_extension(Name, Name).
 add_extension(Base, Name) :-

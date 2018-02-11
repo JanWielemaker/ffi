@@ -6,7 +6,7 @@
 :- use_module('../prolog/ffi').
 
 :- c_import("#include \"test_union.c\"",
-            [ 'test/test_union' ],
+            [ test_union ],
             [ set_d(-union(convert), +double)
             ]).
 

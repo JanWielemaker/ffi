@@ -85,12 +85,6 @@ Issues:
 :- meta_predicate
     py_gil(0).
 
-:- multifile user:file_search_path/2.
-
-user:file_search_path(python_itf, Dir) :-
-    source_file(py_init, File),
-    file_directory_name(File, Dir).
-
 % define macros for c_import/3.  Note that the macro is matched
 % using =@=/2 (variant).
 %
@@ -103,7 +97,7 @@ c_define(py_owned, py_object~'MyPy_DECREF').
 :- c_import("//#define Py_LIMITED_API 1
 	     #include \"mypython.c\"",
             [ pkg_config(python3, '--cflags', '--libs'),
-              python_itf(mypython),
+              mypython,
               '--rtld_global'
             ],
             [ 'Py_SetProgramName'(+string(wchar_t)),

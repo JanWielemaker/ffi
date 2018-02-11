@@ -131,7 +131,7 @@
 		 *           LIBRARIES		*
 		 *******************************/
 
-%!  c_library(+Base, -FHandle)
+%!  c_library(+Base, -FHandle, +Options)
 %
 %   Find a file handle for a foreign  library.   If  Base is of the form
 %   Base-Options pass the options to ffi_library_create/3.
@@ -139,34 +139,22 @@
 :- dynamic  c_library_cache/2.
 :- volatile c_library_cache/2.
 
-c_library(Base-_Options, FHandle) :-
+c_library(Base, FHandle, _Options) :-
     c_library_cache(Base, FHandle0),
     !,
     FHandle = FHandle0.
-c_library(Base, FHandle) :-
-    c_library_cache(Base, FHandle0),
-    !,
-    FHandle = FHandle0.
-c_library(Base, FHandle) :-
-    with_mutex(dyncall, c_library_sync(Base, FHandle)).
+c_library(Base, FHandle, Options) :-
+    with_mutex(dyncall, c_library_sync(Base, FHandle, Options)).
 
-c_library_sync(Base-_Options, FHandle) :-
+c_library_sync(Base, FHandle, _Options) :-
     c_library_cache(Base, FHandle0),
     !,
     FHandle = FHandle0.
-c_library_sync(Base, FHandle) :-
-    c_library_cache(Base, FHandle0),
+c_library_sync(Base, FHandle, Options) :-
     !,
-    FHandle = FHandle0.
-c_library_sync(Base-Options, FHandle) :-
-    !,
-    c_lib_path(Base, Path),
+    c_lib_path(Base, Path, Options),
     convlist(rtld, Options, Flags),
     ffi_library_create(Path, FHandle, Flags),
-    assertz(c_library_cache(Base, FHandle)).
-c_library_sync(Base, FHandle) :-
-    c_lib_path(Base, Path),
-    ffi_library_create(Path, FHandle, []),
     assertz(c_library_cache(Base, FHandle)).
 
 rtld(rtld(Flag), Flag).
@@ -292,7 +280,7 @@ c_import(Functions, Flags, FunctionNames, Types) -->
     libs(Flags, FunctionNames).
 
 decls(_) -->
-    [ (:- discontiguous(('$c_lib'/2,
+    [ (:- discontiguous(('$c_lib'/3,
                          '$c_struct'/3,
                          '$c_struct_field'/4,
                          '$c_union'/3,
@@ -539,20 +527,21 @@ wchar_t_type(Type) :-
 
 %!  libs(+Flags, +Functions)// is det.
 %
-%   Create '$c_lib'(Lib, Functions) facts that describe which functions
-%   are provided by which library.
+%   Create '$c_lib'(Lib, Dir,  Functions)  facts   that  describe  which
+%   functions are provided by which library.
 
 libs(Flags, Functions) -->
     { convlist(flag_lib, Flags, Specs),
-      partition(load_option, Specs, Options, Libs)
+      partition(load_option, Specs, Options, Libs),
+      prolog_load_context(directory, Dir)
     },
-    lib_clauses(Libs, Functions, Options).
+    lib_clauses(Libs, Functions, [relative_to(Dir)|Options]).
 
 load_option(rtld(_)).
 
 lib_clauses([], _, _) --> [].
 lib_clauses([H|T], Functions, Options) -->
-    [ '$c_lib'(H-Options, Functions) ],
+    [ '$c_lib'(H, Options, Functions) ],
     lib_clauses(T, Functions, Options).
 
 is_lib_flag(Flag) :-
@@ -610,10 +599,10 @@ strip_param_name(_Name-Type, Type) :- !.
 strip_param_name(Type, Type).
 
 find_symbol(M, FName, Symbol) :-
-    M:'$c_lib'(Lib, Funcs),
+    M:'$c_lib'(Lib, Options, Funcs),
     member(Func, Funcs),
     optional(Func, FName, _Optional),
-    c_library(Lib, FH),
+    c_library(Lib, FH, Options),
     ffi_lookup_symbol(FH, FName, Symbol),
     !.
 find_symbol(_, FName, _) :-
