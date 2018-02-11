@@ -738,17 +738,30 @@ c_recalloc(term_t ptr, term_t count)
 
 static foreign_t
 c_free(term_t ptr)
-{ PL_blob_t *type;
-  void *bp;
+{ c_ptr *ref;
 
-  if ( PL_get_blob(ptr, &bp, NULL, &type) &&
-       type == &c_ptr_blob )
-  { free_ptr(bp);
+  if ( (ref=get_ptr_ref_ex(ptr, NULL)) )
+  { free_ptr(ref);
     return TRUE;
   }
 
-  return PL_type_error("c_ptr", ptr);
+  return FALSE;
 }
+
+
+#ifdef O_DISOWN
+static foreign_t
+c_disown(term_t ptr)
+{ c_ptr *ref;
+
+  if ( (ref=get_ptr_ref_ex(ptr, NULL)) )
+  { ref->type.free = NULL;
+    return TRUE;
+  }
+
+  return FALSE;
+}
+#endif
 
 
 static foreign_t
@@ -1227,6 +1240,9 @@ install_c_memory(void)
   PL_register_foreign("c_calloc",	4, c_calloc,	   0);
   PL_register_foreign("c_recalloc",	2, c_recalloc,	   0);
   PL_register_foreign("c_free",		1, c_free,	   0);
+#ifdef O_DISOWN
+  PL_register_foreign("c_disown",	1, c_disown,	   0);
+#endif
   PL_register_foreign("c_load",		4, c_load,	   0);
   PL_register_foreign("c_store",	4, c_store,	   0);
   PL_register_foreign("c_offset",	6, c_offset,	   0);

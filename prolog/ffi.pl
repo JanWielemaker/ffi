@@ -1507,9 +1507,15 @@ system:term_expansion(T0, T) :-
 
 %!  c_free(+Ptr) is det.
 %
-%   Free the chunk associated with Ptr. This   may be used to reduce the
-%   memory foodprint without waiting for the atom garbage collector. The
-%   blob itself can only be reclaimed by the atom garbage collector.
+%   Free the chunk associated with Ptr by calling the registered release
+%   function  immediately.  This  may  be  used  to  reduce  the  memory
+%   foodprint without waiting for the atom   garbage collector. The blob
+%   itself can only be reclaimed by the atom garbage collector.
+%
+%   The type release function is  non-NULL   if  the  block as allocated
+%   using c_alloc/2 or a function was  associated with a pointer created
+%   from an _output_ argument or the foreign function return value using
+%   the `~(Type, Free)` mechanism.
 
 %!  c_load(+Ptr, +Offset, +Type, -Value) is det.
 %
