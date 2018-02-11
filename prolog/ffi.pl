@@ -408,7 +408,7 @@ compatible_arg(*int, *(CType), *CType, _) :-
     int_type(CType).
 compatible_arg(float, CType, +CType, _) :-
     float_type(CType).
-compatible_arg(-float, CType, -CType, _) :-
+compatible_arg(-float, *(CType), -CType, _) :-
     float_type(CType).
 compatible_arg(Func0, funcptr(Ret, Params), +closure(M:Func), Types) :-
     prolog_load_context(module, M0),
