@@ -3,6 +3,9 @@
 #include <string.h>
 #include <stdlib.h>
 
+/* we can use this on systems that have no modular heap */
+#define PL_free(ptr) free(ptr)
+
 static struct assert_data
 { const char *assertion;
   const char *file;
@@ -149,7 +152,7 @@ void
 test_transfer_full_in(char *v)
 {
   assert(strcmp("foo", v)==0);
-  free(v);
+  PL_free(v);
 }
 
 /* out parameter; do not transfer ownership */
@@ -179,7 +182,7 @@ void
 test_transfer_full_in_out(char **v)
 {
   assert(strcmp("foo", *v)==0);
-  free(*v);
+  PL_free(*v);
   *v = strdup("bar");
 }
 
@@ -203,9 +206,9 @@ tests_array_transfer_full_in (char **array)
 {
   assert(strcmp("foo", array[0])==0);
   assert(strcmp("bar", array[1])==0);
-  free(array[0]);
-  free(array[1]);
-  free(array);
+  PL_free(array[0]);
+  PL_free(array[1]);
+  PL_free(array);
 }
 
 /* in parameter; transfer container of array */
@@ -214,7 +217,7 @@ test_array_transfer_container_in(char **array)
 {
   assert(strcmp("foo", array[0])==0);
   assert(strcmp("bar", array[1])==0);
-  free(array);
+  PL_free(array);
 }
 
 /* out parameter; do not transfer ownership */
@@ -259,9 +262,9 @@ test_array_transfer_full_in_out(char ***array)
 {
   assert(strcmp("foo", (*array)[0])==0);
   assert(strcmp("bar", (*array)[1])==0);
-  free((*array)[0]);
-  free((*array)[1]);
-  free(*array);
+  PL_free((*array)[0]);
+  PL_free((*array)[1]);
+  PL_free(*array);
   *array = malloc(2 * sizeof(char*));
   (*array)[0] = strdup("FOO");
   (*array)[1] = strdup("BAR");
@@ -273,7 +276,7 @@ test_array_transfer_container_in_out(char ***array)
 {
   assert(strcmp("foo", (*array)[0])==0);
   assert(strcmp("bar", (*array)[1])==0);
-  free(*array);
+  PL_free(*array);
   *array = malloc(2 * sizeof(char*));
   (*array)[0] = "FOO";
   (*array)[1] = "BAR";
