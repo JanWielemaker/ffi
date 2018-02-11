@@ -385,7 +385,7 @@ matching_signature(Name, SigArgs, Ret, Params, SigParams, Types) :-
     !,
     (   same_length(RealArgs, Params)
     ->  maplist(compatible_argument(Name, Types), RealArgs, Params, SigRealParams)
-    ;   print_message(error, ffi(nonmatching_params(SigArgs, Params))),
+    ;   print_message(error, ffi(nonmatching_params(Name, SigArgs, Params))),
         fail
     ),
     (   Ret == void
@@ -397,7 +397,7 @@ matching_signature(Name, SigArgs, Ret, Params, SigParams, Types) :-
 matching_signature(Name, SigArgs, Ret, Params, SigParams, Types) :-
     (   same_length(SigArgs, Params)
     ->  maplist(compatible_argument(Name, Types), SigArgs, Params, SigParams)
-    ;   print_message(error, ffi(nonmatching_params(SigArgs, Params))),
+    ;   print_message(error, ffi(nonmatching_params(Name, SigArgs, Params))),
         fail
     ),
     (   Ret == void
@@ -1593,3 +1593,5 @@ message(nonvoid_function(Func, Ret)) -->
     [ '~p: return of "~w" is ignored'-[Func, Ret] ].
 message(void_function(Func, PlRet)) -->
     [ '~p: void function defined to return ~p'-[Func, PlRet] ].
+message(nonmatching_params(Func, PlArgs, CArgs)) -->
+    [ '~p: non-matching parameter list: ~p -> ~p'-[Func, PlArgs, CArgs] ].
