@@ -24,7 +24,13 @@ test_keri :-
               test_transfer_full_in(string),            % TBD: How to handle this?
               test_transfer_none_in_out(*(*char)),
               test_transfer_full_in_out(*(*char)),      % TBD: How to handle this?
-              tests_array_transfer_none_in(*(*char))
+              tests_array_transfer_none_in(*(*char)),
+              tests_array_transfer_full_in(*(*char)),   % TBD: How to handle this?
+              test_array_transfer_container_in(*(*char)), % TBD: How to handle this?
+              test_array_transfer_none_out(-(*(*char))),
+              test_array_transfer_full_out(-(~(*(*char), free))),
+              test_array_transfer_container_out(-(~(*(*char), free))),
+              test_array_transfer_none_in_out(*(*(*char)))
             ]).
 
 :- begin_tests(keri).
@@ -89,7 +95,44 @@ test(tests_array_transfer_none_in) :-
     c_alloc_string(Foo, "foo", utf8),
     c_alloc_string(Bar, "bar", utf8),
     c_alloc(Ptr, (*char)[] = [Foo,Bar]),
-    tests_array_transfer_none_in(Ptr).
+    tests_array_transfer_none_in(Ptr),
+    assertion(no_assertion).
+test(tests_array_transfer_full_in, blocked("Not yet implemented")) :-
+    c_alloc_string(Foo, "foo", utf8),
+    c_alloc_string(Bar, "bar", utf8),
+    c_alloc(Ptr, (*char)[] = [Foo,Bar]),
+    tests_array_transfer_none_in(Ptr),
+    assertion(no_assertion).
+test(test_array_transfer_container_in, blocked("Not yet implemented")) :-
+    c_alloc_string(Foo, "foo", utf8),
+    c_alloc_string(Bar, "bar", utf8),
+    c_alloc(Ptr, (*char)[] = [Foo,Bar]),
+    tests_array_transfer_none_in(Ptr),
+    assertion(no_assertion).
+test(test_array_transfer_none_out, [F,B] == ["foo", "bar"]) :-
+    test_array_transfer_none_out(Ptr),
+    c_load(Ptr[0], SPtr0), c_load_string(SPtr0, F, string, utf8),
+    c_load(Ptr[1], SPtr1), c_load_string(SPtr1, B, string, utf8).
+test(test_array_transfer_full_out, [F,B] == ["foo", "bar"]) :-
+    test_array_transfer_full_out(Ptr),
+    c_load(Ptr[0], SPtr0), c_load_string(SPtr0, F, string, utf8),
+    c_load(Ptr[1], SPtr1), c_load_string(SPtr1, B, string, utf8).
+    /* TBD: we must free SPtr0 and SPtr1 */
+test(test_array_transfer_container_out, [F,B] == ["foo", "bar"]) :-
+    test_array_transfer_container_out(Ptr),
+    c_load(Ptr[0], SPtr0), c_load_string(SPtr0, F, string, utf8),
+    c_load(Ptr[1], SPtr1), c_load_string(SPtr1, B, string, utf8).
+test(test_array_transfer_none_in_out, [[F,B] == ["FOO", "BAR"]]) :-
+    c_alloc_string(Foo, "foo", utf8),
+    c_alloc_string(Bar, "bar", utf8),
+    c_alloc(Ptr0, (*char)[] = [Foo,Bar]),
+    c_alloc(Ptr, *(*char) = Ptr0),
+    test_array_transfer_none_in_out(Ptr),
+    assertion(no_assertion),
+    c_load(Ptr[0], Ptr1),
+    c_load(Ptr1[0], SPtr0), c_load_string(SPtr0, F, string, utf8),
+    c_load(Ptr1[1], SPtr1), c_load_string(SPtr1, B, string, utf8).
+
 
 :- end_tests(keri).
 
