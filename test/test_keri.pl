@@ -20,6 +20,8 @@ test_keri :-
               test_null_out(-(*char)),
               test_null_out(-string) as test_null_out_string,
               test_null_in_out(*(*char)),
+
+              free(*void),
               test_transfer_none_in(string),
               test_transfer_full_in(string),            % TBD: How to handle this?
               test_transfer_none_in_out(*(*char)),
@@ -115,9 +117,8 @@ test(test_array_transfer_none_out, [F,B] == ["foo", "bar"]) :-
     c_load(Ptr[1], SPtr1), c_load_string(SPtr1, B, string, utf8).
 test(test_array_transfer_full_out, [F,B] == ["foo", "bar"]) :-
     test_array_transfer_full_out(Ptr),
-    c_load(Ptr[0], SPtr0), c_load_string(SPtr0, F, string, utf8),
-    c_load(Ptr[1], SPtr1), c_load_string(SPtr1, B, string, utf8).
-    /* TBD: we must free SPtr0 and SPtr1 */
+    c_load(Ptr[0], SPtr0), c_load_string(SPtr0, F, string, utf8), free(SPtr0),
+    c_load(Ptr[1], SPtr1), c_load_string(SPtr1, B, string, utf8), free(SPtr1).
 test(test_array_transfer_container_out, [F,B] == ["foo", "bar"]) :-
     test_array_transfer_container_out(Ptr),
     c_load(Ptr[0], SPtr0), c_load_string(SPtr0, F, string, utf8),
