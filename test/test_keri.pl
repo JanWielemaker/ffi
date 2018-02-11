@@ -23,12 +23,12 @@ test_keri :-
 
               free(*void),
               test_transfer_none_in(string),
-              test_transfer_full_in(string),            % TBD: How to handle this?
+              test_transfer_full_in(*char),
               test_transfer_none_in_out(*(*char)),
-              test_transfer_full_in_out(*(*char)),      % TBD: How to handle this?
+              test_transfer_full_in_out(*(*char)),
               tests_array_transfer_none_in(*(*char)),
-              tests_array_transfer_full_in(*(*char)),   % TBD: How to handle this?
-              test_array_transfer_container_in(*(*char)), % TBD: How to handle this?
+              tests_array_transfer_full_in(*(*char)),
+              test_array_transfer_container_in(*(*char)),
               test_array_transfer_none_out(-(*(*char))),
               test_array_transfer_full_out(-(~(*(*char), free))),
               test_array_transfer_container_out(-(~(*(*char), free))),
@@ -78,38 +78,46 @@ test(test_null_in_out) :-
 test(test_transfer_none_in) :-
     test_transfer_none_in("foo"),
     assertion(no_assertion).
-test(test_transfer_full_in, blocked("Not yet implemented")) :-
-    test_transfer_full_in("foo").
+test(test_transfer_full_in) :-
+    c_alloc_string(S, "foo", utf8),
+    c_disown(S),
+    test_transfer_full_in(S).
 test(test_transfer_none_in_out, S2 == "bar") :-
     c_alloc_string(S, "foo", utf8),
     c_alloc(Ptr, *char = S),
     test_transfer_none_in_out(Ptr),
     c_load(Ptr, Out),
     c_load_string(Out, S2, string, utf8).
-test(test_transfer_full_in_out, [S2 == bar, blocked("Not yet implemented")]) :-
+test(test_transfer_full_in_out, S2 == "bar") :-
     c_alloc_string(S, "foo", utf8),
     c_alloc(Ptr, *char = S),
-    test_transfer_none_in_out(Ptr),
+    c_disown(S),
+    test_transfer_full_in_out(Ptr),
     c_load(Ptr, Out),
-    c_load_string(Out, S2, string, utf8).
-                                                % containers
+    c_load_string(Out, S2, string, utf8),
+    free(Out).
+                                               % containers
 test(tests_array_transfer_none_in) :-
     c_alloc_string(Foo, "foo", utf8),
     c_alloc_string(Bar, "bar", utf8),
     c_alloc(Ptr, (*char)[] = [Foo,Bar]),
     tests_array_transfer_none_in(Ptr),
     assertion(no_assertion).
-test(tests_array_transfer_full_in, blocked("Not yet implemented")) :-
+test(tests_array_transfer_full_in) :-
     c_alloc_string(Foo, "foo", utf8),
     c_alloc_string(Bar, "bar", utf8),
     c_alloc(Ptr, (*char)[] = [Foo,Bar]),
-    tests_array_transfer_none_in(Ptr),
+    c_disown(Foo),
+    c_disown(Bar),
+    c_disown(Ptr),
+    tests_array_transfer_full_in(Ptr),
     assertion(no_assertion).
-test(test_array_transfer_container_in, blocked("Not yet implemented")) :-
+test(test_array_transfer_container_in) :-
     c_alloc_string(Foo, "foo", utf8),
     c_alloc_string(Bar, "bar", utf8),
     c_alloc(Ptr, (*char)[] = [Foo,Bar]),
-    tests_array_transfer_none_in(Ptr),
+    c_disown(Ptr),
+    test_array_transfer_container_in(Ptr),
     assertion(no_assertion).
 test(test_array_transfer_none_out, [F,B] == ["foo", "bar"]) :-
     test_array_transfer_none_out(Ptr),
