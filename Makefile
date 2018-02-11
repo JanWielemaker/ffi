@@ -9,6 +9,7 @@ FFI4PL=lib/$(ARCH)/ffi4pl.$(SOEXT)
 LIBS=-lffi
 CFLAGS=-shared -fPIC
 TESTSO=	test/test_mode.$(SOEXT) \
+	test/test_marshall.$(SOEXT) \
 	test/test_enum.$(SOEXT) \
 	test/test_struct.$(SOEXT) \
 	test/test_union.$(SOEXT) \
@@ -30,6 +31,8 @@ $(FFI4PL): c/ffi4pl.c c/cmemory.c Makefile
 
 test/test_mode.$(SOEXT): test/test_mode.c
 	$(CC) $(CFLAGS) -o $@ $<
+test/test_marshall.$(SOEXT): test/test_marshall.c
+	$(CC) $(CFLAGS) -o $@ $<
 test/test_enum.$(SOEXT): test/test_enum.c
 	$(CC) $(CFLAGS) -o $@ $<
 test/test_struct.$(SOEXT): test/test_struct.c
@@ -45,6 +48,7 @@ tags:
 check:	$(TESTSO)
 	$(SWIPL) -q -g test_cmem -t halt test/test_cmem.pl
 	$(SWIPL) -q -g test_mode -t halt test/test_mode.pl
+	$(SWIPL) -q -g test_marshall -t halt test/test_marshall.pl
 	$(SWIPL) -q -g test_enum -t halt test/test_enum.pl
 	$(SWIPL) -q -g test_struct -t halt test/test_struct.pl
 	$(SWIPL) -q -g test_union -t halt test/test_union.pl

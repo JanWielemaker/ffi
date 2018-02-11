@@ -2,12 +2,12 @@
 :- use_module(library(debug)).
 :- use_module('../prolog/ffi').
 
-test_keri :-
-    run_tests([ keri
+test_marshall :-
+    run_tests([ marshall
               ]).
 
-:- c_import("#include \"test_keri.c\"",
-            [ test_keri ],
+:- c_import("#include \"test_marshall.c\"",
+            [ test/test_marshall ],
             [ get_assertion([*struct(assert_data)]),
               test_int_return([-int]),
               test_int_in(int),
@@ -38,7 +38,7 @@ test_keri :-
               test_transfer_dangling_out(-string)
             ]).
 
-:- begin_tests(keri).
+:- begin_tests(marshall).
 
                                                 % basic int in/out
 test(test_int_return, X == 42) :-
@@ -175,7 +175,7 @@ test(test_array_transfer_container_in_out, [[F,B] == ["FOO", "BAR"]]) :-
 test(test_transfer_dangling_out, error(domain_error(non_null_pointer,_))) :-
     test_transfer_dangling_out(_).
 
-:- end_tests(keri).
+:- end_tests(marshall).
 
 no_assertion :-
     get_assertion(Assertion),
