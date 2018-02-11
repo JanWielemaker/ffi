@@ -19,11 +19,17 @@ test_keri :-
               test_null_in(string) as test_null_in_string,
               test_null_out(-(*char)),
               test_null_out(-string) as test_null_out_string,
-              test_null_in_out(*(*char))
+              test_null_in_out(*(*char)),
+              test_transfer_none_in(string),
+              test_transfer_full_in(string),            % TBD: How to handle this?
+              test_transfer_none_in_out(*(*char)),
+              test_transfer_full_in_out(*(*char)),      % TBD: How to handle this?
+              tests_array_transfer_none_in(*(*char))
             ]).
 
 :- begin_tests(keri).
 
+                                                % basic int in/out
 test(test_int_return, X == 42) :-
     test_int_return(X).
 test(test_int_in) :-
@@ -35,7 +41,7 @@ test(test_int_in_out, X == 24) :-
     c_alloc(Ptr, int=42),
     test_int_in_out(Ptr),
     c_load(Ptr, X).
-
+                                                % NULL in/out
 test(test_null_return) :-
     test_null_return(S),
     c_is_nil(S).
@@ -60,6 +66,30 @@ test(test_null_in_out) :-
     test_null_in_out(Ptr),
     c_load(Ptr, Out),
     assertion(c_is_nil(Out)).
+                                                % memory management
+test(test_transfer_none_in) :-
+    test_transfer_none_in("foo"),
+    assertion(no_assertion).
+test(test_transfer_full_in, blocked("Not yet implemented")) :-
+    test_transfer_full_in("foo").
+test(test_transfer_none_in_out, S2 == "bar") :-
+    c_alloc_string(S, "foo", utf8),
+    c_alloc(Ptr, *char = S),
+    test_transfer_none_in_out(Ptr),
+    c_load(Ptr, Out),
+    c_load_string(Out, S2, string, utf8).
+test(test_transfer_full_in_out, [S2 == bar, blocked("Not yet implemented")]) :-
+    c_alloc_string(S, "foo", utf8),
+    c_alloc(Ptr, *char = S),
+    test_transfer_none_in_out(Ptr),
+    c_load(Ptr, Out),
+    c_load_string(Out, S2, string, utf8).
+                                                % containers
+test(tests_array_transfer_none_in) :-
+    c_alloc_string(Foo, "foo", utf8),
+    c_alloc_string(Bar, "bar", utf8),
+    c_alloc(Ptr, (*char)[] = [Foo,Bar]),
+    tests_array_transfer_none_in(Ptr).
 
 :- end_tests(keri).
 
