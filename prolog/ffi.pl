@@ -1081,25 +1081,46 @@ c_init(Type, Data, Ptr) :-                      % user types
     c_calloc(Ptr, Type, Size, 1),
     c_store(M:Ptr, Data).
 
+%!  c_init_array(+Type, +Data, -Ptr) is det.
+%
+%   Create an array of objects from data in the list Data.
+
 c_init_array(_:char, Data, Ptr) :-
     !,
     c_alloc_string(Ptr, Data, text).
 c_init_array(_:char(Encoding), Data, Ptr) :-
     !,
     c_alloc_string(Ptr, Data, Encoding).
+c_init_array(_:wchar_t, Data, Ptr) :-
+    !,
+    c_alloc_string(Ptr, Data, wchar_t).
 c_init_array(_:Type, List, Ptr) :-
     atom(Type),                                 % primitive type
+    !,
+    is_list(List),
+    length(List, Len),
+    type_size(Type, Size),
+    c_calloc(Ptr, Type, Size, Len),
+    fill_array_fast(List, 0, Ptr, Size, Type).
+c_init_array(Type, List, Ptr) :-                % arbitrary types
     is_list(List),
     length(List, Len),
     type_size(Type, Size),
     c_calloc(Ptr, Type, Size, Len),
     fill_array(List, 0, Ptr, Size, Type).
 
-fill_array([], _, _, _, _).
-fill_array([H|T], Offset, Ptr, Size, Type) :-
+fill_array_fast([], _, _, _, _).
+fill_array_fast([H|T], Offset, Ptr, Size, Type) :-
     c_store(Ptr, Offset, Type, H),
     Offset2 is Offset+Size,
+    fill_array_fast(T, Offset2, Ptr, Size, Type).
+
+fill_array([], _, _, _, _).
+fill_array([H|T], Offset, Ptr, Size, Type) :-
+    c_store(Ptr[Offset], H),
+    Offset2 is Offset+1,
     fill_array(T, Offset2, Ptr, Size, Type).
+
 
 
 %!  c_load(:Location, -Value) is det.
