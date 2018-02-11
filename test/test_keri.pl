@@ -32,7 +32,10 @@ test_keri :-
               test_array_transfer_none_out(-(*(*char))),
               test_array_transfer_full_out(-(~(*(*char), free))),
               test_array_transfer_container_out(-(~(*(*char), free))),
-              test_array_transfer_none_in_out(*(*(*char)))
+              test_array_transfer_none_in_out(*(*(*char))),
+              test_array_transfer_full_in_out(*(*(*char))),
+              test_array_transfer_container_in_out(*(*(*char))),
+              test_transfer_dangling_out(-string)
             ]).
 
 :- begin_tests(keri).
@@ -141,7 +144,36 @@ test(test_array_transfer_none_in_out, [[F,B] == ["FOO", "BAR"]]) :-
     c_load(Ptr[0], Ptr1),
     c_load(Ptr1[0], SPtr0), c_load_string(SPtr0, F, string, utf8),
     c_load(Ptr1[1], SPtr1), c_load_string(SPtr1, B, string, utf8).
-
+test(test_array_transfer_full_in_out, [[F,B] == ["FOO", "BAR"]]) :-
+    c_alloc_string(Foo, "foo", utf8),
+    c_alloc_string(Bar, "bar", utf8),
+    c_alloc(Ptr0, (*char)[] = [Foo,Bar]),
+    c_alloc(Ptr, *(*char) = Ptr0),
+    c_disown(Foo),
+    c_disown(Bar),
+    c_disown(Ptr0),
+    test_array_transfer_full_in_out(Ptr),
+    assertion(no_assertion),
+    c_load(Ptr[0], Ptr1),
+    c_load(Ptr1[0], SPtr0), c_load_string(SPtr0, F, string, utf8),
+    c_load(Ptr1[1], SPtr1), c_load_string(SPtr1, B, string, utf8),
+    free(SPtr0),
+    free(SPtr1),
+    free(Ptr1).
+test(test_array_transfer_container_in_out, [[F,B] == ["FOO", "BAR"]]) :-
+    c_alloc_string(Foo, "foo", utf8),
+    c_alloc_string(Bar, "bar", utf8),
+    c_alloc(Ptr0, (*char)[] = [Foo,Bar]),
+    c_alloc(Ptr, *(*char) = Ptr0),
+    c_disown(Ptr0),
+    test_array_transfer_container_in_out(Ptr),
+    assertion(no_assertion),
+    c_load(Ptr[0], Ptr1),
+    c_load(Ptr1[0], SPtr0), c_load_string(SPtr0, F, string, utf8),
+    c_load(Ptr1[1], SPtr1), c_load_string(SPtr1, B, string, utf8),
+    free(Ptr1).
+test(test_transfer_dangling_out, error(domain_error(non_null_pointer,_))) :-
+    test_transfer_dangling_out(_).
 
 :- end_tests(keri).
 
