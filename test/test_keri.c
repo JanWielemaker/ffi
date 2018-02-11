@@ -230,8 +230,8 @@ void
 test_array_transfer_full_out(char ***array)
 {
   *array = malloc(2 * sizeof(char*));
-  *array[0] = strdup("foo");
-  *array[1] = strdup("bar");
+  (*array)[0] = strdup("foo");
+  (*array)[1] = strdup("bar");
 }
 
 /* out parameter; transfer container of array */
@@ -239,8 +239,8 @@ void
 test_array_transfer_container_out(char ***array)
 {
   *array = malloc(2 * sizeof(char*));
-  *array[0] = "foo";
-  *array[1] = "bar";
+  (*array)[0] = "foo";
+  (*array)[1] = "bar";
 }
 
 /* in-out parameter; do not transfer ownership */
@@ -248,8 +248,8 @@ void
 test_array_transfer_none_in_out(char ***array)
 {
   static char *array_[] = { "FOO", "BAR" };
-  assert(strcmp("foo", *array[0])==0);
-  assert(strcmp("bar", *array[1])==0);
+  assert(strcmp("foo", (*array)[0])==0);
+  assert(strcmp("bar", (*array)[1])==0);
   *array = array_;
 }
 
@@ -257,26 +257,26 @@ test_array_transfer_none_in_out(char ***array)
 void
 test_array_transfer_full_in_out(char ***array)
 {
-  assert(strcmp("foo", *array[0])==0);
-  assert(strcmp("bar", *array[1])==0);
-  free(*array[0]);
-  free(*array[1]);
+  assert(strcmp("foo", (*array)[0])==0);
+  assert(strcmp("bar", (*array)[1])==0);
+  free((*array)[0]);
+  free((*array)[1]);
   free(*array);
   *array = malloc(2 * sizeof(char*));
-  *array[0] = strdup("FOO");
-  *array[1] = strdup("BAR");
+  (*array)[0] = strdup("FOO");
+  (*array)[1] = strdup("BAR");
 }
 
 /* in-out parameter; transfer container of array */
 void
 test_array_transfer_container_in_out(char ***array)
 {
-  assert(strcmp("foo", *array[0])==0);
-  assert(strcmp("bar", *array[1])==0);
+  assert(strcmp("foo", (*array)[0])==0);
+  assert(strcmp("bar", (*array)[1])==0);
   free(*array);
   *array = malloc(2 * sizeof(char*));
-  *array[0] = "FOO";
-  *array[1] = "BAR";
+  (*array)[0] = "FOO";
+  (*array)[1] = "BAR";
 }
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
