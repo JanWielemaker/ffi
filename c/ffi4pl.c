@@ -187,7 +187,7 @@ unify_part_ptr(term_t t,
 	       freefunc free)
 { type_spec tspec = {CT_STRUCT, 0, 0, type, size, free};
 
-  return unify_ptr(t, ptr, 1, &tspec);
+  return unify_ptr(t, ptr, 1, &tspec) != NULL;
 }
 
 
@@ -516,7 +516,7 @@ unify_output(term_t t, const type_spec *tp, const argstore *as)
   { type_spec tspec = *tp;
 
     tspec.ptrl--;
-    return unify_ptr(t, as->p, SZ_UNKNOWN, &tspec);
+    return unify_ptr(t, as->p, SZ_UNKNOWN, &tspec) != NULL;
   } else
   { switch(tp->type)
     { case CT_VOID:	 return TRUE;
@@ -776,7 +776,7 @@ ffi_closure_create(term_t qpred,
 			      ctx, ctx->func) == FFI_OK )
     { type_spec tspec = {CT_STRUCT, 0, 0, ATOM_c_closure,
 			  sizeof(*ctx), free_closure};
-      return unify_ptr(closure, ctx, 1, &tspec);
+      return unify_ptr(closure, ctx, 1, &tspec) != NULL;
     }
   }
 
@@ -816,7 +816,7 @@ call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp)
 	{ type_spec vtype = *tspec;
 
 	  vtype.ptrl--;
-	  rc = unify_ptr(argv+i, *(void**)args[i], SZ_UNKNOWN, &vtype);
+	  rc = unify_ptr(argv+i, *(void**)args[i], SZ_UNKNOWN, &vtype) != NULL;
 	} else
 	{ switch(tspec->type)
 	  { case CT_CHAR:	     rc = BIND_INT(char);            break;

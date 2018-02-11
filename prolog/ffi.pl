@@ -38,6 +38,7 @@
                                         % Memory access predicates
             c_calloc/4,                 % -Ptr, +Type, +Size, +Count
             c_free/1,                   % +Ptr
+            c_disown/1,                 % +Ptr
             c_typeof/2,                 % +Ptr, -Type
             c_load/4,                   % +Ptr, +Offset, +Type, -Value
             c_store/4,                  % +Ptr, +Offset, +Type, +Value
@@ -1516,6 +1517,18 @@ system:term_expansion(T0, T) :-
 %   using c_alloc/2 or a function was  associated with a pointer created
 %   from an _output_ argument or the foreign function return value using
 %   the `~(Type, Free)` mechanism.
+
+%!  c_disown(+Ptr) is det.
+%
+%   Clear the _release function_ associated with  the blob. This implies
+%   that the block associated with the pointer  is not released when the
+%   blob is garbage collected. This can be used to transfer ownership of
+%   a memory blob allocated using c_alloc/2  to the foreign application.
+%   The foreign application must call PL_free()  from the SWI-Prolog API
+%   to release the memory. On systems where   the heap is not associated
+%   with a foreign module, the C library  free() function may be used as
+%   well. Using free() works on all Unix   systems  we are aware of, but
+%   does *not work on Windows*.
 
 %!  c_load(+Ptr, +Offset, +Type, -Value) is det.
 %

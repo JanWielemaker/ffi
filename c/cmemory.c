@@ -335,7 +335,7 @@ static PL_blob_t c_ptr_blob =
 };
 
 
-static int
+static c_ptr *
 unify_ptr(term_t t, void *ptr,
 	  size_t count, const type_spec *type)
 { c_ptr *ref = malloc(sizeof(*ref));
@@ -349,10 +349,13 @@ unify_ptr(term_t t, void *ptr,
     if ( ref->type.name )
       PL_register_atom(ref->type.name);
 
-    return PL_unify_blob(t, ref, sizeof(*ref), &c_ptr_blob);
+    if ( PL_unify_blob(t, ref, sizeof(*ref), &c_ptr_blob) )
+      return ref;
+    return NULL;
   }
 
-  return PL_resource_error("memmory");
+  PL_resource_error("memmory");
+  return NULL;
 }
 
 
@@ -687,13 +690,18 @@ c_calloc(term_t ptr, term_t type, term_t esize, term_t count)
        PL_get_size_ex(esize, &tspec.size) &&
        PL_get_size_ex(count, &cnt) )
   { size_t bytes = tspec.size*cnt;
-    void *p = malloc(bytes);
+    void *p = PL_malloc(bytes);
 
     if ( p )
-    { memset(p, 0, bytes);
-      if ( unify_ptr(ptr, p, cnt, &tspec) )
+    { c_ptr *ref;
+
+      memset(p, 0, bytes);
+      tspec.free = NULL;
+      if ( (ref=unify_ptr(ptr, p, cnt, &tspec)) )
+      { ref->type.free = PL_free;
 	return TRUE;
-      free(p);
+      }
+      PL_free(p);
     } else
       PL_resource_error("memory");
   }
@@ -749,7 +757,6 @@ c_free(term_t ptr)
 }
 
 
-#ifdef O_DISOWN
 static foreign_t
 c_disown(term_t ptr)
 { c_ptr *ref;
@@ -761,7 +768,6 @@ c_disown(term_t ptr)
 
   return FALSE;
 }
-#endif
 
 
 static foreign_t
@@ -1240,9 +1246,7 @@ install_c_memory(void)
   PL_register_foreign("c_calloc",	4, c_calloc,	   0);
   PL_register_foreign("c_recalloc",	2, c_recalloc,	   0);
   PL_register_foreign("c_free",		1, c_free,	   0);
-#ifdef O_DISOWN
   PL_register_foreign("c_disown",	1, c_disown,	   0);
-#endif
   PL_register_foreign("c_load",		4, c_load,	   0);
   PL_register_foreign("c_store",	4, c_store,	   0);
   PL_register_foreign("c_offset",	6, c_offset,	   0);
