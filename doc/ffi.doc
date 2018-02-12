@@ -394,15 +394,19 @@ file \file{uchardet.pl} of the \file{examples} directory.}
 Prolog predicates. Each specification is a compound term whose name is
 the name of the C~function to import. The arguments of the compound
 provide additional hints for this library for mapping the native C types
-to Prolog types.  The compound has the same number of arguments as the C
+to Prolog types. The compound has the same number of arguments as the C
 function or one more if the return value of the function is used. This
-last argument must be embedded in a list. Each argument is optionally
-wrapped in \exam{+type} or \exam{-type} to indicate an input or output
-argument. An output argument is realised by passing a pointer to an
-object of the required type and, upon completion of the function,
-reading the value from this pointer. Next, the argument may be wrapped
-in \exam{*(type)} to indicate it is a pointer. The supported types are
-given below:
+last argument must be embedded in a list. The construct \verb$[void]$
+may be used to forcefully ignore the return value of a function. Note
+that it is bad practice to ignore the return value if this may indicate
+an error condition.
+
+Each argument is optionally wrapped in \exam{+type} or \exam{-type} to
+indicate an input or output argument. An output argument is realised by
+passing a pointer to an object of the required type and, upon completion
+of the function, reading the value from this pointer. Next, the argument
+may be wrapped in \exam{*(type)} to indicate it is a pointer. The
+supported types are given below:
 
 \begin{description}
     \termitem{int}{}
@@ -506,7 +510,9 @@ arguments before the \const{...} are processed normally. Remaining
 arguments must be declared and are trusted. This implies it is not yet
 possible to call such functions with arbitrary arguments, but it is
 possible to call them with a specific argument list.  For example,
-we can print two floating point numbers using the code below.
+we can print two floating point numbers using the code below.  Note
+that we use the \textit{\ldots as name} construct which allows is
+to create multiple call patterns to printf()
 
 \begin{code}
 :- use_module(library(ffi)).
@@ -519,6 +525,11 @@ we can print two floating point numbers using the code below.
 test(X, Y) :-
     printf_dd("You entered %f and %f\n", X, Y).
 \end{code}
+
+Excess arguments (those matching the \const{...}) must use C types
+rather than Prolog types. The ffi library automatically applies the
+\jargon{default parameter type promotion rules} and thus, e.g.,
+\ctype{short} is passed as \ctype{int}.
 
 
 \subsection{Data ownership considerations}
