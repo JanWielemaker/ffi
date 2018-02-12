@@ -342,10 +342,14 @@ simplify_type(*(Type), Types) -->
     simplify_type(Type, Types).
 simplify_type(Type, _Types) -->
     opt_const,
+    opt_volatile,
     simplify_type(Type).
 
 opt_const --> [const], !.
 opt_const --> [].
+
+opt_volatile --> [volatile], !.
+opt_volatile --> [].
 
 simplify_type(ulonglong) --> [type(unsigned),type(long),type(long),type(int)].
 simplify_type(ulonglong) --> [type(long),type(long),type(unsigned),type(int)].
