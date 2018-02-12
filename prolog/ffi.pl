@@ -1485,6 +1485,11 @@ cpp_expand(Modules, T0, T) :-
     call(M:cpp_const(T0, T)),
     !.
 cpp_expand(Modules, T0, T) :-
+    nonvar(T0),
+    T0 = 'C'(Expr0), !,
+    cpp_expand(Modules, Expr0, Expr),
+    cpp_eval(Expr, T).
+cpp_expand(Modules, T0, T) :-
     compound(T0),
     !,
     compound_name_arguments(T0, Name, Args0),
@@ -1501,6 +1506,26 @@ system:term_expansion(T0, T) :-
     current_predicate(M:cpp_const/2),
     cpp_expand([M], T0, T),
     T0 \== T.
+
+cpp_eval(Var, _) :-
+    var(Var),
+    !,
+    instantiation_error(Var).
+cpp_eval(Val0, Val) :-
+    atomic(Val0),
+    !,
+    Val = Val0.
+cpp_eval(Compound0, Val) :-
+    compound_name_arguments(Compound0, Name, Args0),
+    maplist(cpp_eval, Args0, Args),
+    compound_name_arguments(Compound, Name, Args),
+    cpp_eval_func(Compound, Val).
+
+cpp_eval_func((A|B), V)  :- !, V is A \/ B.
+cpp_eval_func(~(A), V)   :- !, V is \A.
+cpp_eval_func(&(A,B), V) :- !, V is A /\ B.
+cpp_eval_func(Term, V)   :-    V is Term.
+
 
 		 /*******************************
 		 *        LOW LEVEL DOCS	*
