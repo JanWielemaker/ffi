@@ -624,8 +624,11 @@ flag_lib(Lib, Lib) :-
 define(QHead, CSignature) :-
     QHead = M:_Head,
     link_clause(QHead, CSignature, Clause),
+    !,
     asserta(M:Clause),
     call(QHead).
+define(QHead, _) :-
+    throw(error(ffi_error(define(QHead)), _)).
 
 link_clause(M:Goal, CSignature,
             (PHead :- !, Body)) :-
@@ -1706,11 +1709,16 @@ system:term_expansion(T0, T) :-
 		 *            MESSAGES		*
 		 *******************************/
 
-:- multifile prolog:message//1.
+:- multifile
+    prolog:message//1,
+    prolog:error_message//1.
 
 prolog:message(ffi(Msg)) -->
     [ 'FFI: '-[] ],
     message(Msg).
+prolog:error_message(ffi_error(Msg)) -->
+    [ 'FFI: '-[] ],
+    error_message(Msg).
 
 message(incompatible_return(Func, Prolog, C)) -->
     [ '~p: incompatible return type: ~p <- ~p'-[Func, Prolog, C] ].
@@ -1722,3 +1730,6 @@ message(void_function(Func, PlRet)) -->
     [ '~p: void function defined to return ~p'-[Func, PlRet] ].
 message(nonmatching_params(Func, PlArgs, CArgs)) -->
     [ '~p: non-matching parameter list: ~p -> ~p'-[Func, PlArgs, CArgs] ].
+
+error_message(define(QHead)) -->
+    ['Failed to create link-clause for ~p'-[QHead]].
