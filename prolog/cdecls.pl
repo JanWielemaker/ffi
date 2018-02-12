@@ -44,7 +44,7 @@
 :- use_module(library(apply)).
 :- use_module(library(lists)).
 :- use_module(cparser).
-:- use_module(ffi, [c_sizeof/2]).
+:- use_module(ffi, [c_sizeof/2, c_nil/1]).
 
 /** <module> Extract information from the C AST
 
@@ -416,6 +416,9 @@ ast_constant(sizeof(Type), Size, Types) :-
     ;   print_message(warning, ffi(noconst(sizeof(Type)))),
         fail
     ).
+ast_constant(cast(type_name([type(void)],ad([ptr([])],dad(-,-))),i(0)),
+             C, _) :-                   % (void)0
+    c_nil(C).
 ast_constant(o(Op, L), C, Types) :-
     ast_constant(L, LC, Types),
     c_op(Op, LC, C).
