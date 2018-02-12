@@ -145,7 +145,7 @@ c_library(Base, FHandle, _Options) :-
     !,
     FHandle = FHandle0.
 c_library(Base, FHandle, Options) :-
-    with_mutex(dyncall, c_library_sync(Base, FHandle, Options)).
+    with_mutex(ffi, c_library_sync(Base, FHandle, Options)).
 
 c_library_sync(Base, FHandle, _Options) :-
     c_library_cache(Base, FHandle0),
