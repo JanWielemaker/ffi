@@ -252,8 +252,12 @@ expand_types(Types) -->
 
 expand_types([], _) --> [].
 expand_types([H|T], Types) -->
-    expand_type(H, Types),
+    expand_type(H, Types), !,
     expand_types(T, Types).
+expand_types([H|T], Types) -->
+    { print_message(error, ffi(expand_type_failed(H))) },
+    expand_types(T, Types).
+
 
 expand_type(function(Name, Return0, Params0), Types) --> !,
     { untypedef(Types, Return0, Return),
@@ -289,7 +293,15 @@ declarator_name(Types, d(declarator(Ptr,dd(Name,dds([],AST)))),
     ast_constant(AST, N, Types),
     !.
 declarator_name(_Types, d(declarator(Ptr,dd(Name,_))),
-                plain(Name, Ptr)).
+                plain(Name, Ptr)) :- !.
+declarator_name(Types, bitfield(declarator(-, dd(Name,_)), AST),
+                bitfield(Name, N)) :-
+    ast \== (-),
+    ast_constant(AST, N, Types),
+    !.
+declarator_name(_Types, Declarator, -) :-
+    print_message(error, ffi(declarator_name(Declarator))),
+    fail.
 
 repeat_fields([], _) --> [].
 repeat_fields([H|T], Type) --> field(H, Type), repeat_fields(T, Type).
@@ -304,6 +316,11 @@ field(array(Name, Length, Ptr), EType0) -->
       pointers(Ptr, array(EType,Length), Type)
     },
     [f(Name, Type)].
+field(bitfield(Name, Width), EType0) -->
+    { type_reference(EType0, EType),
+      assertion(EType == uint)
+    },
+    [f(Name, bitfield(Width))].
 
 simplify_types(Type0, Types, Type) :-
     phrase(expand_user_type(Type0, Types), Type1),
