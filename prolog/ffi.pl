@@ -684,7 +684,8 @@ variadic_prototypes([SA|ST], RetType, M, [H|T], CRetType) :-
     variadic_prototype(SA, M, H),
     variadic_prototypes(ST, RetType, M, T, CRetType).
 
-variadic_prototype(Type, _, Type).
+variadic_prototype(string, _, *(char)) :- !.
+variadic_prototype(Type,   _, Type).
 
 %!  prototype_type(+CType, +Module, +PrologType, -ParamType) is det.
 
