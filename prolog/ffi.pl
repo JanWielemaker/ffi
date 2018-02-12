@@ -320,10 +320,11 @@ optional(Func,   Func, required).
 wrap_function(Signature as PName, _Optional, Types) -->
     !,
     (   { compound_name_arguments(Signature, FName, SigArgs),
-          memberchk(function(FName, Ret, Params), Types)
+          memberchk(function(FName, CRet0, Params), Types)
         }
-    ->  (   { length(SigArgs, Arity),
-              matching_signature(FName, SigArgs, Ret, Params, SigParams, Types),
+    ->  (   { signature_arity(SigArgs, Arity),
+              matching_signature(FName, SigArgs, CRet0, CRet,
+                                 Params, SigParams, Types),
               include(is_closure, SigParams, Closures),
               length(Closures, NClosures),
               PArity is Arity - NClosures,
@@ -331,7 +332,7 @@ wrap_function(Signature as PName, _Optional, Types) -->
               CSignature =.. [FName|SigParams],
               prolog_load_context(module, M)
             }
-        ->  [ ffi:c_function(M:PHead, Params, Ret),
+        ->  [ ffi:c_function(M:PHead, Params, CRet),
               (:- dynamic(PName/PArity)),
               (PHead :- ffi:define(M:PHead, CSignature))
             ]
@@ -344,10 +345,18 @@ wrap_function(Signature, Optional, Types) -->
     },
     wrap_function(Signature as Name, Optional, Types).
 
+signature_arity(SigArgs, Arity) :-
+    append(Pre, [[void]], SigArgs),
+    !,
+    length(Pre, Arity).
+signature_arity(SigArgs, Arity) :-
+    length(SigArgs, Arity).
+
+
 is_closure(+closure(_)).
 
 %!  matching_signature(+FuncName,
-%!                     +PlArgs, +PlRet,
+%!                     +PlArgs, +CRet0, -CRet,
 %!                     +CArgs, -SignatureArgs, +Types) is semidet.
 %
 %   Match the signature given by the user   with  the one extracted from
@@ -358,31 +367,36 @@ is_closure(+closure(_)).
 %   the C function accepts  a  type   that  (eventually)  aliases  to an
 %   unsigned long.
 
-matching_signature(Name, SigArgs, Ret, Params, SigParams, Types) :-
+matching_signature(Name, SigArgs, CRet0, CRet, Params, SigParams, Types) :-
     append(RealArgs, [[PlRet]], SigArgs),   % specified return
     !,
-    (   matching_param_length(RealArgs, Params, PlArgs, _VArgs, CParams)
+    (   matching_param_length(RealArgs, Params, PlArgs, VArgs, CParams)
     ->  maplist(compatible_argument(Name, Types),
                 PlArgs, CParams, SigRealParams)
     ;   print_message(error, ffi(nonmatching_params(Name, SigArgs, Params))),
         fail
     ),
-    (   Ret == void
+    (   PlRet == void
+    ->  append(SigRealParams, VArgs, SigParams),
+        CRet = void
+    ;   CRet0 == void
     ->  print_message(error, ffi(void_function(Name, PlRet))),
         fail
-    ;   compatible_return(Name, PlRet, Ret, RetParam, Types),
-        append(SigRealParams, [[RetParam]], SigParams)
+    ;   compatible_return(Name, PlRet, CRet0, RetParam, Types),
+        CRet = CRet0,
+        append([SigRealParams, VArgs, [[RetParam]]], SigParams)
     ).
-matching_signature(Name, SigArgs, Ret, Params, SigParams, Types) :-
-    (   matching_param_length(SigArgs, Params, PlArgs, _VArgs, CParams)
+matching_signature(Name, SigArgs, CRet, CRet, Params, SigParams, Types) :-
+    (   matching_param_length(SigArgs, Params, PlArgs, VArgs, CParams)
     ->  maplist(compatible_argument(Name, Types),
-                PlArgs, CParams, SigParams)
+                PlArgs, CParams, SigParams0),
+        append(SigParams0, VArgs, SigParams)
     ;   print_message(error, ffi(nonmatching_params(Name, SigArgs, Params))),
         fail
     ),
-    (   Ret == void
+    (   CRet == void
     ->  true
-    ;   print_message(warning, ffi(nonvoid_function(Name, Ret)))
+    ;   print_message(warning, ffi(nonvoid_function(Name, CRet)))
     ).
 
 %!  matching_param_length(+PlParms, +CParms,
@@ -401,9 +415,12 @@ matching_param_length(PlParms, CParams, ReqPlParams, VarPlParams, ReqCParams) :-
     length(ReqCParams, CArgc),
     length(ReqPlParams, CArgc),
     append(ReqPlParams, VarPlParams, PlParms),
-    assertion(VarPlParams == []).                  % TBD: handle variadic args
+    check_variadic_params(VarPlParams).
 matching_param_length(PlParms, CParams, PlParms, [], CParams) :-
     same_length(PlParms, CParams).
+
+check_variadic_params(_).
+
 
 %!  compatible_argument(+Func, +Types, +PlArg, +CArg, -Param)
 
@@ -443,7 +460,7 @@ compatible_arg(Func0, funcptr(Ret, Params), +closure(M:Func), Types) :-
     Func1 \= *(_),
     compound_name_arguments(Func1, Pred, SigArgs),
     !,
-    matching_signature(-, SigArgs, Ret, Params, SigParams, Types),
+    matching_signature(-, SigArgs, Ret, Ret, Params, SigParams, Types),
     compound_name_arguments(Func, Pred, SigParams).
 % compatible_arg/3
 compatible_arg(PlArg, _ArgName-CArg, Types) :-
@@ -644,18 +661,20 @@ prototype_types([], [[SA]], RetType, M, [], PRet) :-
 prototype_types([], [], _RetType, _M, [], void).
 prototype_types([...], PlParms, CRet, M, CTypes, CRetType) :-
     !,
-    variadic_prototype(PlParms, CRet, M, CTypes, CRetType).
+    variadic_prototypes(PlParms, CRet, M, CTypes, CRetType).
 prototype_types([H0|T0], [SA|ST], RetType, M, [H|T], PRet) :-
     prototype_type(H0, M, SA, H),
     prototype_types(T0, ST, RetType, M, T, PRet).
 
-
-variadic_prototype([[SA]], RetType, M, [], PRet) :-
+variadic_prototypes([[SA]], RetType, M, [], PRet) :-
     !,
     prototype_type(RetType, M, SA, PRet).
-variadic_prototype(_PlParms, _CRet, _M, _CTypes, _CRetType) :-
-    assertion(fail).
+variadic_prototypes([], _, _, [], void).
+variadic_prototypes([SA|ST], RetType, M, [H|T], CRetType) :-
+    variadic_prototype(SA, M, H),
+    variadic_prototypes(ST, RetType, M, T, CRetType).
 
+variadic_prototype(Type, _, Type).
 
 %!  prototype_type(+CType, +Module, +PrologType, -ParamType) is det.
 
@@ -1220,7 +1239,7 @@ c_store_(Ptr, Offset, Type, Value) :-
     ;   Plain = funcptr(Ret, Params)
     ->  strip_module(M:Value, PM, Func1),
         compound_name_arguments(Func1, Pred, SigArgs),
-        matching_signature(-, SigArgs, Ret, Params, SigParams, []),
+        matching_signature(-, SigArgs, Ret, Ret, Params, SigParams, []),
         compound_name_arguments(Func, Pred, SigParams),
         closure_create(PM:Func, Closure),
         c_store(Ptr, Offset, closure, Closure)
