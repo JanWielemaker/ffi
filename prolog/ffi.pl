@@ -888,6 +888,17 @@ compile_struct(Name, Fields, All) -->
     [ '$c_struct'(Name, Size, Alignment) ].
 
 field_clauses([], _, End, End, Align, Align, _) --> [].
+field_clauses([f(Name,bitfield(Width))|T0], Struct,
+              Off0, Off, Align0, Align, All) --> !,
+    { c_type_size_align(uint, Size, Alignment, All),
+      Bits is 8*Size,
+      Align1 is max(Align0, Alignment),
+      Off1 is Alignment*((Off0+Alignment-1)//Alignment),
+      Off2 is Off1 + Size
+    },
+    bitfield_clauses([f(Name,bitfield(Width))|T0], Struct,
+                     Off1, 0, Bits, T),
+    field_clauses(T, Struct, Off2, Off, Align1, Align, All).
 field_clauses([f(Name,Type)|T], Struct, Off0, Off, Align0, Align, All) -->
     { c_type_size_align(Type, Size, Alignment, All),
       Align1 is max(Align0, Alignment),
@@ -896,6 +907,15 @@ field_clauses([f(Name,Type)|T], Struct, Off0, Off, Align0, Align, All) -->
     },
     [ '$c_struct_field'(Struct, Name, Off1, Type) ],
     field_clauses(T, Struct, Off2, Off, Align1, Align, All).
+
+bitfield_clauses([f(Name,bitfield(Width))|T0], Struct,
+                 IntOffset, BitsUsed, Bits, T) -->
+    { BitsUsed1 is BitsUsed + Width,
+      BitsUsed1 =< Bits
+    },
+    [ '$c_struct_field'(Struct, Name, IntOffset, bitfield(BitsUsed, Width)) ],
+    bitfield_clauses(T0, Struct, IntOffset, BitsUsed1, Bits, T).
+bitfield_clauses(Fields, _, _, _, _, Fields) --> [].
 
 
 %!  c_union(+Name, +Fields)
