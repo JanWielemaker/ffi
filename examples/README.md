@@ -6,6 +6,15 @@ the test cases in the test directory.
   - *math.pl* is a real starter example, illustrating connecting a
     couple of functions from `-lm`.
 
+  - *printf.pl* illustrates the (limited) handling of variadic
+    functions like printf().
+
+  - *mmap.pl* provides file mapping.  It shows handling C preprocessor
+    constants, handling the variadic open() call and type casting.
+
+  - *test_mmap.pl* illustrates the use of *mmap.pl* to create a C
+    compatible binary file holding an array of structs.
+
   - *uchardet.pl* connects `-luchardet`.  This a fairly simple example,
     slightly complicated due to the involved character encoding.
 
