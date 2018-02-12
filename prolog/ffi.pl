@@ -1483,12 +1483,16 @@ c_constant(Name=AST) -->
 cpp_expand(Modules, T0, T) :-
     atom(T0),
     member(M, Modules),
+    current_predicate(M:cpp_const/2),
     call(M:cpp_const(T0, T)),
     !.
-cpp_expand(Modules, T0, T) :-
+cpp_expand(Modules0, T0, T) :-
     nonvar(T0),
-    T0 = 'C'(Expr0), !,
-    cpp_expand(Modules, Expr0, Expr),
+    T0 = 'C'(Expr0),
+    nonvar(Expr0),
+    !,
+    cpp_expand_module(Expr0, Expr1, Modules0, Modules),
+    cpp_expand(Modules, Expr1, Expr),
     cpp_eval(Expr, T).
 cpp_expand(Modules, T0, T) :-
     compound(T0),
@@ -1502,11 +1506,13 @@ cpp_expand(Modules, T0, T) :-
     ).
 cpp_expand(_, T, T).
 
-system:term_expansion(T0, T) :-
-    prolog_load_context(module, M),
-    current_predicate(M:cpp_const/2),
-    cpp_expand([M], T0, T),
-    T0 \== T.
+cpp_expand_module(Expr0, Expr, Modules, [M|Modules]) :-
+    nonvar(Expr0),
+    Expr0 = _:_,
+    !,
+    strip_module(Expr0, M, Expr).
+cpp_expand_module(Expr, Expr, Modules, Modules).
+
 
 cpp_eval(Var, _) :-
     var(Var),
@@ -1527,6 +1533,12 @@ cpp_eval_func(~(A), V)   :- !, V is \A.
 cpp_eval_func(&(A,B), V) :- !, V is A /\ B.
 cpp_eval_func(Term, V)   :-    V is Term.
 
+
+system:term_expansion(T0, T) :-
+    prolog_load_context(module, M),
+    current_predicate(M:c_import/3),
+    cpp_expand([M], T0, T),
+    T0 \== T.
 
 		 /*******************************
 		 *        LOW LEVEL DOCS	*
