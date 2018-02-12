@@ -678,7 +678,7 @@ pl_ffi_call(term_t prototype, term_t goal)
       }
     }
 
-    if ( ctx->ret_type.type != CT_VOID )
+    if ( !(ctx->ret_type.type == CT_VOID && ctx->ret_type.ptrl == 0) )
     { if ( !PL_get_arg(argi+1, goal, arg) )
       { return ( PL_put_integer(arg, argi+1) &&
 		 PL_existence_error("d_arg", arg) );
