@@ -154,13 +154,13 @@ cpp_const('ST_NOATIME').
 \end{code}
 
 The c_import/3 directive is compiled into Prolog statements that
-represent the involved types, requested macros (see cpp_const/1) and a
-\jargon{lazy} binding definition. The first call to statfs/3 actually
-loads the library and creates the wrapper predicate. The type
+represent the involved types, requested macros (see \secref{cpp-const})
+and a \jargon{lazy} binding definition. The first call to statfs/3
+actually loads the library and creates the wrapper predicate. The type
 information is obtained by processing the first (string) argument using
 the C~preprocessor and parsing the result into a Prolog AST. For this
 reason the library contains a full parser of the C99 standard including
-GCC extensions.  Given the AST and the above declaration we can
+GCC extensions. Given the AST and the above declaration we can
 
 \begin{itemize}
     \item Find the prototype for statfs()
@@ -497,6 +497,29 @@ Note that c_define/2 has \textbf{no} relation to C \verb$#define$.  See
 also cpp_macro/1.
 \end{description}
 
+\subsection{Calling variadic functions (f(x,y,...)}
+\label{sec:ffi-variadic}
+
+The current version has limited support for variadic functions, i.e.,
+functions whose prototype argument list ends with \const{...}. The
+arguments before the \const{...} are processed normally. Remaining
+arguments must be declared and are trusted. This implies it is not yet
+possible to call such functions with arbitrary arguments, but it is
+possible to call them with a specific argument list.  For example,
+we can print two floating point numbers using the code below.
+
+\begin{code}
+:- use_module(library(ffi)).
+
+:- c_import("#include <stdio.h>",
+            [ '-lc' ],
+            [ printf(string, double, double, [void]) as printf_dd
+            ]).
+
+test(X, Y) :-
+    printf_dd("You entered %f and %f\n", X, Y).
+\end{code}
+
 
 \subsection{Data ownership considerations}
 \label{sec:ffi-ownership}
@@ -660,6 +683,65 @@ read_array(_, _, _, []).
 
 The predicate c_store/2 provides support for assigning a struct field
 with a closure that calls a Prolog predicate.
+
+
+\subsection{Accessing preprocessor constants}
+\label{sec:cpp-const}
+
+C libraries tend to make constants available using C preprocessor
+macros. In many cases, these are combined using \jargon{bitwise or} to
+form \jargon{flags}.  The example below is a commonly seen snippet in
+C.
+
+\begin{code}
+    int fd = open("myfile", O_CREATE|O_WRONLY);
+\end{code}
+
+Constants like \const{O_CREATE} are made available from Prolog by
+defining the predicate cpp_const/1 before using the c_import/3
+directive. This cause c_import/3 to add code to the header to initialize
+global variables with the macro value. After parsing the AST fragment
+that initializes the constant is evaluated to an integer, float or
+string literal.
+
+\begin{description}
+    \predicate{cpp_const}{1}{-Name} is nondet.
+This hook predicate can be defined in the same module as from where the
+c_import/3 directive is used. It causes c_import/3 to create clauses
+cpp_const/2, \term{cpp_const}{Name, Value}. These clauses are used by a
+rule for system:term_expansion/2 if library(ffi) is imported into the
+current context.  This causes the following terms to be expanded:
+
+    \begin{description}
+	\termitem{Atom}{}
+An atom that matches a defined cpp_const/2 fact is expanded into the
+related constant.
+	\termitem{'C'}{:Expression}
+Expand \arg{Expression} and evaluate it. If the expression is module
+qualified add the indicated module to the modules in which rules for
+cpp_const/2 are searched.  The evaluation of \arg{Expression} recognises
+the C operators \chr{|}, \chr{~} and \chr{\&}. The remainder is handed
+to Prolog is/2. For example, we can write the following
+
+\begin{code}
+cpp_const('O_CREATE').
+cpp_const('O_WRONLY').
+
+:- c_import("#include <sys/types.h>
+             #include <sys/stat.h>
+             #include <fcntl.h>
+             #include <unistd.h>",
+	    [ '-lc' ],
+	    [ open(string, int, [int]) as c_open
+	    ]).
+
+test(File) :-
+    c_open(File, 'C'('O_CREATE'|'O_WRONLY'), Fd),
+    posix_status(Fd, open, file, File),
+    ....
+\end{code}
+    \end{description}
+\end{description}
 
 
 \subsection{Module awareness}
