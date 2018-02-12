@@ -212,9 +212,11 @@ expand_flag(Flag, Flags) :-
     compound_name_arguments(Flag, Name, Args),
     pkg_config(Name),
     !,
-    process_create(path('pkg-config'), Args,
-                   [ stdout(pipe(Out)) ]),
-    read_string(Out, _, String),
+    setup_call_cleanup(
+        process_create(path('pkg-config'), Args,
+                       [ stdout(pipe(Out)) ]),
+        read_string(Out, _, String),
+        close(Out)),
     split_string(String, " \r\t\t", " \r\n\t", FlagStrings),
     maplist(atom_string, Flags, FlagStrings).
 expand_flag(Flag, Flag).
