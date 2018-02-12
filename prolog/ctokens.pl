@@ -249,7 +249,7 @@ nonzero_digit('7') --> "7".
 nonzero_digit('8') --> "8".
 nonzero_digit('9') --> "9".
 
-octal_digit('0') --> "1".
+octal_digit('0') --> "0".
 octal_digit('1') --> "1".
 octal_digit('2') --> "2".
 octal_digit('3') --> "3".
