@@ -49,8 +49,11 @@ references the _Value_ if the _Value_ is a pointer.
 
 ## Types
 
-A type is either a primitive type   or a constructed type. The following
-basic types are identified:
+A type is either a primitive type or a constructed type.
+
+### Basic types
+
+The following basic types are identified:
 
   $ Signed integers :
   `char`, `short`, `int`, `long` and `longlong`
@@ -63,10 +66,33 @@ basic types are identified:
 
 In addition, the type =wchar_t= is recognised by the library to
 facilitate portable exchange of Unicode text represented as wide
-character strings. The constructed types are struct(Name), union(Name)
-and enum(Name).
+character strings.
 
-## The high level interface
+### Constructed types
+
+The constructed types are struct(Name), union(Name) and enum(Name). The
+c_import/3 directive extracts types that are (transitively) reachable
+from imported functions to the current module. In addition, types can be
+defined using c_struct/1 and c_union/1. Such declarations can be used to
+create and access C binary data without using library functions.
+
+  - [[c_struct/2]]
+  - [[c_union/2]]
+
+The defined types may be examined using the following interface:
+
+  - [[c_current_enum/3]]
+  - [[c_current_struct/1]]
+  - [[c_current_struct/3]]
+  - [[c_current_struct_field/4]]
+  - [[c_current_union/1]]
+  - [[c_current_union/3]]
+  - [[c_current_union_field/3]]
+  - [[c_current_typedef/2]]
+  - [[c_expand_type/2]]
+  - [[c_type_size_align/3]]
+
+### The high level interface
 
   - [[c_alloc/2]]
   - [[c_cast/3]]
@@ -75,7 +101,7 @@ and enum(Name).
   - [[c_nil/1]]
   - [[c_is_nil/1]]
 
-## The low level interface
+### The low level interface
 
 The low-level interface is build around a SWI-Prolog _blob_ that
 represents a C pointer with some metadata. A _blob_ is similar to a

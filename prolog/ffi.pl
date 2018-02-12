@@ -860,7 +860,11 @@ strip_mode(Type, Type).
 %     - *(Type)
 %     - array(Type, Size)
 %
-%   A structure declaration is compiled into a number of clauses
+%   This directive is  normally  used  by   c_import/3  to  create  type
+%   information for structures that are involved   in functions that are
+%   imported. This directive may be used  explicitly in combination with
+%   the C memory access predicates  to  read   or  write  memory using C
+%   binary representation.
 
 c_struct(Name, Fields) :-
     throw(error(context_error(nodirective, c_struct(Name, Fields)), _)).
@@ -894,21 +898,8 @@ field_clauses([f(Name,Type)|T], Struct, Off0, Off, Align0, Align, All) -->
 
 %!  c_union(+Name, +Fields)
 %
-%   Declare a C union with name  Name.   Fields  is  a list of field
-%   specifications of the form:
-%
-%     - f(Name, Type)
-%
-%   Where Type is one of
-%
-%     - A primitive type (`char`, `uchar`, ...)
-%     - struct(Name)
-%     - union(Name)
-%     - enum(Name)
-%     - *(Type)
-%     - array(Type, Size)
-%
-%   A structure declaration is compiled into a number of clauses
+%   Declare a C union with name  Name.   Fields  is  a list of fields
+%   using the same conventions as c_struct/2.
 
 c_union(Name, Fields) :-
     throw(error(context_error(nodirective, c_union(Name, Fields)), _)).
