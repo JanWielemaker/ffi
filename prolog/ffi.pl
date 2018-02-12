@@ -414,12 +414,22 @@ matching_param_length(PlParms, CParams, ReqPlParams, VarPlParams, ReqCParams) :-
     !,
     length(ReqCParams, CArgc),
     length(ReqPlParams, CArgc),
-    append(ReqPlParams, VarPlParams, PlParms),
-    check_variadic_params(VarPlParams).
+    append(ReqPlParams, VarPlParams0, PlParms),
+    maplist(variadic_param, VarPlParams0, VarPlParams).
 matching_param_length(PlParms, CParams, PlParms, [], CParams) :-
     same_length(PlParms, CParams).
 
-check_variadic_params(_).
+variadic_param(-Type, -Type) :- !.
+variadic_param(*(Type), *Type) :- !.
+variadic_param(Type0, Type) :-
+    default_promotion(Type0, Type), !.
+variadic_param(Type, Type).
+
+default_promotion(char,   int).
+default_promotion(uchar,  uint).
+default_promotion(short,  int).
+default_promotion(ushort, int).
+default_promotion(float,  double).
 
 
 %!  compatible_argument(+Func, +Types, +PlArg, +CArg, -Param)
