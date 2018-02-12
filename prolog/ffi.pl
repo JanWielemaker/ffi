@@ -68,6 +68,7 @@
             c_current_typedef/2,        % :Name, -Type
 
             c_expand_type/2,            % :TypeIn, -TypeOut
+            c_type_size_align/3,        % :Type, -Size, -Alignment
 
             c_struct_dict/2,            % ?Ptr,  ?Dict
 
@@ -114,8 +115,8 @@
     c_struct_dict(:,?),
     c_expand_type(:,:),
     type_size(:,-),
-    type_size_align(:,-,-),
-    type_size_align(:,-,-, +).
+    c_type_size_align(:,-,-),
+    c_type_size_align(:,-,-, +).
 
 
 :- use_foreign_library(foreign(ffi4pl)).
@@ -849,7 +850,7 @@ compile_struct(Name, Fields, All) -->
 
 field_clauses([], _, End, End, Align, Align, _) --> [].
 field_clauses([f(Name,Type)|T], Struct, Off0, Off, Align0, Align, All) -->
-    { type_size_align(Type, Size, Alignment, All),
+    { c_type_size_align(Type, Size, Alignment, All),
       Align1 is max(Align0, Alignment),
       Off1 is Alignment*((Off0+Alignment-1)//Alignment),
       Off2 is Off1 + Size
@@ -897,7 +898,7 @@ compile_union(Name, Fields, All) -->
 
 ufield_clauses([], _, Size, Size, Align, Align, _) --> [].
 ufield_clauses([f(Name,Type)|T], Struct, Size0, Size, Align0, Align, All) -->
-    { type_size_align(Type, ESize, Alignment, All),
+    { c_type_size_align(Type, ESize, Alignment, All),
       Align1 is max(Align0, Alignment),
       Size1  is max(Size0, ESize)
     },
@@ -910,62 +911,62 @@ ufield_clauses([f(Name,Type)|T], Struct, Size0, Size, Align0, Align, All) -->
 %   Size is the size of an object of Type.
 
 type_size(Type, Size) :-
-    type_size_align(Type, Size, _).
+    c_type_size_align(Type, Size, _).
 
-%!  type_size_align(:Type, -Size, -Alignment) is det.
+%!  c_type_size_align(:Type, -Size, -Alignment) is det.
 %
 %   True when Type must be aligned at Alignment and is of size Size.
 
-type_size_align(Type, Size, Alignment) :-
-    type_size_align(Type, Size, Alignment, []).
+c_type_size_align(Type, Size, Alignment) :-
+    c_type_size_align(Type, Size, Alignment, []).
 
-type_size_align(_:Type, Size, Alignment, _All) :-
+c_type_size_align(_:Type, Size, Alignment, _All) :-
     c_alignof(Type, Alignment),
     !,
     c_sizeof(Type, Size).
-type_size_align(_:struct(Name), Size, Alignment, All) :-
+c_type_size_align(_:struct(Name), Size, Alignment, All) :-
     memberchk(struct(Name, Fields), All), !,
     phrase(compile_struct(Name, Fields, All), Clauses),
     memberchk('$c_struct'(Name, Size, Alignment), Clauses).
-type_size_align(_:struct(Name, Fields), Size, Alignment, All) :-
+c_type_size_align(_:struct(Name, Fields), Size, Alignment, All) :-
     phrase(compile_struct(Name, Fields, All), Clauses),
     memberchk('$c_struct'(Name, Size, Alignment), Clauses).
-type_size_align(_:union(Name), Size, Alignment, All) :-
+c_type_size_align(_:union(Name), Size, Alignment, All) :-
     memberchk(union(Name, Fields), All), !,
     phrase(compile_union(Name, Fields, All), Clauses),
     memberchk('$c_union'(Name, Size, Alignment), Clauses).
-type_size_align(_:union(Name, Fields), Size, Alignment, All) :-
+c_type_size_align(_:union(Name, Fields), Size, Alignment, All) :-
     phrase(compile_union(Name, Fields, All), Clauses),
     memberchk('$c_union'(Name, Size, Alignment), Clauses).
-type_size_align(M:struct(Name), Size, Alignment, _) :-
+c_type_size_align(M:struct(Name), Size, Alignment, _) :-
     current_predicate(M:'$c_struct'/3),
     M:'$c_struct'(Name, Size, Alignment),
     !.
-type_size_align(M:union(Name), Size, Alignment, _) :-
+c_type_size_align(M:union(Name), Size, Alignment, _) :-
     current_predicate(M:'$c_union'/3),
     M:'$c_union'(Name, Size, Alignment),
     !.
-type_size_align(M:array(Type,Len), Size, Alignment, All) :-
+c_type_size_align(M:array(Type,Len), Size, Alignment, All) :-
     !,
-    type_size_align(M:Type, Size0, Alignment, All),
+    c_type_size_align(M:Type, Size0, Alignment, All),
     Size is Size0*Len.
-type_size_align(_:enum(_Enum), Size, Alignment, _) :-
+c_type_size_align(_:enum(_Enum), Size, Alignment, _) :-
     !,
     c_alignof(int, Alignment),
     c_sizeof(int, Size).
-type_size_align(_:(*(_)), Size, Alignment, _) :-
+c_type_size_align(_:(*(_)), Size, Alignment, _) :-
     !,
     c_alignof(pointer, Alignment),
     c_sizeof(pointer, Size).
-type_size_align(_:funcptr(_Ret,_Params), Size, Alignment, _) :-
+c_type_size_align(_:funcptr(_Ret,_Params), Size, Alignment, _) :-
     !,
     c_alignof(pointer, Alignment),
     c_sizeof(pointer, Size).
-type_size_align(Type, Size, Alignment, All) :-
+c_type_size_align(Type, Size, Alignment, All) :-
     c_current_typedef(Type, Def),
     !,
-    type_size_align(Def, Size, Alignment, All).
-type_size_align(Type, _Size, _Alignment, _) :-
+    c_type_size_align(Def, Size, Alignment, All).
+c_type_size_align(Type, _Size, _Alignment, _) :-
     existence_error(type, Type).
 
 %!  c_expand_type(:TypeIn, :TypeOut)
