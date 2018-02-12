@@ -73,25 +73,28 @@ cpp_const('ENOMEM').
 :- c_import("#include <string.h>
              #include <errno.h>",
             [ libc ],
-            [ strerror(+int, [-string]) ]).
+            [ strerror(+int, [string]) ]).
 
 %!  posix_status(+Code) is det.
 %!  posix_status(+Code, +Action, +Type, +Argument) is det.
 %
 %   These predicates may be used to map  POSIX `int` error return status
-%   into a suitable Prolog response. If Code is `0` the predicate simply
-%   succeeds.  For  other  cases  it  retrieves  the  error  code  using
-%   c_errno/1 and translates the error into a suitable Prolog exception.
+%   into a suitable Prolog response. If Code is non-negative the
+%   predicate simply succeeds. For other cases it retrieves the error
+%   code using c_errno/1 and translates the error into a suitable Prolog
+%   exception.
 
-posix_status(0) :-
-    !.
-posix_status(_) :-
-    posix_raise_error.
+posix_status(Status) :-
+    (   Status >= 0
+    ->  true
+    ;   posix_raise_error
+    ).
 
-posix_status(0, _, _, _) :-
-    !.
-posix_status(_, Op, Type, Arg) :-
-    posix_raise_error(Op, Type, Arg).
+posix_status(Status, Op, Type, Arg) :-
+    (   Status >= 0
+    ->  true
+    ;   posix_raise_error(Op, Type, Arg)
+    ).
 
 %!  posix_ptr_status(+Code) is det.
 %!  posix_ptr_status(+Code, +Action, +Type, +Argument) is det.
