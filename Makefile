@@ -42,6 +42,8 @@ test/test_union.$(SOEXT): test/test_union.c
 test/test_funcptr.$(SOEXT): test/test_funcptr.c
 	$(CC) $(CFLAGS) -o $@ $<
 
+$(TESTSO): env
+
 tags:
 	etags c/*.[ch]
 
