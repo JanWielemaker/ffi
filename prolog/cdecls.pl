@@ -385,6 +385,7 @@ simplify_type(Type)      --> [type(Type)].
 simplify_type(longlong)  --> [type(long),type(long),type(int)].
 simplify_type(longlong)  --> [type(long),type(long)].
 simplify_type(long)      --> [type(long),type(int)].
+simplify_type(long)      --> [type(signed),type(long)].
 simplify_type(short)     --> [type(short),type(int)].
 
 untypedef(Types, *(Type0), *(Type)) :-
