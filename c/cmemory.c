@@ -260,6 +260,9 @@ tname(const type_spec *tspec)
     case CT_ULONG:     return "ulong";
     case CT_LONGLONG:  return "longlong";
     case CT_ULONGLONG: return "ulonglong";
+    case CT_FLOAT:     return "float";
+    case CT_DOUBLE:    return "double";
+    case CT_CLOSURE:   return "(*)()";
     case CT_VOID:      return "void";
     case CT_STRUCT:
     case CT_UNION:
