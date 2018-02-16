@@ -1,11 +1,9 @@
-SWIPL=swipl
 LD=$(SWIPL)-ld
 LDSOFLAGS=-Wall -shared -O2 -gdwarf-2 -g3
 CC=gcc
 MAKE=make
-ARCH=$(shell $(SWIPL) -arch)
 PACKSODIR=lib/$(ARCH)
-FFI4PL=lib/$(ARCH)/ffi4pl.$(SOEXT)
+FFI4PL=lib/$(SWIARCH)/ffi4pl.$(SOEXT)
 LIBS=-lffi
 CFLAGS=-shared -fPIC
 TESTSO=	test/test_mode.$(SOEXT) \
