@@ -41,7 +41,14 @@
 #else
 #include <ffi.h>
 #endif
+#ifdef HAVE_DLFCN_H
 #include <dlfcn.h>
+#else					/* use emulation from SWI-Prolog */
+#define dlopen PL_dlopen
+#define dlclose PL_dlclose
+#define dlsym PL_dlsym
+#define dlerror PL_dlerror
+#endif /*HAVE_DLFCN_H*/
 #include <errno.h>
 #include <string.h>
 #include <assert.h>
@@ -207,6 +214,28 @@ ffi_library_free(void *ptr)
 
   free(ptr);
 }
+
+#ifndef RTLD_LAZY
+#define RTLD_LAZY 0
+#endif
+#ifndef RTLD_NOW
+#define RTLD_NOW 0
+#endif
+#ifndef RTLD_GLOBAL
+#define RTLD_GLOBAL 0
+#endif
+#ifndef RTLD_LOCAL
+#define RTLD_LOCAL 0
+#endif
+#ifndef RTLD_NODELETE
+#define RTLD_NODELETE 0
+#endif
+#ifndef RTLD_NOLOAD
+#define RTLD_NOLOAD 0
+#endif
+#ifndef RTLD_DEEPBIND
+#define RTLD_DEEPBIND 0
+#endif
 
 
 static foreign_t
@@ -542,6 +571,7 @@ unify_output(term_t t, const type_spec *tp, const argstore *as)
       case CT_DOUBLE:    return PL_unify_float (t, as->d);
       default:
 	assert(0);
+        return FALSE;
     }
   }
 }
@@ -835,6 +865,7 @@ call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp)
 	    case CT_DOUBLE:    rc = BIND_FLOAT(double);              break;
 	    default:
 	      assert(0);				/* TBD: pointers */
+	      rc = 0;
 	  }
 	}
 
@@ -868,6 +899,7 @@ call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp)
 	      case CT_DOUBLE:    rc = PL_cvt_i_float(rt, ret);  break;
 	      default:
 		assert(0);
+	        rc = 0;
 	    }
 	  }
 

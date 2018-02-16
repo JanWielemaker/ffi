@@ -38,6 +38,12 @@
 #include <stdio.h>
 #include <pthread.h>
 
+#ifdef __WINDOWS__
+#define SIZEFMT "%Iu"
+#else
+#define SIZEFMT "%zu"
+#endif
+
 static atom_t ATOM_char;
 static atom_t ATOM_short;
 static atom_t ATOM_int;
@@ -228,7 +234,7 @@ pname(const c_ptr *ref, char *buf)
 { if ( ref->count == SZ_UNKNOWN )
   { return "[]";
   } else
-  { sprintf(buf, "[%zd]", ref->count);
+  { sprintf(buf, "[" SIZEFMT "]", ref->count);
     return buf;
   }
 }
@@ -1207,7 +1213,7 @@ c_load_string4(term_t ptr, term_t data, term_t type, term_t encoding)
 #define MKFUNCTOR(n,a) \
         FUNCTOR_ ## n ## a = PL_new_functor(PL_new_atom(#n), a)
 
-static install_t
+static void
 install_c_memory(void)
 { MKATOM(char);
   MKATOM(short);
