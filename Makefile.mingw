@@ -1,0 +1,19 @@
+MINGW64=/home/janw/mingw64
+PLHOME=$(MINGW64)/swipl
+ARCH64=x64-win64
+CC=x86_64-w64-mingw32-gcc
+CFLAGS=-Wall -O2 -D_REENTRANT -D__WINDOWS__ -D_WINDOWS -D__SWI_PROLOG__
+CIFLAGS=-I$(PLHOME)/include -I$(MINGW64)/include
+LIBS=-lffi -lswipl -lpthread
+
+all:	lib/$(ARCH64)/ffi4pl.dll
+
+c/ffi4pl.obj: c/ffi4pl.c c/cmemory.c
+	$(CC) $(CFLAGS) $(CIFLAGS) -c -o $@ $<
+
+lib/$(ARCH64)/ffi4pl.dll: c/ffi4pl.obj
+	mkdir -p lib/$(ARCH64)
+	$(CC) -shared -o $@ $< -L$(PLHOME)/lib -L$(MINGW64)/lib $LIBS
+
+clean::
+	rm -f c/ffi4pl.obj
