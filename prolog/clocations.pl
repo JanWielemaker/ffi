@@ -34,6 +34,7 @@
 
 :- module(c_locations,
           [ c_lib_path/3,               % +Name, -Path, +Options
+            cpp/2,                      % -Command, -Args
 
             ldconfig/4,                 % ?Name, ?Path, ?Version, ?Flags
             ldconfig_flush/0
@@ -66,9 +67,21 @@ a C library.  Hooks may be used to extend this predicate:
 
 :- multifile
     user:file_search_path/2,
-    library_path_hook/3,                        % +Spec, -Path, +Options
-    compatible_architecture/1,
-    cpu_alias/2.
+    ffi:library_path_hook/3,                    % +Spec, -Path, +Options
+    ffi:cpp_hook/2,				% -Command, -Argv
+    ffi:compatible_architecture/1,
+    ffi:cpu_alias/2.
+
+%!  cpp(-Command, -Argv) is det.
+%
+%   Provide the Command and Argv for process_create/3 to call the C
+%   proprocessor reading the C input from standard input.
+
+cpp(Command, Argv) :-
+    ffi:cpp_hook(Command, Argv),
+    !.
+cpp(path(gcc), ['-E', '-xc', -]).
+
 
 %!  c_lib_path(+Spec, -Path, +Options) is det.
 %
@@ -90,13 +103,13 @@ a C library.  Hooks may be used to extend this predicate:
 %
 %   @tbd Extend the platform specific search strategies.
 
-%!  library_path_hook(+Name, -Path, +Options) is semidet.
+%!  ffi:library_path_hook(+Name, -Path, +Options) is semidet.
 %
 %   Multifile hook that can  be  defined  to   resolve  a  library  to a
 %   concrete file.  The hook is tried as first option by c_lib_path/2.
 
 c_lib_path(Name, Path, Options) :-
-    library_path_hook(Name, Path, +Options),
+    ffi:library_path_hook(Name, Path, +Options),
     !.
 c_lib_path(Name, Path, Options) :-
     atomic(Name),
@@ -164,6 +177,9 @@ ldconfig(Name, Path) :-
     ;   latest_version(Candidates, l(Path,_,_))
     ).
 
+compatible(l(_,_,Flags)) :-
+    ffi:compatible_architecture(Flags),
+    !.
 compatible(l(_,_,Flags)) :-
     compatible_architecture(Flags).
 
@@ -322,6 +338,7 @@ cpu(CPU) :-
     split_string(Arch, "-", "", [CPUString|_]),
     atom_string(CPU0, CPUString),
     (   CPU = CPU0
+    ;   ffi:cpu_alias(CPU0, CPU)
     ;   cpu_alias(CPU0, CPU)
     ).
 

@@ -44,6 +44,7 @@
 :- use_module(library(apply)).
 :- use_module(library(lists)).
 :- use_module(cparser).
+:- use_module(clocations).
 :- use_module(ffi, [c_sizeof/2, c_nil/1]).
 
 /** <module> Extract information from the C AST
@@ -547,8 +548,9 @@ c99_header_ast(Header, Flags, AST) :-
 
 open_gcc_cpp(Header, Flags, Out) :-
     process_create_options(CreateOptions),
-    append(Flags, ['-E', '-xc', -], CPPFlags),
-    process_create(path(gcc), CPPFlags,
+    cpp(Command, Argv),
+    append(Flags, Argv, CPPFlags),
+    process_create(Command, CPPFlags,
                    [ stdin(pipe(In)),
                      stdout(pipe(Out))
                    | CreateOptions
