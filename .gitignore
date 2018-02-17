@@ -3,6 +3,8 @@
 *.so
 *.dylib
 *.a
+*.dll
+*.obj
 buildenv.sh
 autom4te.cache
 config.h
