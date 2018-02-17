@@ -448,6 +448,10 @@ function_specifier(inline) --> [inline].
 declarator(declarator(P, DD)) --> pointer(P), !, direct_declarator(DD).
 declarator(declarator(-, DD)) --> direct_declarator(DD).
 
+direct_declarator(Decl) -->
+    gcc_attributes(_),   % GCC: we ignore <type> * __attribute((...))) ...
+    !,
+    direct_declarator(Decl).
 direct_declarator(dd(Id, DDS)) -->
     [id(Id)], !,
     direct_declarator_suffix_opt(DDS).
