@@ -35,6 +35,5 @@ test/test_union.dll: test/test_union.c
 test/test_funcptr.dll: test/test_funcptr.c
 	$(CC) $(DLLFLAGS) -o $@ $<
 
-
 clean::
-	rm -f c/ffi4pl.obj
+	rm -f c/ffi4pl.obj $(TESTDLL)
