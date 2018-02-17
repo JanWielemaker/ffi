@@ -5,8 +5,15 @@ CC=x86_64-w64-mingw32-gcc
 CFLAGS=-Wall -O2 -D_REENTRANT -D__WINDOWS__ -D_WINDOWS -D__SWI_PROLOG__
 CIFLAGS=-I$(PLHOME)/include -I$(MINGW64)/include
 LIBS=-lffi -lswipl -lpthread
+DLLFLAGS=-shared
+TESTDLL=test/test_mode.dll \
+	test/test_marshall.dll \
+	test/test_enum.dll \
+	test/test_struct.dll \
+	test/test_union.dll \
+	test/test_funcptr.dll
 
-all:	lib/$(ARCH64)/ffi4pl.dll
+all:	lib/$(ARCH64)/ffi4pl.dll $(TESTDLL)
 
 c/ffi4pl.obj: c/ffi4pl.c c/cmemory.c
 	$(CC) $(CFLAGS) $(CIFLAGS) -c -o $@ $<
@@ -14,6 +21,20 @@ c/ffi4pl.obj: c/ffi4pl.c c/cmemory.c
 lib/$(ARCH64)/ffi4pl.dll: c/ffi4pl.obj
 	mkdir -p lib/$(ARCH64)
 	$(CC) -shared -o $@ $< -L$(PLHOME)/lib -L$(MINGW64)/lib $(LIBS)
+
+test/test_mode.dll: test/test_mode.c
+	$(CC) $(DLLFLAGS) -o $@ $<
+test/test_marshall.dll: test/test_marshall.c
+	$(CC) $(DLLFLAGS) -o $@ $<
+test/test_enum.dll: test/test_enum.c
+	$(CC) $(DLLFLAGS) -o $@ $<
+test/test_struct.dll: test/test_struct.c
+	$(CC) $(DLLFLAGS) -o $@ $<
+test/test_union.dll: test/test_union.c
+	$(CC) $(DLLFLAGS) -o $@ $<
+test/test_funcptr.dll: test/test_funcptr.c
+	$(CC) $(DLLFLAGS) -o $@ $<
+
 
 clean::
 	rm -f c/ffi4pl.obj
