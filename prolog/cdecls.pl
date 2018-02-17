@@ -43,6 +43,7 @@
 :- use_module(library(pure_input)).
 :- use_module(library(apply)).
 :- use_module(library(lists)).
+:- use_module(library(debug)).
 :- use_module(cparser).
 :- use_module(clocations).
 :- use_module(ffi, [c_sizeof/2, c_nil/1]).
@@ -541,10 +542,23 @@ constant(AST, Name, Value) :-
 %!  c99_header_ast(+Header, +Flags, -AST)
 
 c99_header_ast(Header, Flags, AST) :-
+    debug_dump_header(Header, Flags),
     setup_call_cleanup(
         open_gcc_cpp(Header, Flags, In),
         phrase_from_stream(c99_parse(AST), In),
         close(In)).
+
+debug_dump_header(Header, Flags) :-
+    debugging(ffi(dump(cpp_output, File))),
+    !,
+    setup_call_cleanup(
+        open(File, write, Out),
+        setup_call_cleanup(
+            open_gcc_cpp(Header, Flags, In),
+            copy_stream_data(In, Out),
+            close(In)),
+        close(Out)).
+debug_dump_header(_,_).
 
 open_gcc_cpp(Header, Flags, Out) :-
     process_create_options(CreateOptions),
@@ -552,9 +566,11 @@ open_gcc_cpp(Header, Flags, Out) :-
     append(Flags, Argv, CPPFlags),
     process_create(Command, CPPFlags,
                    [ stdin(pipe(In)),
-                     stdout(pipe(Out))
+                     stdout(pipe(Out)),
+                     stderr(pipe(Err))
                    | CreateOptions
                    ]),
+    thread_create(copy_error(Err), _, [detached(true)]),
     thread_create(
         setup_call_cleanup(
             open_string(Header, HIn),
@@ -567,6 +583,14 @@ process_create_options([cwd(Dir)]) :-
     prolog_load_context(directory, Dir),
     !.
 process_create_options([]).
+
+copy_error(Err) :-
+    read_line_to_string(Err, Line),
+    (   Line == end_of_file
+    ->  close(Err)
+    ;   print_message(error, ffi(cpp(Line))),
+        copy_error(Err)
+    ).
 
 
 		 /*******************************
@@ -584,3 +608,5 @@ message(existence_error(user_type, Type)) -->
     [ 'FFI: No declaration for type ~q'-[Type] ].
 message(noconst(What)) -->
     [ 'FFI: Could not evaluate ~p to a constant'-[What] ].
+message(cpp(Message)) -->
+    [ 'CPP: ~s'-[Message] ].
