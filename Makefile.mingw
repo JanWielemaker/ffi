@@ -13,7 +13,7 @@ c/ffi4pl.obj: c/ffi4pl.c c/cmemory.c
 
 lib/$(ARCH64)/ffi4pl.dll: c/ffi4pl.obj
 	mkdir -p lib/$(ARCH64)
-	$(CC) -shared -o $@ $< -L$(PLHOME)/lib -L$(MINGW64)/lib $LIBS
+	$(CC) -shared -o $@ $< -L$(PLHOME)/lib -L$(MINGW64)/lib $(LIBS)
 
 clean::
 	rm -f c/ffi4pl.obj
