@@ -346,3 +346,16 @@ void
 test_transfer_dangling_out(char **v)
 {
 }
+
+		 /*******************************
+		 *	       FREE		*
+		 *******************************/
+
+/* On Windows we cannot use free from libc as we need to call
+   from the same module
+*/
+
+void
+myfree(void *ptr)
+{ free(ptr);
+}

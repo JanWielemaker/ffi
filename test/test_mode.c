@@ -69,3 +69,15 @@ test_fs(void)
 { return strdup("hello world");
 }
 
+		 /*******************************
+		 *	       FREE		*
+		 *******************************/
+
+/* On Windows we cannot use free from libc as we need to call
+   from the same module
+*/
+
+void
+myfree(void *ptr)
+{ free(ptr);
+}
