@@ -40,3 +40,7 @@ test/$(ARCH32)/%.dll: test/%.c
 
 clean::
 	rm -f c/ffi4pl64.obj c/ffi4pl32.obj $(TESTDLL)
+
+ffi4swipl-windows.zip:
+	rm -f $@
+	zip -r $@ $(shell find . -name '*.dll')

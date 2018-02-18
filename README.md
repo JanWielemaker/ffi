@@ -50,6 +50,15 @@ A = 66197957.
   - Make a link from the `.../swipl/pack/ffi` to the cloned directory
   - Run in Prolog: `?- pack_rebuild(ffi).`
 
+### Windows installation
+
+  - DDLs can be cross-compiled using Linux and MinGW using
+    `Makefile.mingw`.  Please check `Makefile.mingw`.
+  - Precompiled versions, including precompiled DLLs for the tests
+    and available from
+    https://github.com/JanWielemaker/ffi/wiki/files/ffi4swipl-windows.zip
+  - Requires SWI-Prolog 7.7.10 or later.
+
 ## Documentation
 
 There is not yet public documentation.   With all proper tools installed
@@ -64,7 +73,7 @@ created at Feb 1, 2018
 
   - Portability
     - Tested on Linux (Fedora 26 and Ubuntu 17.10), MacOSX and Windows
-      (64-bits). Mainly limited by [libffi](https://sourceware.org/libffi/).
+      using MinGW. Mainly limited by [libffi](https://sourceware.org/libffi/).
 
   - Functionality
     - All major foreseen features are implemented.
