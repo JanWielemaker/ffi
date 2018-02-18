@@ -33,7 +33,10 @@
 */
 
 #define PL_ARITY_AS_SIZE 1
+#ifdef __WINDOWS__
+#else
 #include "../config.h"
+#endif
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
 #ifdef HAVE_FFI_FFI_H

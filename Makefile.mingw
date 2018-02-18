@@ -1,9 +1,14 @@
 MINGW64=/home/janw/mingw64
-PLHOME=$(MINGW64)/swipl
+MINGW32=/home/janw/mingw32
+PLHOME64=$(MINGW64)/swipl
+PLHOME32=$(MINGW32)/swipl
 ARCH64=x64-win64
-CC=x86_64-w64-mingw32-gcc
+ARCH32=i386-win32
+CC64=x86_64-w64-mingw32-gcc
+CC32=i686-w64-mingw32-gcc
 CFLAGS=-Wall -O2 -D_REENTRANT -D__WINDOWS__ -D_WINDOWS -D__SWI_PROLOG__
-CIFLAGS=-I$(PLHOME)/include -I$(MINGW64)/include
+CIFLAGS64=-I$(PLHOME64)/include -I$(MINGW64)/include
+CIFLAGS32=-I$(PLHOME32)/include -I$(MINGW32)/include
 LIBS=-lffi -lswipl -lpthread
 DLLFLAGS=-shared
 TESTDLL=test/test_mode.dll \
@@ -13,14 +18,19 @@ TESTDLL=test/test_mode.dll \
 	test/test_union.dll \
 	test/test_funcptr.dll
 
-all:	lib/$(ARCH64)/ffi4pl.dll $(TESTDLL)
+all:	lib/$(ARCH64)/ffi4pl.dll lib/$(ARCH32)/ffi4pl.dll $(TESTDLL)
 
-c/ffi4pl.obj: c/ffi4pl.c c/cmemory.c
-	$(CC) $(CFLAGS) $(CIFLAGS) -c -o $@ $<
+c/ffi4pl64.obj: c/ffi4pl.c c/cmemory.c
+	$(CC64) $(CFLAGS) $(CIFLAGS64) -c -o $@ $<
+c/ffi4pl32.obj: c/ffi4pl.c c/cmemory.c
+	$(CC32) $(CFLAGS) $(CIFLAGS32) -c -o $@ $<
 
-lib/$(ARCH64)/ffi4pl.dll: c/ffi4pl.obj
+lib/$(ARCH64)/ffi4pl.dll: c/ffi4pl64.obj
 	mkdir -p lib/$(ARCH64)
-	$(CC) -shared -o $@ $< -L$(PLHOME)/lib -L$(MINGW64)/lib $(LIBS)
+	$(CC64) -shared -o $@ $< -L$(PLHOME64)/lib -L$(MINGW64)/lib $(LIBS)
+lib/$(ARCH32)/ffi4pl.dll: c/ffi4pl32.obj
+	mkdir -p lib/$(ARCH32)
+	$(CC32) -shared -o $@ $< -L$(PLHOME32)/lib -L$(MINGW32)/lib $(LIBS)
 
 test/test_mode.dll: test/test_mode.c
 	$(CC) $(DLLFLAGS) -o $@ $<
@@ -36,4 +46,4 @@ test/test_funcptr.dll: test/test_funcptr.c
 	$(CC) $(DLLFLAGS) -o $@ $<
 
 clean::
-	rm -f c/ffi4pl.obj $(TESTDLL)
+	rm -f c/ffi4pl64.obj c/ffi4pl32.obj $(TESTDLL)

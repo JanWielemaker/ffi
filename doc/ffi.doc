@@ -765,4 +765,54 @@ the c_import/3 statement.
 \input{clocations.tex}
 \input{cerror.tex}
 
+
+\section{Portability and platform notes}
+
+This interface requires a C~preprocessor and C~header files that are
+compatible with the libraries that must be accessed. So far we used
+\program{gcc} and the closely compatible \program{clang} and
+\program{MinGW} compilers.
+
+To make ffi work with other compilers the predicate cpp/2 defined in
+\file{clocations.pl} must be extended or hooked using ffi:cpp_hook/2 to
+tell this library how to call the C~preprocessor such that it reads from
+standard input and writes to standard input. If this is not possible
+\file{cdecls.c} must be extended to deal with proprocessors that cannot
+read from standard input.
+
+C compilers often come with language extensions that are notably used in
+the standard headers which are needed to access system libraries and are
+often included from headers shipped with many projects. These may result
+in warnings from our C~parser. The way to diagnose and fix such issues
+is to first collect the C~output by enabling a debug channal and
+reloading your Prolog file:
+
+\begin{code}
+?- debug(ffi(dump(cpp_output, 'myfile.h'))).
+?- [myfile].
+\end{code}
+
+Now, examine \file{myfile.h} and find the declarations that cannot be
+parsed.  Next, run the code below, replacing the argument of ast/1 with
+a string containing the text that could not be parsed, try to find out
+why it fails and extend the tokenizer from \file{ctokens.pl} and/or the
+parser in \file{cparser.pl},
+
+\begin{code}
+$ swipl test/debug_types.pl
+?- ast("failed declaration").
+\end{code}
+
+Finding resources such as libraries is implemented by
+\file{clocations.pl}. This file must be extended to improve support on
+platforms.
+
+
+\subsection{Windows}
+
+We have used this interface successfully with
+\href{http://www.mingw.org/}{MinGW}. Make sure that the directory
+holding \program{gcc} is in \verb$%PATH%$.
+
+
 \end{document}

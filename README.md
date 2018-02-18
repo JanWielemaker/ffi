@@ -23,7 +23,7 @@ Below is an example making the POSIX statfs() function available.
 
 :- c_import("#include <sys/vfs.h>",
             [ libc ],
-            [ statfs(+string, -struct(statfs), [-int])
+            [ statfs(string, -struct(statfs), [int])
             ]).
 
 statfs(File, FsStat) :-
@@ -63,8 +63,8 @@ created at Feb 1, 2018
 ## Status
 
   - Portability
-    - Tested on Linux (Fedora 26 and Ubuntu 17.10) and MacOSX.  Mainly
-      limited by [libffi](https://sourceware.org/libffi/).
+    - Tested on Linux (Fedora 26 and Ubuntu 17.10), MacOSX and Windows
+      (64-bits). Mainly limited by [libffi](https://sourceware.org/libffi/).
 
   - Functionality
     - All major foreseen features are implemented.
