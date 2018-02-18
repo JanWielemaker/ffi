@@ -138,13 +138,19 @@ relative_file(Name, AbsName, _Options) :-
 relative_file(Name, AbsName, Options) :-
     option(relative_to(Dir), Options),
     !,
-    directory_file_path(Dir, Name, AbsName).
+    add_arch(Dir, Dir1),
+    directory_file_path(Dir1, Name, AbsName).
 relative_file(Name, Name, _).
 
 add_extension(Name, Name).
 add_extension(Base, Name) :-
     current_prolog_flag(shared_object_extension, Ext),
     file_name_extension(Base, Ext, Name).
+
+add_arch(Dir0, Dir) :-
+    current_prolog_flag(arch, Arch),
+    directory_file_path(Dir0, Arch, Dir).
+add_arch(Dir, Dir).
 
 find_on_path(Spec, Path) :-
     current_prolog_flag(shared_object_extension, Ext),

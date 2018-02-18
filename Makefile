@@ -6,12 +6,8 @@ PACKSODIR=lib/$(ARCH)
 FFI4PL=lib/$(SWIARCH)/ffi4pl.$(SOEXT)
 LIBS=-lffi
 CFLAGS=-shared -fPIC
-TESTSO=	test/test_mode.$(SOEXT) \
-	test/test_marshall.$(SOEXT) \
-	test/test_enum.$(SOEXT) \
-	test/test_struct.$(SOEXT) \
-	test/test_union.$(SOEXT) \
-	test/test_funcptr.$(SOEXT)
+TESTS=test_mode test_marshall test_enum test_struct test_union test_funcptr
+TESTSO=$(addprefix test/$(SWIARCH)/, $(addsuffix .$(SOEXT), $(TESTS)))
 
 all:	env $(FFI4PL)
 
@@ -27,20 +23,12 @@ $(FFI4PL): c/ffi4pl.c c/cmemory.c Makefile
 	mkdir -p $(PACKSODIR)
 	$(LD) $(LDSOFLAGS) -o $@ c/ffi4pl.c $(LIBS)
 
-test/test_mode.$(SOEXT): test/test_mode.c
-	$(CC) $(CFLAGS) -o $@ $<
-test/test_marshall.$(SOEXT): test/test_marshall.c
-	$(CC) $(CFLAGS) -o $@ $<
-test/test_enum.$(SOEXT): test/test_enum.c
-	$(CC) $(CFLAGS) -o $@ $<
-test/test_struct.$(SOEXT): test/test_struct.c
-	$(CC) $(CFLAGS) -o $@ $<
-test/test_union.$(SOEXT): test/test_union.c
-	$(CC) $(CFLAGS) -o $@ $<
-test/test_funcptr.$(SOEXT): test/test_funcptr.c
+test/$(SWIARCH)/%.$(SOEXT): test/%.c
+	mkdir -p test/$(SWIARCH)
 	$(CC) $(CFLAGS) -o $@ $<
 
 $(TESTSO): env
+
 
 tags:
 	etags c/*.[ch]

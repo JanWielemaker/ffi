@@ -1,3 +1,5 @@
+.SUFFIXES: .obj .dll
+
 MINGW64=/home/janw/mingw64
 MINGW32=/home/janw/mingw32
 PLHOME64=$(MINGW64)/swipl
@@ -11,12 +13,9 @@ CIFLAGS64=-I$(PLHOME64)/include -I$(MINGW64)/include
 CIFLAGS32=-I$(PLHOME32)/include -I$(MINGW32)/include
 LIBS=-lffi -lswipl -lpthread
 DLLFLAGS=-shared
-TESTDLL=test/test_mode.dll \
-	test/test_marshall.dll \
-	test/test_enum.dll \
-	test/test_struct.dll \
-	test/test_union.dll \
-	test/test_funcptr.dll
+TESTS=test_mode test_marshall test_enum test_struct test_union test_funcptr
+TESTDLL=$(addprefix test/$(ARCH64)/, $(addsuffix .dll, $(TESTS))) \
+	$(addprefix test/$(ARCH32)/, $(addsuffix .dll, $(TESTS))) \
 
 all:	lib/$(ARCH64)/ffi4pl.dll lib/$(ARCH32)/ffi4pl.dll $(TESTDLL)
 
@@ -32,18 +31,12 @@ lib/$(ARCH32)/ffi4pl.dll: c/ffi4pl32.obj
 	mkdir -p lib/$(ARCH32)
 	$(CC32) -shared -o $@ $< -L$(PLHOME32)/lib -L$(MINGW32)/lib $(LIBS)
 
-test/test_mode.dll: test/test_mode.c
-	$(CC) $(DLLFLAGS) -o $@ $<
-test/test_marshall.dll: test/test_marshall.c
-	$(CC) $(DLLFLAGS) -o $@ $<
-test/test_enum.dll: test/test_enum.c
-	$(CC) $(DLLFLAGS) -o $@ $<
-test/test_struct.dll: test/test_struct.c
-	$(CC) $(DLLFLAGS) -o $@ $<
-test/test_union.dll: test/test_union.c
-	$(CC) $(DLLFLAGS) -o $@ $<
-test/test_funcptr.dll: test/test_funcptr.c
-	$(CC) $(DLLFLAGS) -o $@ $<
+test/$(ARCH64)/%.dll: test/%.c
+	mkdir -p test/$(ARCH64)
+	$(CC64) $(DLLFLAGS) -o $@ $<
+test/$(ARCH32)/%.dll: test/%.c
+	mkdir -p test/$(ARCH32)
+	$(CC32) $(DLLFLAGS) -o $@ $<
 
 clean::
 	rm -f c/ffi4pl64.obj c/ffi4pl32.obj $(TESTDLL)
