@@ -74,23 +74,23 @@ A = 66197957.
   ```
   - Modify the Makefile file as follows: 
     - replace the lines
-  ```{bash}
-LD=$(SWIPL)-ld
-LDSOFLAGS=-Wall -shared -O2 -gdwarf-2 -g3
-CC=gcc
-  ```
-  with the line
-  ```{bash}
-LDSOFLAGS += -Wall -shared -O2 -gdwarf-2 -g3 -L/usr/local/opt/libffi/lib/ ${SWISOLIB}
-  ```
+      ```{bash}
+      LD=$(SWIPL)-ld
+      LDSOFLAGS=-Wall -shared -O2 -gdwarf-2 -g3
+      CC=gcc
+      ```
+    with the line
+      ```{bash}
+      LDSOFLAGS += -Wall -shared -O2 -gdwarf-2 -g3 -L/usr/local/opt/libffi/lib/ ${SWISOLIB}
+      ```
     - replace the line
-  ```{bash}
-CFLAGS=-shared -fPIC
-  ```
-  with the line
-  ```{bash}
-CFLAGS += -shared -fPIC -I/usr/local/Cellar/libffi/3.2.1/lib/libffi-3.2.1/include
-  ```
+      ```{bash}
+      CFLAGS=-shared -fPIC
+      ```
+      with the line
+      ```{bash}
+      CFLAGS += -shared -fPIC -I/usr/local/Cellar/libffi/3.2.1/lib/libffi-3.2.1/include
+      ```
   - Modify `configure.ac`: replace the line
   `AC_CHECK_HEADERS(ffi.h ffi/ffi.h)`
   with 
