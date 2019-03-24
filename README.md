@@ -59,6 +59,50 @@ A = 66197957.
     https://github.com/JanWielemaker/ffi/wiki/files/ffi4swipl-windows.zip
   - Requires SWI-Prolog 7.7.10 or later.
 
+### Mac installation
+
+  - MacOS (at least Mojave 10.14.3) includes an outdated version of libffi
+  - A more recent version must be installed with Homebrew or MacpPort.
+  - With home brew the command is 
+  ```{prolog}
+  brew install libffi
+  ```
+  - Go to the `ffi` pack directory
+  - Execute the shell command
+  ```{bash}
+  export C_INCLUDE_PATH=/usr/local/Cellar/libffi/3.2.1/lib/libffi-3.2.1/include
+  ```
+  - Modify the Makefile file as follows: 
+    - replace the lines
+  ```{bash}
+LD=$(SWIPL)-ld
+LDSOFLAGS=-Wall -shared -O2 -gdwarf-2 -g3
+CC=gcc
+  ```
+  with the line
+  ```{bash}
+LDSOFLAGS += -Wall -shared -O2 -gdwarf-2 -g3 -L/usr/local/opt/libffi/lib/ ${SWISOLIB}
+  ```
+    - replace the line
+  ```{bash}
+CFLAGS=-shared -fPIC
+  ```
+  with the line
+  ```{bash}
+CFLAGS += -shared -fPIC -I/usr/local/Cellar/libffi/3.2.1/lib/libffi-3.2.1/include
+  ```
+  - Modify `configure.ac`: replace the line
+  `AC_CHECK_HEADERS(ffi.h ffi/ffi.h)`
+  with 
+  `AC_CHECK_HEADERS(ffi.h)`
+  - Run 
+  ```{bash}
+autoconf
+source configure
+make
+  ```
+
+
 ## Documentation
 
 There is not yet public documentation.   With all proper tools installed
