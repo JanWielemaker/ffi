@@ -72,34 +72,18 @@ A = 66197957.
   ```{bash}
   export C_INCLUDE_PATH=/usr/local/Cellar/libffi/3.2.1/lib/libffi-3.2.1/include
   ```
-  - Modify the Makefile file as follows: 
-    - replace the lines
+  - Use `configure.ac.mac` and `Makefile.mac` : 
+    - move them to `configure.ac` and `Makefile`
       ```{bash}
-      LD=$(SWIPL)-ld
-      LDSOFLAGS=-Wall -shared -O2 -gdwarf-2 -g3
-      CC=gcc
+      mv configure.ac.mac configure.ac
+      mv Makefile.mac Makefile
       ```
-      with the line
-      ```{bash}
-      LDSOFLAGS += -Wall -shared -O2 -gdwarf-2 -g3 -L/usr/local/opt/libffi/lib/ ${SWISOLIB}
-      ```
-    - replace the line
-      ```{bash}
-      CFLAGS=-shared -fPIC
-      ```
-      with the line
-      ```{bash}
-      CFLAGS += -shared -fPIC -I/usr/local/Cellar/libffi/3.2.1/lib/libffi-3.2.1/include
-      ```
-  - Modify `configure.ac`: replace the line
-  `AC_CHECK_HEADERS(ffi.h ffi/ffi.h)`
-  with 
-  `AC_CHECK_HEADERS(ffi.h)`
   - Run 
   ```{bash}
-autoconf
-source configure
-make
+  source buildenv.sh
+  autoconf
+  source configure
+  make
   ```
 
 
