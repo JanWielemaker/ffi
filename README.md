@@ -79,7 +79,7 @@ A = 66197957.
       LDSOFLAGS=-Wall -shared -O2 -gdwarf-2 -g3
       CC=gcc
       ```
-    with the line
+      with the line
       ```{bash}
       LDSOFLAGS += -Wall -shared -O2 -gdwarf-2 -g3 -L/usr/local/opt/libffi/lib/ ${SWISOLIB}
       ```
