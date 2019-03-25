@@ -109,7 +109,7 @@ cpp(path(gcc), ['-E', '-xc', -]).
 %   concrete file.  The hook is tried as first option by c_lib_path/2.
 
 c_lib_path(Name, Path, Options) :-
-    ffi:library_path_hook(Name, Path, +Options),
+    ffi:library_path_hook(Name, Path, Options),
     !.
 c_lib_path(Name, Path, Options) :-
     atomic(Name),
