@@ -1,11 +1,9 @@
-LD=$(SWIPL)-ld
-LDSOFLAGS=-Wall -shared -O2 -gdwarf-2 -g3
-CC=gcc
+LDSOFLAGS += -Wall -shared -O2 -gdwarf-2 -g3 -L/usr/local/opt/libffi/lib/ ${SWISOLIB}
 MAKE=make
 PACKSODIR=lib/$(SWIARCH)
 FFI4PL=lib/$(SWIARCH)/ffi4pl.$(SOEXT)
 LIBS=-lffi
-CFLAGS=-shared -fPIC
+CFLAGS += -shared -fPIC -I/usr/local/Cellar/libffi/3.2.1/lib/libffi-3.2.1/include
 TESTS=test_mode test_marshall test_enum test_struct test_union test_funcptr
 TESTSO=$(addprefix test/$(SWIARCH)/, $(addsuffix .$(SOEXT), $(TESTS)))
 
@@ -21,7 +19,7 @@ endif
 
 $(FFI4PL): c/ffi4pl.c c/cmemory.c Makefile
 	mkdir -p $(PACKSODIR)
-	$(LD) $(LDSOFLAGS) -o $@ c/ffi4pl.c $(LIBS)
+	$(CC) $(CFLAGS) $(LDSOFLAGS) -o $@ c/ffi4pl.c $(LIBS)
 
 test/$(SWIARCH)/%.$(SOEXT): test/%.c
 	mkdir -p test/$(SWIARCH)

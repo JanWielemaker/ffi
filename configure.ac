@@ -6,7 +6,7 @@ AC_CONFIG_HEADER(config.h)
 
 AC_PROG_CC
 
-AC_CHECK_HEADERS(ffi.h ffi/ffi.h)
+AC_CHECK_HEADERS(ffi.h)
 AC_CHECK_HEADERS(dlfcn.h)
 
 AC_OUTPUT()

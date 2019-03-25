@@ -62,8 +62,8 @@ A = 66197957.
 ### Mac installation
 
   - MacOS (at least Mojave 10.14.3) includes an outdated version of libffi
-  - A more recent version must be installed with Homebrew or MacpPort.
-  - With home brew the command is 
+  - A more recent version must be installed with Homebrew or MacPort.
+  - With Homebrew the command is 
     ```{prolog}
     brew install libffi
     ```
