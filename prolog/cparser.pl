@@ -442,6 +442,7 @@ type_qualifier(restrict) --> [restrict].
 type_qualifier(volatile) --> [volatile].
 type_qualifier('__restrict__') --> ['__restrict__']. % GCC
 type_qualifier('__extension__') --> ['__extension__']. % GCC
+type_qualifier('_Nonnull') --> ['_Nonnull']. % Clang, MacOS
 
 function_specifier(inline) --> [inline].
 

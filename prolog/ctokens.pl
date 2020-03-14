@@ -145,6 +145,7 @@ keyword('__gnuc_va_list') --> "__gnuc_va_list".
 keyword('__asm__') --> "__asm__".
 keyword('__asm__') --> "__asm".
 keyword('__alignof__') --> "__alignof__".
+keyword('_Nonnull') --> "_Nonnull".
 
 identifier(Id) --> identifier_nondigit(H), identifier_cont(T),
 		   {atom_chars(I, [H|T]), Id = id(I)}.
