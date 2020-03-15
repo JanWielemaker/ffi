@@ -340,6 +340,7 @@ type_specifier(type(char))       --> [char].
 type_specifier(type(short))      --> [short].
 type_specifier(type(int))        --> [int].
 type_specifier(type(long))       --> [long].
+type_specifier(type(size_t))     --> [size_t].  % Clang, MacOS
 type_specifier(type(float))      --> [float].
 type_specifier(type(double))     --> [double].
 type_specifier(type(signed))     --> [signed].
@@ -681,7 +682,11 @@ gcc_attribute_param_list([]), [')'] -->
     [')'], !.
 gcc_attribute_param_list([H|T]) -->
     gcc_attribute_param(Name),
-    (   {atom(Name)},
+    (   {Name == introduced},		% Clang, MacOS
+        [=],
+        version(V)
+    ->  {H = (Name=V)}
+    ;   {atom(Name)},
         [=],
         constant_expression(V)
     ->  {H = (Name=V)}
@@ -698,6 +703,15 @@ gcc_attribute_param(H) -->
     constant_expression(H).
 gcc_attribute_param(alignof(Decl)) -->
     ['__alignof__', '('], declaration_specifiers(Decl), [')'].
+
+version(String) -->
+    [double(D), '.', i(I)],
+    !,
+    { format(string(String), '~w.~d', [D, I]) }.
+version(String) -->
+    [double(D)],
+    !,
+    { format(string(String), '~w', [D]) }.
 
 asm(ASM) -->
     ['__asm__', '('], asm_list(Statements), [')'],

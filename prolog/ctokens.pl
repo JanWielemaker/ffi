@@ -114,6 +114,7 @@ keyword(goto)         --> "goto".
 keyword(if)           --> "if".
 keyword(inline)       --> "inline".
 keyword(int)          --> "int".
+keyword(size_t)       --> "size_t".             % Clang on Macos
 keyword(long)         --> "long".
 keyword(register)     --> "register".
 keyword(restrict)     --> "restrict".
