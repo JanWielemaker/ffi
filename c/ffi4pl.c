@@ -165,7 +165,7 @@ get_free_func(term_t t, void **func)
 
 static int
 dl_error(const char *op, const char *obj)
-{ Sdprintf("Error: *s: %s: %s\n", op, obj, dlerror());
+{ Sdprintf("Error: %s: %s: %s\n", op, obj, dlerror());
 
   return FALSE;
 }
