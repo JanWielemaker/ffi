@@ -272,7 +272,12 @@ ffi_library_create(term_t path, term_t lib, term_t options)
   if ( !PL_get_nil_ex(tail) )
     return FALSE;
 
-  if ( PL_get_file_name(path, &name,
+  if (
+#ifdef __APPLE__				/* atomic absolute path */
+       ( PL_get_chars(path, &name, CVT_ATOM|CVT_STRING|CVT_LIST|REP_MB) &&
+	 name[0] == '/' ) ||
+#endif
+       PL_get_file_name(path, &name,
 			PL_FILE_OSPATH|PL_FILE_SEARCH|PL_FILE_READ) )
   { void *h;
 
