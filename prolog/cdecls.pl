@@ -125,15 +125,21 @@ parameters([param([type(void)], ad(-,dad(-,-)))], []) :-
 parameters(Params0, Params) :-
     maplist(param, Params0, Params).
 
-param(param(Specifiers, declarator(Decl, dd(Name,_))), Name-Type) :-
+param(param(Specifiers, declarator(Decl, dd(Name,DDS))), Name-Type) :-
     !,
-    memberchk(type(BasicType), Specifiers),
-    pointers(Decl, BasicType, Type).
+    basic_type(Specifiers, BasicType),
+    dds_pointers(DDS, Decl, BasicType, Type).
 param(param(Specifiers, ad(Decl, dad(-, -))), Type) :-
-    memberchk(type(BasicType), Specifiers),
+    basic_type(Specifiers, BasicType),
     !,
     pointers(Decl, BasicType, Type).
 param(param([], ...), ...).
+
+dds_pointers(dds([],-), Decl, Basic, Type) :-
+    !,
+    pointers(Decl, *(Basic), Type).
+dds_pointers(_, Decl, Basic, Type) :-
+    pointers(Decl, Basic, Type).
 
 pointers(-, Type, Type).
 pointers([], Type, Type).
