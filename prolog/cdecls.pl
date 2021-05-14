@@ -376,25 +376,61 @@ opt_const --> [].
 opt_volatile --> [volatile], !.
 opt_volatile --> [].
 
-simplify_type(ulonglong) --> [type(unsigned),type(long),type(long),type(int)].
-simplify_type(ulonglong) --> [type(long),type(long),type(unsigned),type(int)].
-simplify_type(ulonglong) --> [type(unsigned),type(long),type(long)].
-simplify_type(ulonglong) --> [type(long),type(long),type(unsigned)].
-simplify_type(ulong)     --> [type(unsigned),type(long)].
-simplify_type(ulong)     --> [type(unsigned),type(long),type(int)].
-simplify_type(ulong)     --> [type(long),type(unsigned),type(int)].
-simplify_type(uint)      --> [type(unsigned),type(int)].
-simplify_type(ushort)    --> [type(unsigned),type(short)].
-simplify_type(ushort)    --> [type(unsigned),type(short),type(int)].
-simplify_type(ushort)    --> [type(short),type(unsigned),type(int)].
-simplify_type(uchar)     --> [type(unsigned),type(char)].
-simplify_type(char)      --> [type(signed),type(char)].
-simplify_type(Type)      --> [type(Type)].
-simplify_type(longlong)  --> [type(long),type(long),type(int)].
-simplify_type(longlong)  --> [type(long),type(long)].
-simplify_type(long)      --> [type(long),type(int)].
-simplify_type(long)      --> [type(signed),type(long)].
-simplify_type(short)     --> [type(short),type(int)].
+%!  simplify_type(-Type)//
+%
+%   Turn a sequence of type specifiers into a simple type, dealing with
+%   different ordering and optional specifiers..
+
+simplify_type(Type) -->
+    simplify_type(U,L,B,F),
+    { nonvar(F),
+      ignore(U=s),
+      ignore(B=int),
+      close_list(L),
+      simple_type(U,L,B,Type)
+    },
+    !.
+simplify_type(Type) -->
+    [ type(Type) ].
+
+simplify_type(u,L,B,t) -->
+    [type(unsigned)], !,
+    simplify_type(u,L,B,t).
+simplify_type(s,L,B,t) -->
+    [type(signed)], !,
+    simplify_type(s,L,B,t).
+simplify_type(U,[H|L],B,t) -->
+    type_width(H),
+    !,
+    simplify_type(U,L,B,t).
+simplify_type(U,L,B,t) -->
+    base_int_type(B),
+    !,
+    simplify_type(U,L,B,t).
+simplify_type(_,_,_,_) -->
+    [].
+
+type_width(long)  --> [type(long)].
+type_width(short) --> [type(short)].
+
+base_int_type(int)  --> [type(int)].
+base_int_type(char) --> [type(char)].
+
+close_list([]) :- !.
+close_list([_|T]) :- close_list(T).
+
+simple_type(u, [long,long], int,  ulonglong).
+simple_type(u, [long],      int,  ulong).
+simple_type(u, [],          int,  uint).
+simple_type(u, [short],     int,  ushort).
+simple_type(u, [],          char, uchar).
+simple_type(s, [long,long], int,  longlong).
+simple_type(s, [long],      int,  long).
+simple_type(s, [],          int,  int).
+simple_type(s, [short],     int,  short).
+simple_type(s, [],          char, char).
+
+%!  untypedef(+Types, +Type0, -Type)
 
 untypedef(Types, *(Type0), *(Type)) :-
     !,
