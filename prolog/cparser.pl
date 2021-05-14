@@ -478,7 +478,7 @@ array_direct_declarator_suffix(dds(TQL, Ass)) -->
 array_direct_declarator_suffix(dds(TQL, Ass)) -->
     type_qualifier_list(TQL), [static], assignment_expression(Ass).
 array_direct_declarator_suffix(dds(TQL, *)) -->
-    type_qualifier_list_opt(TQL), [*].
+    type_qualifier_list_opt(TQL), ptr.
 
 param_direct_declarator_suffix(dds(PTL)) -->
     parameter_type_list(PTL), !.
@@ -487,13 +487,16 @@ param_direct_declarator_suffix(dds(IDList)) -->
 
 
 pointer([ptr(TQL)|T]) -->
-    [*], type_qualifier_list_opt(TQL),
+    ptr, type_qualifier_list_opt(TQL),
     pointers(T).
 
 pointers([ptr(TQL)|T]) -->
-    [*], type_qualifier_list_opt(TQL), !,
+    ptr, type_qualifier_list_opt(TQL), !,
     pointers(T).
 pointers([]) --> [].
+
+ptr --> [*].
+ptr --> [^].             % clang
 
 type_qualifier_list([H|T]) -->
     type_qualifier(H), !,
