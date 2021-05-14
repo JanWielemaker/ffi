@@ -125,6 +125,12 @@ parameters([param([type(void)], ad(-,dad(-,-)))], []) :-
 parameters(Params0, Params) :-
     maplist(param, Params0, Params).
 
+param(param(RetType, declarator(Decl, dd(Name,dds(Params0)))),
+      Name-funcptr(RType, Params)) :-   % function pointers
+    basic_type(RetType, RType0),
+    pointers(Decl, RType0, RType),
+    parameters(Params0, Params),
+    !.
 param(param(Specifiers, declarator(Decl, dd(Name,DDS))), Name-Type) :-
     !,
     basic_type(Specifiers, BasicType),
