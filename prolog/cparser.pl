@@ -528,7 +528,7 @@ parameter_list([H|T0], T) -->
 parameter_declaration(param(S,D)) -->
     declaration_specifiers(S),
     (   declarator(D)
-    ->  []
+    ->  gcc_attributes_opt(_)
     ;   abstract_declarator_opt(D)
     ).
 
