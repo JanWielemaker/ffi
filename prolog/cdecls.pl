@@ -146,6 +146,17 @@ pointers([], Type, Type).
 pointers([ptr(_)|T], Basic, Type) :-
     pointers(T, *(Basic), Type).
 
+basic_type(Specifiers, Type) :-
+    include(is_type, Specifiers, Types),
+    (   phrase(simplify_type(Type), Types)
+    ->  true
+    ;   print_message(error, ctypes(cannot_simplify(Specifiers))),
+        fail
+    ),
+    !.
+
+is_type(type(_)).
+
 
 		 /*******************************
 		 *      TYPE DEFINITIONS	*
