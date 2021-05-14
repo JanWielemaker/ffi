@@ -74,6 +74,7 @@ get_assertion(void)
   { assert_failure.failed = 0;
     return &assert_failure;
   }
+  return NULL;
 }
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
