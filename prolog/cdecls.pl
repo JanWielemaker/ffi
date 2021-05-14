@@ -379,6 +379,7 @@ simplify_type(*(Type), Types) -->
 simplify_type(Type, _Types) -->
     opt_const,
     opt_volatile,
+    opt_nonnull,
     simplify_type(Type).
 
 opt_const --> [const], !.
@@ -386,6 +387,9 @@ opt_const --> [].
 
 opt_volatile --> [volatile], !.
 opt_volatile --> [].
+
+opt_nonnull --> ['_Nonnull'], !.                    % Clang on MacOS
+opt_nonnull --> [].
 
 %!  simplify_type(-Type)//
 %
