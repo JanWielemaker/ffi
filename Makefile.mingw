@@ -26,10 +26,10 @@ c/ffi4pl32.obj: c/ffi4pl.c c/cmemory.c
 
 lib/$(ARCH64)/ffi4pl.dll: c/ffi4pl64.obj
 	mkdir -p lib/$(ARCH64)
-	$(CC64) -shared -o $@ $< -L$(PLHOME64)/lib -L$(MINGW64)/lib $(LIBS)
+	$(CC64) -shared -o $@ $< -L$(PLHOME64)/bin -L$(MINGW64)/lib $(LIBS)
 lib/$(ARCH32)/ffi4pl.dll: c/ffi4pl32.obj
 	mkdir -p lib/$(ARCH32)
-	$(CC32) -shared -o $@ $< -L$(PLHOME32)/lib -L$(MINGW32)/lib $(LIBS)
+	$(CC32) -shared -o $@ $< -L$(PLHOME32)/bin -L$(MINGW32)/lib $(LIBS)
 
 test/$(ARCH64)/%.dll: test/%.c
 	mkdir -p test/$(ARCH64)
