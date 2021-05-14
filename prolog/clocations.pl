@@ -156,7 +156,8 @@ find_on_path(Spec, Path) :-
     current_prolog_flag(shared_object_extension, Ext),
     absolute_file_name(Spec, Path,
                        [ access(execute),
-                         extensions(['',Ext])
+                         extensions(['',Ext]),
+                         file_errors(fail)
                        ]).
 
 
