@@ -70,6 +70,7 @@ static atom_t ATOM_utf8;
 static atom_t ATOM_text;
 static atom_t ATOM_wchar_t;
 static atom_t ATOM_char;
+static atom_t ATOM_size_t;
 
 static atom_t ATOM_atom;
 static atom_t ATOM_string;
@@ -109,6 +110,7 @@ typedef enum c_type
   CT_UINT,
   CT_LONG,
   CT_ULONG,
+  CT_SIZE_T,
   CT_LONGLONG,
   CT_ULONGLONG,
   CT_FLOAT,
@@ -264,6 +266,7 @@ tname(const type_spec *tspec)
     case CT_UINT:      return "uint";
     case CT_LONG:      return "long";
     case CT_ULONG:     return "ulong";
+    case CT_SIZE_T:    return "size_t";
     case CT_LONGLONG:  return "longlong";
     case CT_ULONGLONG: return "ulonglong";
     case CT_FLOAT:     return "float";
@@ -621,6 +624,8 @@ get_type(term_t t, type_spec *tspec)
 				     tspec->size = sizeof(long);
     else if ( qn == ATOM_ulong     ) tspec->type = CT_ULONG,
 				     tspec->size = sizeof(long);
+    else if ( qn == ATOM_size_t    ) tspec->type = CT_SIZE_T,
+				     tspec->size = sizeof(size_t);
     else if ( qn == ATOM_longlong  ) tspec->type = CT_LONGLONG,
 				     tspec->size = sizeof(long long);
     else if ( qn == ATOM_ulonglong ) tspec->type = CT_ULONGLONG,
@@ -671,6 +676,7 @@ unify_type(term_t t, const type_spec *tspec)
     case CT_UINT:      a = ATOM_uint;       break;
     case CT_LONG:      a = ATOM_long;       break;
     case CT_ULONG:     a = ATOM_ulong;      break;
+    case CT_SIZE_T:    a = ATOM_size_t;     break;
     case CT_LONGLONG:  a = ATOM_longlong;   break;
     case CT_ULONGLONG: a = ATOM_ulonglong;  break;
     case CT_FLOAT:     a = ATOM_float;      break;
@@ -860,6 +866,9 @@ c_load(term_t ptr, term_t offset, term_t type, term_t value)
       } else if ( ta == ATOM_ulong )
       { const unsigned long *p = vp;
 	return VALID(ref, off, long) && PL_unify_uint64(value, *p);
+      } else if ( ta == ATOM_size_t )
+      { const size_t *p = vp;
+	return VALID(ref, off, size_t) && PL_unify_uint64(value, *p);
       } else if ( ta == ATOM_longlong )
       { const long long *p = vp;
 	if ( !VALID(ref, off, long long ) )
@@ -975,6 +984,8 @@ c_store(term_t ptr, term_t offset, term_t type, term_t value)
 	return VALID(ref, off, long) && PL_cvt_i_long(value, vp);
       else if ( ta == ATOM_ulong )
 	return VALID(ref, off, long) && PL_cvt_i_ulong(value, vp);
+      else if ( ta == ATOM_size_t )
+	return VALID(ref, off, size_t) && PL_cvt_i_size_t(value, vp);
       else if ( ta == ATOM_longlong )
 	return VALID(ref, off, long long) && PL_cvt_i_int64(value, vp);
       else if ( ta == ATOM_ulonglong )
@@ -1065,6 +1076,7 @@ c_sizeof(term_t type, term_t bytes)
     else if ( ta == ATOM_double )    sz = sizeof(double);
     else if ( ta == ATOM_pointer )   sz = sizeof(void*);
     else if ( ta == ATOM_wchar_t )   sz = sizeof(wchar_t);
+    else if ( ta == ATOM_size_t )    sz = sizeof(size_t);
     else return FALSE;
 
     return PL_unify_integer(bytes, sz);
@@ -1088,7 +1100,8 @@ c_alignof(term_t type, term_t bytes)
     else if ( ta == ATOM_uint )      sz = __alignof__(unsigned int);
     else if ( ta == ATOM_long )      sz = __alignof__(long);
     else if ( ta == ATOM_ulong )     sz = __alignof__(unsigned long);
-    else if ( ta == ATOM_longlong )  sz = __alignof__(long long);
+    else if ( ta == ATOM_ulong )     sz = __alignof__(unsigned long);
+    else if ( ta == ATOM_size_t )    sz = __alignof__(size_t);
     else if ( ta == ATOM_ulonglong ) sz = __alignof__(unsigned long long);
     else if ( ta == ATOM_float )     sz = __alignof__(float);
     else if ( ta == ATOM_double )    sz = __alignof__(double);
@@ -1235,6 +1248,7 @@ install_c_memory(void)
   MKATOM(utf8);
   MKATOM(text);
   MKATOM(wchar_t);
+  MKATOM(size_t);
   MKATOM(char);
   MKATOM(atom);
   MKATOM(string);

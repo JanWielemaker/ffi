@@ -571,6 +571,7 @@ int_type(long).
 int_type(ulong).
 int_type(longlong).
 int_type(ulonglong).
+int_type(size_t).
 
 float_type(float).
 float_type(double).

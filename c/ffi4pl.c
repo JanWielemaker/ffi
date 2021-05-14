@@ -380,6 +380,18 @@ ffi_type_wchar_t(void)
 }
 
 static ffi_type *
+ffi_type_size_t(void)
+{ if ( sizeof(size_t) == sizeof(long) )
+  { return &ffi_type_ulong;
+  } else
+  { assert(sizeof(size_t) == sizeof(uint64_t));
+    return &ffi_type_uint64;			/* Windows; long is 32-bits */
+  }
+}
+
+
+
+static ffi_type *
 to_ffi_type(const type_spec *tspec)
 { if ( tspec->ptrl > 0 || (tspec->flags&CTF_OUTPUT) )
     return &ffi_type_pointer;
@@ -395,6 +407,7 @@ to_ffi_type(const type_spec *tspec)
     case CT_UINT:	return &ffi_type_uint;
     case CT_LONG:	return &ffi_type_slong;
     case CT_ULONG:	return &ffi_type_ulong;
+    case CT_SIZE_T:	return ffi_type_size_t();
     case CT_LONGLONG:	return &ffi_type_sint64;
     case CT_ULONGLONG:	return &ffi_type_uint64;
     case CT_FLOAT:	return &ffi_type_float;
@@ -534,6 +547,7 @@ typedef union argstore
   unsigned int ui;
   long l;
   unsigned long ul;
+  size_t sz;
   int64_t ll;
   uint64_t ull;
   float f;
@@ -568,6 +582,7 @@ unify_output(term_t t, const type_spec *tp, const argstore *as)
       case CT_UINT:      return PL_unify_uint64(t, as->ui);
       case CT_LONG:      return PL_unify_int64 (t, as->l);
       case CT_ULONG:     return PL_unify_uint64(t, as->ul);
+      case CT_SIZE_T:    return PL_unify_uint64(t, as->sz);
       case CT_LONGLONG:  return PL_unify_int64 (t, as->ll);
       case CT_ULONGLONG: return PL_unify_uint64(t, as->ull);
       case CT_FLOAT:     return PL_unify_float (t, as->f);
@@ -679,6 +694,11 @@ pl_ffi_call(term_t prototype, term_t goal)
 	    if ( !PL_cvt_i_ulong(arg, &as[argi].ul) )
 	      return FALSE;
 	    argv[argi] = &as[argi].ul;
+	    break;
+	  case CT_SIZE_T:
+	    if ( !PL_cvt_i_size_t(arg, &as[argi].sz) )
+	      return FALSE;
+	    argv[argi] = &as[argi].sz;
 	    break;
 	  case CT_LONGLONG:
 	    if ( !PL_cvt_i_int64(arg, &as[argi].ll) )
@@ -862,6 +882,7 @@ call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp)
 	    case CT_UINT:      rc = BIND_INT(unsigned int);          break;
 	    case CT_LONG:      rc = BIND_INT(long);                  break;
 	    case CT_ULONG:     rc = BIND_INT64(unsigned long);       break;
+	    case CT_SIZE_T:    rc = BIND_INT64(size_t);		     break;
 	    case CT_LONGLONG:  rc = BIND_INT64(long long);           break;
 	    case CT_ULONGLONG: rc = BIND_UINT64(unsigned long long); break;
 	    case CT_FLOAT:     rc = BIND_FLOAT(float);               break;
@@ -896,6 +917,7 @@ call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp)
 	      case CT_UINT:      rc = PL_cvt_i_uint(rt, ret);   break;
 	      case CT_LONG:      rc = PL_cvt_i_long(rt, ret);   break;
 	      case CT_ULONG:     rc = PL_cvt_i_ulong(rt, ret);  break;
+	      case CT_SIZE_T:    rc = PL_cvt_i_size_t(rt, ret); break;
 	      case CT_LONGLONG:  rc = PL_cvt_i_int64(rt, ret);  break;
 	      case CT_ULONGLONG: rc = PL_cvt_i_uint64(rt, ret); break;
 	      case CT_FLOAT:     rc = PL_cvt_i_single(rt, ret); break;
