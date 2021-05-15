@@ -427,6 +427,7 @@ enumerator_list([H|T]) -->
 
 enumerator(enum_value(H, V)) -->
     enumeration_constant(H),
+    gcc_attributes_opt(_),
     (   [=]
     ->  constant_expression(V)
     ;   {V = (-)}
