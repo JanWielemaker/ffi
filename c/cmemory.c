@@ -1100,8 +1100,8 @@ c_alignof(term_t type, term_t bytes)
     else if ( ta == ATOM_uint )      sz = __alignof__(unsigned int);
     else if ( ta == ATOM_long )      sz = __alignof__(long);
     else if ( ta == ATOM_ulong )     sz = __alignof__(unsigned long);
-    else if ( ta == ATOM_ulong )     sz = __alignof__(unsigned long);
     else if ( ta == ATOM_size_t )    sz = __alignof__(size_t);
+    else if ( ta == ATOM_longlong )  sz = __alignof__(long long);
     else if ( ta == ATOM_ulonglong ) sz = __alignof__(unsigned long long);
     else if ( ta == ATOM_float )     sz = __alignof__(float);
     else if ( ta == ATOM_double )    sz = __alignof__(double);
