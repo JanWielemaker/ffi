@@ -131,6 +131,9 @@ c_lib_path(Spec, Path, _Options) :-
 c_lib_path(libc, '/usr/lib/libSystem.B.dylib', _Options) :-
     current_prolog_flag(apple, true),           % MacOS 11 hack
     !.
+c_lib_path(libm, '/usr/lib/libSystem.B.dylib', _Options) :-
+    current_prolog_flag(apple, true),           % MacOS 11 hack
+    !.
 c_lib_path(Name, _Path, _Options) :-
     existence_error(c_library, Name).
 
