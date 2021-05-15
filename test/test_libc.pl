@@ -1,6 +1,47 @@
+/*  Part of SWI-Prolog
+
+    Author:        Jan Wielemaker
+    E-mail:        jan@swi-prolog.org
+    WWW:           http://www.swi-prolog.org
+    Copyright (c)  2021, SWI-Prolog Solutions b.v.
+    All rights reserved.
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions
+    are met:
+
+    1. Redistributions of source code must retain the above copyright
+       notice, this list of conditions and the following disclaimer.
+
+    2. Redistributions in binary form must reproduce the above copyright
+       notice, this list of conditions and the following disclaimer in
+       the documentation and/or other materials provided with the
+       distribution.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+    FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+    COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+    INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+    BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+    CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+    LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+    ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+    POSSIBILITY OF SUCH DAMAGE.
+*/
+
 :- use_module(library(plunit)).
 :- use_module('../prolog/ffi').
 :- use_module('../prolog/cerror').
+
+%!  test_libc
+%
+%   Test some libc functions. We try to deal with stat(), but this seems
+%   hard as the structure  has  evolved  in   many  days  over  time and
+%   different OSes use different techniques  to   deal  with  that, upto
+%   inline functions in the header.  Currently stat/3 fails on MacOS.
 
 test_libc :-
     run_tests([c_libc]).
@@ -43,11 +84,13 @@ cpp_const('_STAT_VER').
 test(sin, Native == V) :-
     sin(4.5, V),
     Native is sin(4.5).
+:- if(\+current_prolog_flag(apple, true)).
 test(stat, Size == Native) :-
     once(source_file(_:stat(_,_), File)),
     stat(File, Stat),
     c_load(Stat[st_size], Size),
     size_file(File, Native).
+:- endif.
 test(upper, A == 0'A) :-
     toupper(0'a, A).
 test(strupr, Upper == "HELLO") :-
