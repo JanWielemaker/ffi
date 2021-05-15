@@ -147,6 +147,7 @@ keyword('__asm__') --> "__asm__".
 keyword('__asm__') --> "__asm".
 keyword('__alignof__') --> "__alignof__".
 keyword('_Nonnull') --> "_Nonnull".
+keyword('_Nullable') --> "_Nullable".
 
 identifier(Id) --> identifier_nondigit(H), identifier_cont(T),
 		   {atom_chars(I, [H|T]), Id = id(I)}.

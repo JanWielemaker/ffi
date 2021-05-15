@@ -383,19 +383,16 @@ simplify_type(*(Type), Types) -->
     [*], !,
     simplify_type(Type, Types).
 simplify_type(Type, _Types) -->
-    opt_const,
-    opt_volatile,
-    opt_nonnull,
+    opt_qualifiers,
     simplify_type(Type).
 
-opt_const --> [const], !.
-opt_const --> [].
+opt_qualifiers --> qualifier, !, opt_qualifiers.
+opt_qualifiers --> [].
 
-opt_volatile --> [volatile], !.
-opt_volatile --> [].
-
-opt_nonnull --> ['_Nonnull'], !.                    % Clang on MacOS
-opt_nonnull --> [].
+qualifier --> [const].
+qualifier --> [volatile].
+qualifier --> ['_Nonnull'].                    % Clang on MacOS
+qualifier --> ['_Nullable'].                   % Clang on MacOS
 
 %!  simplify_type(-Type)//
 %
