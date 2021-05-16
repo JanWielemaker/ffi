@@ -220,6 +220,9 @@ ast_type(union(Name, Fields0), _, type(Name, union, Fields)) :-
 ast_type(struct(Name, Fields0), _, type(Name, struct, Fields)) :-
     expand_fields(Fields0, Fields).
 ast_type(type(enum(Name, Members)), _, type(Name, enum, Members)).
+ast_type(enum(Name), AST, type(Name, enum, Members)) :-
+    member(decl(Specifier, _Decl, _Attrs), AST),
+    memberchk(type(enum(Name, Members)), Specifier), !.
 ast_type(user_type(Name), AST, type(Name, typedef, Primitive)) :-
     typedef(Name, AST, Primitive).
 
