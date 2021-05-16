@@ -427,11 +427,12 @@ variadic_param(Type0, Type) :-
     default_promotion(Type0, Type), !.
 variadic_param(Type, Type).
 
-default_promotion(char,   int).
-default_promotion(uchar,  uint).
-default_promotion(short,  int).
-default_promotion(ushort, int).
-default_promotion(float,  double).
+default_promotion(char,    int).
+default_promotion(uchar,   uint).
+default_promotion('_Bool', uint).
+default_promotion(short,   int).
+default_promotion(ushort,  int).
+default_promotion(float,   double).
 
 
 %!  compatible_argument(+Func, +Types, +PlArg, +CArg, -Param)
@@ -460,6 +461,9 @@ compatible_arg(-int, *(CType), -CType, _) :-
     int_type(CType).
 compatible_arg(*int, *(CType), *CType, _) :-
     int_type(CType).
+compatible_arg(bool, '_Bool', +'_Bool', _).
+compatible_arg(-bool, *('_Bool'), -'_Bool', _).
+compatible_arg(*bool, *('_Bool'), *'_Bool', _).
 compatible_arg(float, CType, +CType, _) :-
     float_type(CType).
 compatible_arg(-float, *(CType), -CType, _) :-
@@ -532,6 +536,8 @@ compatible_ret(int, CArg, CArg, _) :-
     int_type(CArg),
     !.
 compatible_ret(int, enum(_), int, _) :-
+    !.
+compatible_ret(bool, '_Bool', '_Bool', _) :-
     !.
 compatible_ret(enum, enum(Name), enum(Name), _) :-
     !.

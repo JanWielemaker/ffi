@@ -59,6 +59,7 @@ static atom_t ATOM_double;
 static atom_t ATOM_pointer;
 static atom_t ATOM_closure;
 static atom_t ATOM_void;
+static atom_t ATOM__Bool;
 
 static atom_t ATOM_struct;
 static atom_t ATOM_union;
@@ -120,7 +121,8 @@ typedef enum c_type
   CT_STRUCT,
   CT_UNION,
   CT_ENUM,
-  CT_VOID
+  CT_VOID,
+  CT_BOOL
 } c_type;
 
 #define CTF_OUTPUT	0x0001		/* Output argument */
@@ -273,6 +275,7 @@ tname(const type_spec *tspec)
     case CT_DOUBLE:    return "double";
     case CT_CLOSURE:   return "(*)()";
     case CT_VOID:      return "void";
+    case CT_BOOL:      return "_Bool";
     case CT_STRUCT:
     case CT_UNION:
     case CT_ENUM:      return PL_atom_chars(tspec->name);
@@ -638,6 +641,8 @@ get_type(term_t t, type_spec *tspec)
 				     tspec->size = 0;
     else if ( qn == ATOM_closure   ) tspec->type = CT_CLOSURE,
 				     tspec->size = sizeof(void *);
+    else if ( qn == ATOM__Bool     ) tspec->type = CT_BOOL,
+				     tspec->size = sizeof(_Bool);
     else
       return PL_type_error("c_type", t0);
 
@@ -680,6 +685,7 @@ unify_type(term_t t, const type_spec *tspec)
     case CT_LONGLONG:  a = ATOM_longlong;   break;
     case CT_ULONGLONG: a = ATOM_ulonglong;  break;
     case CT_FLOAT:     a = ATOM_float;      break;
+    case CT_BOOL:      a = ATOM__Bool;      break;
     case CT_DOUBLE:    a = ATOM_double;     break;
     case CT_STRUCT:    f = FUNCTOR_struct1; break;
     case CT_UNION:     f = FUNCTOR_union1;  break;
@@ -845,6 +851,9 @@ c_load(term_t ptr, term_t offset, term_t type, term_t value)
       } else if ( ta == ATOM_uchar )
       { const unsigned char *p = vp;
 	return VALID(ref, off, char) && PL_unify_integer(value, *p);
+      } else if ( ta == ATOM__Bool )
+      { const _Bool *p = vp;
+	return VALID(ref, off, char) && PL_unify_bool(value, *p);
       } else if ( ta == ATOM_wchar_t )
       { const wchar_t *p = vp;
 	return VALID(ref, off, wchar_t) && PL_unify_integer(value, *p);
@@ -970,6 +979,8 @@ c_store(term_t ptr, term_t offset, term_t type, term_t value)
 	return VALID(ref, off, char) && PL_cvt_i_char(value, vp);
       else if ( ta == ATOM_uchar )
 	return VALID(ref, off, char) && PL_cvt_i_uchar(value, vp);
+      else if ( ta == ATOM__Bool )
+	return VALID(ref, off, char) && PL_cvt_i_bool(value, vp);
       else if ( ta == ATOM_wchar_t )
 	return VALID(ref, off, wchar_t) && PL_cvt_i_wchar(value, vp);
       else if ( ta == ATOM_short )
@@ -1064,6 +1075,7 @@ c_sizeof(term_t type, term_t bytes)
   if ( PL_get_atom(type, &ta) )
   {      if ( ta == ATOM_char )      sz = sizeof(char);
     else if ( ta == ATOM_uchar )     sz = sizeof(unsigned char);
+    else if ( ta == ATOM__Bool )     sz = sizeof(_Bool);
     else if ( ta == ATOM_short )     sz = sizeof(short);
     else if ( ta == ATOM_ushort )    sz = sizeof(unsigned short);
     else if ( ta == ATOM_int )       sz = sizeof(int);
@@ -1094,6 +1106,7 @@ c_alignof(term_t type, term_t bytes)
   if ( PL_get_atom(type, &ta) )
   {      if ( ta == ATOM_char )      sz = __alignof__(char);
     else if ( ta == ATOM_uchar )     sz = __alignof__(unsigned char);
+    else if ( ta == ATOM__Bool )     sz = __alignof__(_Bool);
     else if ( ta == ATOM_short )     sz = __alignof__(short);
     else if ( ta == ATOM_ushort )    sz = __alignof__(unsigned short);
     else if ( ta == ATOM_int )       sz = __alignof__(int);
@@ -1243,6 +1256,7 @@ install_c_memory(void)
   MKATOM(pointer);
   MKATOM(closure);
   MKATOM(void);
+  MKATOM(_Bool);
   MKATOM(iso_latin_1);
   MKATOM(octet);
   MKATOM(utf8);

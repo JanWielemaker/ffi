@@ -3,7 +3,8 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2017-2018, VU University Amsterdam
+    Copyright (c)  2017-2021, VU University Amsterdam
+			      SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -85,6 +86,7 @@ static atom_t ATOM_void;			/* void */
 static functor_t FUNCTOR_minus1;
 
 static int	get_closure(term_t t, void **func);
+static int	PL_cvt_i_bool(term_t t, _Bool *b);
 
 #include "cmemory.c"
 
@@ -394,6 +396,12 @@ ffi_type_size_t(void)
   }
 }
 
+static ffi_type *
+ffi_type__Bool(void)
+{ assert(sizeof(unsigned char) == sizeof(_Bool)); /* to cover some strange case */
+  return &ffi_type_uchar;
+}
+
 
 
 static ffi_type *
@@ -418,6 +426,7 @@ to_ffi_type(const type_spec *tspec)
     case CT_FLOAT:	return &ffi_type_float;
     case CT_DOUBLE:	return &ffi_type_double;
     case CT_CLOSURE:	return &ffi_type_pointer;
+    case CT_BOOL:	return ffi_type__Bool();
     default:
       return NULL;
   }
@@ -475,6 +484,18 @@ ci_function_free(void *ptr)
 
     free(ctx);
   }
+}
+
+static int
+PL_cvt_i_bool(term_t t, _Bool *b)
+{ int i;
+
+  if ( PL_get_bool_ex(t, &i) )
+  { *b = i;
+    return TRUE;
+  }
+
+  return FALSE;
 }
 
 
@@ -545,6 +566,7 @@ error:
 typedef union argstore
 { char c;
   unsigned char uc;
+  _Bool bl;
   wchar_t wc;
   short s;
   unsigned short us;
@@ -572,6 +594,7 @@ unify_output(term_t t, const type_spec *tp, const argstore *as)
   { switch(tp->type)
     { case CT_VOID:	 return TRUE;
       case CT_CHAR:      return PL_unify_int64 (t, as->c);
+      case CT_BOOL:	 return PL_unify_bool(t, as->bl);
       case CT_UCHAR:     return PL_unify_uint64(t, as->uc);
       case CT_WCHAR_T:
 	if ( sizeof(wchar_t) == sizeof(int) )
@@ -656,6 +679,11 @@ pl_ffi_call(term_t prototype, term_t goal)
 	    if ( !PL_cvt_i_uchar(arg, &as[argi].uc) )
 	      return FALSE;
 	    argv[argi] = &as[argi].uc;
+	    break;
+	  case CT_BOOL:
+	    if ( !PL_cvt_i_bool(arg, &as[argi].bl) )
+	      return FALSE;
+	    argv[argi] = &as[argi].bl;
 	    break;
 	  case CT_WCHAR_T:
 	    if ( sizeof(wchar_t) == sizeof(int) )
@@ -863,6 +891,7 @@ call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp)
     { size_t i;
       int rc;
 
+#define BIND_BOOL(type)   PL_put_bool(argv+i, *(type*)args[i]);
 #define BIND_INT(type)    PL_put_integer(argv+i, *(type*)args[i]);
 #define BIND_INT64(type)  PL_put_int64(argv+i, *(type*)args[i]);
 #define BIND_UINT64(type) PL_unify_uint64(argv+i, *(type*)args[i]);
@@ -878,8 +907,9 @@ call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp)
 	  rc = unify_ptr(argv+i, *(void**)args[i], SZ_UNKNOWN, &vtype) != NULL;
 	} else
 	{ switch(tspec->type)
-	  { case CT_CHAR:	     rc = BIND_INT(char);            break;
+	  { case CT_CHAR:      rc = BIND_INT(char);		     break;
 	    case CT_UCHAR:     rc = BIND_INT(unsigned char);         break;
+	    case CT_BOOL:      rc = BIND_BOOL(_Bool);		     break;
 	    case CT_WCHAR_T:   rc = BIND_INT(wchar_t);               break;
 	    case CT_SHORT:     rc = BIND_INT(short);                 break;
 	    case CT_USHORT:    rc = BIND_INT(unsigned short);        break;
@@ -915,6 +945,7 @@ call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp)
 	  { switch(ctx->ret_type.type)
 	    { case CT_CHAR:      rc = PL_cvt_i_char(rt, ret);   break;
 	      case CT_UCHAR:     rc = PL_cvt_i_uchar(rt, ret);  break;
+	      case CT_BOOL:	 rc = PL_cvt_i_bool(rt, ret);   break;
 	      case CT_WCHAR_T:   rc = PL_cvt_i_wchar(rt, ret);  break;
 	      case CT_SHORT:     rc = PL_cvt_i_short(rt, ret);  break;
 	      case CT_USHORT:    rc = PL_cvt_i_ushort(rt, ret); break;

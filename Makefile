@@ -1,12 +1,12 @@
 LD=$(SWIPL)-ld
-LDSOFLAGS=-Wall -shared -O2 -gdwarf-2 -g3
+LDSOFLAGS=-Wall -shared -gdwarf-2 -g3
 CC=gcc
 MAKE=make
 PACKSODIR=lib/$(SWIARCH)
 FFI4PL=lib/$(SWIARCH)/ffi4pl.$(SOEXT)
 LIBS=-lffi
 CFLAGS=-shared -fPIC
-TESTS=test_mode test_marshall test_enum test_struct test_union test_funcptr
+TESTS=test_mode test_marshall test_bool test_enum test_struct test_union test_funcptr
 TESTSO=$(addprefix test/$(SWIARCH)/, $(addsuffix .$(SOEXT), $(TESTS)))
 
 all:	env $(FFI4PL)
@@ -37,6 +37,7 @@ check:	$(TESTSO)
 	$(SWIPL) -q -g test_cmem -t halt test/test_cmem.pl
 	$(SWIPL) -q -g test_mode -t halt test/test_mode.pl
 	$(SWIPL) -q -g test_marshall -t halt test/test_marshall.pl
+	$(SWIPL) -q -g test_bool -t halt test/test_bool.pl
 	$(SWIPL) -q -g test_enum -t halt test/test_enum.pl
 	$(SWIPL) -q -g test_struct -t halt test/test_struct.pl
 	$(SWIPL) -q -g test_union -t halt test/test_union.pl
