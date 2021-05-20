@@ -58,6 +58,7 @@ static atom_t ATOM_float;
 static atom_t ATOM_double;
 static atom_t ATOM_pointer;
 static atom_t ATOM_closure;
+static atom_t ATOM_c_callback;
 static atom_t ATOM_void;
 static atom_t ATOM__Bool;
 
@@ -122,7 +123,8 @@ typedef enum c_type
   CT_UNION,
   CT_ENUM,
   CT_VOID,
-  CT_BOOL
+  CT_BOOL,
+  CT_CALLBACK
 } c_type;
 
 #define CTF_OUTPUT	0x0001		/* Output argument */
@@ -273,6 +275,7 @@ tname(const type_spec *tspec)
     case CT_ULONGLONG: return "ulonglong";
     case CT_FLOAT:     return "float";
     case CT_DOUBLE:    return "double";
+    case CT_CALLBACK:  return "c_callback";
     case CT_CLOSURE:   return "(*)()";
     case CT_VOID:      return "void";
     case CT_BOOL:      return "_Bool";
@@ -641,6 +644,8 @@ get_type(term_t t, type_spec *tspec)
 				     tspec->size = 0;
     else if ( qn == ATOM_closure   ) tspec->type = CT_CLOSURE,
 				     tspec->size = sizeof(void *);
+    else if ( qn == ATOM_c_callback) tspec->type = CT_CALLBACK,
+				     tspec->size = sizeof(void *);
     else if ( qn == ATOM__Bool     ) tspec->type = CT_BOOL,
 				     tspec->size = sizeof(_Bool);
     else
@@ -690,6 +695,8 @@ unify_type(term_t t, const type_spec *tspec)
     case CT_STRUCT:    f = FUNCTOR_struct1; break;
     case CT_UNION:     f = FUNCTOR_union1;  break;
     case CT_ENUM:      f = FUNCTOR_enum1;   break;
+    case CT_CALLBACK:  a = ATOM_c_callback; break;
+    case CT_CLOSURE:   a = ATOM_closure;    break;
     default:
       assert(0);
   }
@@ -1255,6 +1262,7 @@ install_c_memory(void)
   MKATOM(double);
   MKATOM(pointer);
   MKATOM(closure);
+  MKATOM(c_callback);
   MKATOM(void);
   MKATOM(_Bool);
   MKATOM(iso_latin_1);

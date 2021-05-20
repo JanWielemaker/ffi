@@ -67,6 +67,8 @@ static atom_t ATOM_c_library;
 static atom_t ATOM_c_symbol;
 static atom_t ATOM_c_function;
 static atom_t ATOM_c_closure;
+static atom_t ATOM_c_callback;
+static atom_t ATOM_$null_callback;
 
 static atom_t ATOM_default;
 static atom_t ATOM_cdecl;
@@ -377,6 +379,41 @@ ffi_lookup_symbol(term_t lib, term_t name, term_t func)
   return FALSE;
 }
 
+// Lookup C function addres for use
+// in prolog as a C callback
+static foreign_t
+ffi_callback_ptr(term_t lib, term_t name, term_t fptr)
+{ ctx_library *libh;
+  char *fname;
+  atom_t atom;
+  void *p;
+  type_spec tspec = {CT_STRUCT, 0, 0, ATOM_c_library};
+
+  // If name is the '$$null_callback' atom store
+  // a null pointer instead
+  if ( PL_get_atom(name, &atom) )
+  {  if ( atom == ATOM_$null_callback )
+     { type_spec tspec = { CT_CALLBACK, 0, 0, ATOM_c_callback,
+			  sizeof(*p), NULL};
+       return unify_ptr(fptr, NULL, 1, &tspec) != NULL;
+     }
+  }
+
+
+  // Get pointer <p>, for C function <name>, and store
+  // it in blob <fptr>
+  if ( get_ptr(lib, &libh, &tspec) &&
+       PL_get_chars(name, &fname, CVT_ATOM|CVT_EXCEPTION) )
+  { DEBUG(1, Sdprintf("Found c callback %s in %p ...\n", fname, libh));
+
+    if ( (p=dlsym(libh->lib, fname)) )
+    { type_spec tspec = { CT_CALLBACK, 1, 0, ATOM_c_callback,
+			  sizeof(*p), NULL};
+      return unify_ptr(fptr, p, 0, &tspec) != NULL;
+    }
+  }
+  return FALSE;
+}
 
 static ffi_type *
 ffi_type_wchar_t(void)
@@ -425,8 +462,10 @@ to_ffi_type(const type_spec *tspec)
     case CT_ULONGLONG:	return &ffi_type_uint64;
     case CT_FLOAT:	return &ffi_type_float;
     case CT_DOUBLE:	return &ffi_type_double;
+    case CT_CALLBACK:
     case CT_CLOSURE:	return &ffi_type_pointer;
     case CT_BOOL:	return ffi_type__Bool();
+    case CT_VOID:	return &ffi_type_void;
     default:
       return NULL;
   }
@@ -758,6 +797,11 @@ pl_ffi_call(term_t prototype, term_t goal)
 	      return FALSE;
 	    argv[argi] = &as[argi].p;
 	    break;
+	  case CT_CALLBACK:
+	    if ( !get_ptr(arg, &as[argi].p, 0) )
+	      return FALSE;
+	    argv[argi] = &as[argi].p;
+ 	    break;
 	  default:
 	    assert(0);
 	}
@@ -1053,6 +1097,8 @@ install(void)
   MKATOM(c_symbol);
   MKATOM(c_function);
   MKATOM(c_closure);
+  MKATOM(c_callback);
+  MKATOM($null_callback);
 
   MKATOM(default);
   MKATOM(cdecl);
@@ -1087,4 +1133,5 @@ install(void)
 
   PL_register_foreign("ffi_debug",	      1, ffi_debug,	       0);
   PL_register_foreign("c_errno",	      1, c_errno,	       0);
+  PL_register_foreign("ffi_callback_ptr",     3, ffi_callback_ptr,     0);
 }

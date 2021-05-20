@@ -6,7 +6,7 @@ PACKSODIR=lib/$(SWIARCH)
 FFI4PL=lib/$(SWIARCH)/ffi4pl.$(SOEXT)
 LIBS=-lffi
 CFLAGS=-shared -fPIC
-TESTS=test_mode test_marshall test_bool test_enum test_struct test_union test_funcptr
+TESTS=test_mode test_marshall test_bool test_enum test_struct test_union test_funcptr test_ccallback
 TESTSO=$(addprefix test/$(SWIARCH)/, $(addsuffix .$(SOEXT), $(TESTS)))
 
 all:	env $(FFI4PL)
@@ -44,6 +44,7 @@ check:	$(TESTSO)
 	$(SWIPL) -q -g test_funcptr -t halt test/test_funcptr.pl
 	$(SWIPL) -q -g test_qsort -t halt test/test_qsort.pl
 	$(SWIPL) -q -g test_libc -t halt test/test_libc.pl
+	$(SWIPL) -q -g test_ccallback -t halt test/test_ccallback.pl
 
 install::
 

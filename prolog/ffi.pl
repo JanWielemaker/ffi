@@ -290,7 +290,10 @@ decls(_) -->
                          '$c_union_field'/4,
                          '$c_enum'/3,
                          '$c_typedef'/2
-                        )))
+                        ))),
+      (:- dynamic        '$c_symbol_cache'/2,
+	                 '$c_lib'/3
+      )
     ].
 
 compile_types([], _) --> [].
@@ -356,6 +359,7 @@ signature_arity(SigArgs, Arity) :-
 
 
 is_closure(+closure(_)).
+is_closure(+c_callback(_)).
 
 %!  matching_signature(+FuncName,
 %!                     +PlArgs, +CRet0, -CRet,
@@ -468,6 +472,11 @@ compatible_arg(float, CType, +CType, _) :-
     float_type(CType).
 compatible_arg(-float, *(CType), -CType, _) :-
     float_type(CType).
+compatible_arg(null, funcptr(_Ret, _Params), +c_callback(_:null), _Types) :-
+   !.
+compatible_arg('C'(Callback), funcptr(_Ret, _Params), +c_callback(M:Callback), _Types) :-
+   prolog_load_context(module, M),
+   !.
 compatible_arg(Func0, funcptr(Ret, Params), +closure(M:Func), Types) :-
     prolog_load_context(module, M0),
     strip_module(M0:Func0, M, Func1),
@@ -701,7 +710,10 @@ variadic_prototype(Type,   _, Type).
 
 %!  prototype_type(+CType, +Module, +PrologType, -ParamType) is det.
 
-prototype_type(funcptr(_,_), _, _, closure) :-
+prototype_type(funcptr(_,_), _, +c_callback(_), c_callback) :-
+    !.
+prototype_type(funcptr(_,_), _, PlType, closure) :-
+    compound_name_arguments(PlType, _, _),
     !.
 prototype_type(*(*CType), M, -OutputType~FreeName, -(*(CType,Free))) :-
     c_output_argument_type(OutputType),
@@ -749,6 +761,13 @@ convert_args([+closure(M:Closure)|T], PI, PArity, CI, CArity,
     !,
     arg(CI, CHead, CClosure),
     closure_create(M:Closure, CClosure),
+    CI2 is CI + 1,
+    convert_args(T, PI, PArity, CI2, CArity, PHead, CHead, GPre, GPost).
+convert_args([+c_callback(M:Callback)|T], PI, PArity, CI, CArity,
+             PHead, CHead, GPre, GPost) :-
+    !,
+    arg(CI, CHead, CCallback),
+    ccallback_create(M:Callback, CCallback),
     CI2 is CI + 1,
     convert_args(T, PI, PArity, CI2, CArity, PHead, CHead, GPre, GPost).
 convert_args([H|T], PI, PArity, CI, CArity, PHead, CHead, GPre, GPost) :-
@@ -828,6 +847,33 @@ convert_arg([enum(Enum)], Id, Int,
 mkconj(true, G, G) :- !.
 mkconj(G, true, G) :- !.
 mkconj(G1, G2, (G1,G2)).
+
+
+%!  callback_create(:Head, -Closure) is det.
+%
+%   Create a C callback pointer from Head. Head   is  a qualified term
+%   of the form 'C'(Callback), where Callback is a term with  a functor
+%   which is the name of the C function to call, and the parameterts are
+%   the callback  parameter types, which are used during parsing only
+%   for type checking.
+
+ccallback_create(_:null, CCallback) :-
+    ffi:ffi_callback_ptr(_FH, '$null_callback', CCallback).
+ccallback_create(M:CHead, CCallback) :-
+    compound_name_arguments(CHead, CFuncName, _),
+    c_symbol_callback(M:CFuncName,CCallback).
+
+%  Lookup C symbol address in shared libraries that have
+%  been loaded by c_import in the context of module M.
+c_symbol_callback(M:Symbol, CCallback) :-
+    M:'$c_symbol_cache'(Symbol, CCallback),
+    !.
+c_symbol_callback(M:Symbol, CCallback) :-
+    M:'$c_lib'(Lib, Options, _),
+    c_library(Lib, FH, Options),
+    ffi:ffi_callback_ptr(FH, Symbol, CCallback),
+    M:assert('$c_symbol_cache'(Symbol, CCallback)),
+    debug(ffi(callback), '~p', [symcb(FH,Symbol,CCallback)]).
 
 %!  closure_create(:Head, -Closure) is det.
 %
@@ -1270,8 +1316,10 @@ c_store_(Ptr, Offset, Type, Value) :-
         c_store(Ptr, Offset, int, IntValue)
     ;   Plain = *(_EType)                       % TBD: validate
     ->  c_store(Ptr, Offset, pointer, Value)
+    ;   ( Plain = funcptr(_Ret, _Params), blob(Value,c_ptr) )
+    ->  c_store(Ptr, Offset, pointer, Value)    % C callback
     ;   Plain = funcptr(Ret, Params)
-    ->  strip_module(M:Value, PM, Func1),
+    ->  strip_module(M:Value, PM, Func1),       % ffi closure
         compound_name_arguments(Func1, Pred, SigArgs),
         matching_signature(-, SigArgs, Ret, Ret, Params, SigParams, []),
         compound_name_arguments(Func, Pred, SigParams),
@@ -1533,6 +1581,11 @@ c_constant(Name=AST) -->
 		 *           EXPANSION		*
 		 *******************************/
 
+cpp_expand(Modules, T0, CCallback) :-
+    nonvar(T0),
+    T0 = 'C'(sym(FName)),
+    member(M, Modules),
+    c_symbol_callback(M:FName, CCallback).
 cpp_expand(Modules, T0, T) :-
     atom(T0),
     member(M, Modules),
