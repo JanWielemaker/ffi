@@ -89,7 +89,7 @@ prototype(Func, _, AST, R0, R) -->
     { skeleton(prototype(Return, RDecl, Params0), Func, FuncDecl),
       memberchk(FuncDecl, AST), !,
       parameters(Params0, Params),
-      memberchk(type(BasicType), Return),
+      basic_type(Return, BasicType),
       pointers(RDecl, BasicType, RType)
     },
     [ function(Func, RType, Params) ],
