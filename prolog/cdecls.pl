@@ -378,9 +378,10 @@ simplify_type(union(Name,Fields), Types) -->
     !,
     { phrase(expand_field(Fields0, Types), Fields) }.
 simplify_type(funcptr(Ret,Params), Types) -->
-    [ type(funcptr(Ret0,Params)) ],
+    [ type(funcptr(Ret0,Params1)) ],
     !,
-    { simplify_types(Ret0, Types, Ret)
+    { simplify_types(Ret0, Types, Ret),
+      maplist(untypedef(Types), Params1, Params)
     }.
 simplify_type(*(Type), Types) -->
     [*], !,
