@@ -16,6 +16,7 @@ test_funcptr :-
 :- c_import("#include \"test_funcptr.c\"",
             [ test_funcptr ],
             [ test_fi(twice(int, [int]), int, [int]),
+              test_fi_param_typedef(twice(int, [int]), int, [int]),
               test_fstruct(struct(funcs), float, [float])
             ]).
 
@@ -26,6 +27,10 @@ twice(In, Out) :-
 
 test(funcparam, R == 4) :-
     test_fi(2, R).
+
+test(funcparam_typedef, R == 4) :-
+    test_fi_param_typedef(2, R).
+
 
 test(struct_func, R =:= 4*3.4) :-
     I = 4,
