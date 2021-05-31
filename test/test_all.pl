@@ -6,6 +6,7 @@
 :- use_module(test_union).
 :- use_module(test_funcptr).
 :- use_module(test_ccallback).
+:- use_module(test_array).
 
 test_all :-
     test_cmem,
@@ -15,5 +16,6 @@ test_all :-
     test_struct,
     test_union,
     test_funcptr,
-    test_ccallback.
+    test_ccallback,
+    test_array.
 

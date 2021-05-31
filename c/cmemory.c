@@ -595,7 +595,9 @@ get_type(term_t t, type_spec *tspec)
 	else if ( qn == ATOM_union && arity <= 2 )
 	  tspec->type = CT_UNION;
 	else if ( qn == ATOM_enum && arity == 1)
-	  tspec->type = CT_ENUM;
+	{  tspec->type = CT_ENUM;
+	   tspec->size = sizeof(int);
+	}
 	else
 	  return PL_type_error("c_type", t0);
       } else
@@ -831,6 +833,177 @@ valid_offset(c_ptr *ref, size_t off, size_t tsize, term_t offset)
   }
 
   return TRUE;
+}
+
+#define AS_LIST       0x0    // Represent array as prolog list
+#define AS_COMPOUND   0x1    // Represent array as compound
+
+static foreign_t
+value_to_term(term_t arrt, c_ptr *ref, void* vp, c_type type, int ptype, term_t value)
+{
+  if (  ((ref->type.ptrl == 0) && (ref->count  > 0))  ||   // <C ulong[3]>, <C struct struct_t[]>
+        ((ref->type.ptrl == 2) && (ref->count == 1)))      // <C ulong**[1]>
+  {
+    switch(type)
+    { case CT_CHAR:
+      { const char *p = vp;
+        return  PL_put_integer(value, *p);
+      }
+      case CT_UCHAR:
+      { const unsigned char *p = vp;
+        return PL_put_integer(value, *p);
+      }
+      case CT_WCHAR_T:
+      { const wchar_t *p = vp;
+        return PL_put_integer(value, *p);
+      }
+      case CT_SHORT:
+      { const short *p = vp;
+        return PL_put_integer(value, *p);
+      }
+      case CT_USHORT:
+      { const unsigned short *p = vp;
+        return PL_put_integer(value, *p);
+      }
+      case CT_INT:
+      { const int *p = vp;
+        return PL_put_integer(value, *p);
+      }
+      case CT_UINT:
+      { const unsigned int *p = vp;
+        return PL_put_uint64(value, *p);
+      }
+      case CT_LONG:
+      { const  long *p = vp;
+        return PL_put_integer(value, *p);
+      }
+      case CT_ULONG:
+      { const unsigned long *p = vp;
+        return PL_put_uint64(value, *p);
+      }
+      case CT_SIZE_T:
+      { const size_t *p = vp;
+        return PL_put_uint64(value, *p);
+      }
+      case CT_LONGLONG:
+      { const long long *p = vp;
+        int64_t v = (int64_t)*p;
+        return PL_put_uint64(value, v);
+      }
+      case CT_ULONGLONG:
+      { const unsigned long long *p = vp;
+        int64_t v = (int64_t)*p;
+        return PL_put_uint64(value, v);
+      }
+      case CT_FLOAT:
+      { const float *p = vp;
+        return PL_put_float(value, *p);
+      }
+      case CT_BOOL:
+      { const _Bool *p = vp;
+        return  PL_put_bool(value, *p);
+      }
+      case CT_DOUBLE:
+      { const double *p = vp;
+        return PL_put_float(value, *p);
+      }
+      case CT_ENUM:
+      case CT_STRUCT:
+      case CT_UNION:
+      case CT_CALLBACK:
+      case CT_CLOSURE:
+      { term_t t=PL_new_term_ref();
+	void **p = vp;
+	/* void *u = unify_ptr(t, p, 1, &(ref->type)); */
+        /* Sdprintf("u = %p %p %p\n",u,*p,p); */
+        /* return PL_put_term(value,t); */
+	return (unify_ptr(t, p, 1, &(ref->type)) != NULL) &&
+                PL_put_term(value,t);
+      }
+	return PL_type_error("scalar_array",arrt);
+      default:
+        assert(0);
+    }
+  }
+  // TODO: perhaps handle nested lists, structs, etc?
+
+  //Sdprintf("count=%u, ptrl=%d\n", ref->count, ref->type.ptrl);
+
+  return FALSE;
+}
+
+static foreign_t
+c_array_list_(term_t arrt, size_t count, term_t list)
+{ term_t value= PL_new_term_ref(); // list eleement
+  term_t l= PL_new_term_ref();
+  c_ptr *ref;
+  void *vp;
+  c_type ctype;
+  size_t n,size;
+
+  if ( (ref=get_ptr_ref_ex(arrt, NULL))
+     )
+  { if ( !ref->ptr )
+      null_pointer_error(arrt);
+
+    PL_put_nil(l);
+
+    n = 0;
+    ctype = ref->type.type;
+    size = ref->type.size;
+    vp = (void*)((char *)ref->ptr) + (count-1)*size;
+
+
+    while( n < count)
+    { if ( !( value_to_term(arrt, ref, vp, ctype, AS_LIST, value) &&
+	      PL_cons_list(l, value, l) ))
+	return FALSE;
+      vp -= size;
+      n++;
+    }
+  }
+
+  return PL_unify(l,list);
+}
+
+// Documented in ffi.pl
+static foreign_t
+c_array_list2(term_t arrt, term_t list)
+{ c_ptr *ref;
+  if ( (ref=get_ptr_ref_ex(arrt, NULL)) )
+  { if (ref->count < 1)
+       return PL_domain_error("array",arrt);
+
+    if ( !ref->ptr )
+      null_pointer_error(arrt);
+
+    if (ref->count == SZ_UNKNOWN)
+      return PL_type_error("fixed_size_array",arrt);
+
+    return c_array_list_(arrt, ref->count, list);
+  }
+
+  return FALSE;
+}
+
+// Documented in ffi.pl
+static foreign_t
+c_array_list3(term_t arrt, term_t countt, term_t list)
+{  size_t count;
+   c_ptr  *ref;
+
+   if (!PL_get_size_ex(countt, &count))
+      return FALSE;
+
+   if ( (ref=get_ptr_ref_ex(arrt, NULL)) &&
+         ( ( count > ref->count ) &&
+           ( ref->type.ptrl == 0 ) ) )
+      return PL_domain_error("count_less_or_equal_to_size",countt);
+
+   if (count < 1)
+      return PL_domain_error("positive_count",countt);
+
+   return c_array_list_(arrt, count, list);
 }
 
 #define VALID(ref, off, type) valid_offset(ref, off, sizeof(type), offset)
@@ -1305,4 +1478,6 @@ install_c_memory(void)
   PL_register_foreign("c_load_string",	5, c_load_string5, 0);
   PL_register_foreign("c_nil",		1, c_nil,          0);
   PL_register_foreign("c_is_nil",	1, c_is_nil,       0);
+  PL_register_foreign("c_array_list2",	2, c_array_list2,  0);
+  PL_register_foreign("c_array_list3",	3, c_array_list3,  0);
 }

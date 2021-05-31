@@ -73,6 +73,9 @@
 
             c_struct_dict/2,            % ?Ptr,  ?Dict
 
+	    c_array_list/2,             % +Ptr, -List
+	    c_array_list/3,             % +Ptr, +Count, -List
+
             c_enum_in/3,                % :Id, +Enum, -Int
             c_enum_out/3,               % :Id, +Enum, +Int
 
@@ -114,6 +117,8 @@
     c_current_union_field(:,?,?),
     c_current_typedef(:,:),
     c_struct_dict(:,?),
+    c_array_list(:,?),
+    c_array_list(:,+,?),
     c_expand_type(:,:),
     type_size(:,-),
     c_type_size_align(:,-,-),
@@ -1404,6 +1409,65 @@ c_member(M:union(Union), Field, Ptr, Offset, Ptr, Offset, EType) :-
 c_member(Type, _, _, _, _, _, _) :-
     domain_error(struct_or_union, Type).
 
+		 /*******************************
+		 *             LIST		*
+		 *******************************/
+
+%!  c_array_list(:Array, ?List)
+%
+%   Convert a C array to a prolog list and vice-versa.
+%
+%   Examples:
+%   ```
+%   % C intarray to list
+%   ?- c_alloc(CPtr, int[]=[3,1,0,2]), c_array_list(CPtr,R).
+%   CPtr = <C int[4]>(0x5629848165c0),
+%   R = [3, 1, 0, 2].
+%
+%
+%   ```
+%
+%   Structs and union elements are converted to a c_ptr blob.
+%
+%
+%
+%   C array to list supported types:
+%   * all C numeric ty
+c_array_list(_:Ptr, List) :-
+   nonvar(Ptr),
+   !,
+   c_array_list2(Ptr,List).
+
+c_array_list(_:Ptr, List) :-
+   nonvar(List),
+   list_numeric(List,CTyp),
+   !,
+   c_alloc(Ptr,CTyp[]=List).
+
+% c_array_list(_:Ptr, List) :-
+%    nonvar(List),
+%    list_text(List,CTyp),
+%    !,
+%    c_alloc(Ptr,CTyp[]=List).
+
+c_array_list_type(_:Ptr, List, CTyp) :-
+   nonvar(List),
+   !,
+   c_alloc(Ptr,CTyp[]=List).
+
+
+c_array_list(_:Ptr, Count, List) :-
+   nonvar(Ptr),
+   !,
+   c_array_list3(Ptr,Count,List).
+
+
+
+list_numeric([H|_],long) :-
+   integer(H).
+
+list_numeric([H|_],double) :-
+   float(H).
 
 		 /*******************************
 		 *             DICT		*

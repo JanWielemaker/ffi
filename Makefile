@@ -6,7 +6,8 @@ PACKSODIR=lib/$(SWIARCH)
 FFI4PL=lib/$(SWIARCH)/ffi4pl.$(SOEXT)
 LIBS=-lffi
 CFLAGS=-shared -fPIC
-TESTS=test_mode test_marshall test_bool test_enum test_struct test_union test_funcptr test_ccallback test_array
+TESTS=test_mode test_marshall test_bool test_enum test_struct test_union    \
+      test_funcptr test_ccallback test_array
 TESTSO=$(addprefix test/$(SWIARCH)/, $(addsuffix .$(SOEXT), $(TESTS)))
 
 all:	env $(FFI4PL)
