@@ -835,6 +835,20 @@ valid_offset(c_ptr *ref, size_t off, size_t tsize, term_t offset)
   return TRUE;
 }
 
+static int
+enum_atom_from_int(module_t m,atom_t enum_name, int value, term_t name)
+{ static predicate_t pred = NULL;
+  term_t av = PL_new_term_refs(3);
+
+  if ( !pred )
+    pred = PL_predicate("c_enum_out", 3, "ffi");
+
+  return ( PL_put_term(av+0, name) &&
+           PL_put_atom(av+1, enum_name) &&
+           PL_put_integer(av+2, value) &&
+           PL_call_predicate(m, PL_Q_PASS_EXCEPTION, pred, av) );
+}
+
 #define AS_LIST       0x0    // Represent array as prolog list
 #define AS_COMPOUND   0x1    // Represent array as compound
 
@@ -908,6 +922,15 @@ value_to_term(term_t arrt, c_ptr *ref, void* vp, c_type type, int ptype, term_t 
         return PL_put_float(value, *p);
       }
       case CT_ENUM:
+      { term_t t=PL_new_term_refs(2);
+        module_t m = NULL;
+	// turn enum integer to atom
+	int *p  = vp;
+	if (!PL_strip_module(arrt,&m,t))
+	   return PL_type_error("module_qualified_cptr",arrt);
+        return enum_atom_from_int(m,ref->type.name, *p, t+1) &&
+	       PL_put_term(value,t+1);
+      }
       case CT_STRUCT:
       case CT_UNION:
       case CT_CALLBACK:

@@ -1433,10 +1433,10 @@ c_member(Type, _, _, _, _, _, _) :-
 %
 %   C array to list supported types:
 %   * all C numeric ty
-c_array_list(_:Ptr, List) :-
+c_array_list(M:Ptr, List) :-
    nonvar(Ptr),
    !,
-   c_array_list2(Ptr,List).
+   c_array_list2(M:Ptr,List).
 
 c_array_list(_:Ptr, List) :-
    nonvar(List),
@@ -1456,10 +1456,10 @@ c_array_list_type(_:Ptr, List, CTyp) :-
    c_alloc(Ptr,CTyp[]=List).
 
 
-c_array_list(_:Ptr, Count, List) :-
+c_array_list(M:Ptr, Count, List) :-
    nonvar(Ptr),
    !,
-   c_array_list3(Ptr,Count,List).
+   c_array_list3(M:Ptr,Count,List).
 
 
 

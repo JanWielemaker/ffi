@@ -93,13 +93,10 @@ test(unsized_rawptr_no_count,
     R = [ [Aa,Aba], [Ba,Bba], [Ca,Cba] ].
 
  test(enum_array,
-      R = [ ec, eb, ea ] ) :-
+      R == [ ec, eb, ea ] ) :-
     test_enumarr(Ptr),
     c_array_list(Ptr,3,[A,B,C]),
-    c_load(A, Aa),
-    c_load(B, Ba),
-    c_load(C, Ca),
-    R = [ Aa, Ba, Ca ].
+    R = [ A, B, C ].
 
 :- end_tests(array_to_list).
 
