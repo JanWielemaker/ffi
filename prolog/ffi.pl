@@ -73,8 +73,15 @@
 
             c_struct_dict/2,            % ?Ptr,  ?Dict
 
-	    c_array_list/2,             % +Ptr, -List
-	    c_array_list/3,             % +Ptr, +Count, -List
+	    c_array_to_list/2,          % +Ptr, -List
+	    c_array_to_list/3,          % +Ptr, +Count, -List
+	    c_array_from_list/2,        % -Ptr, +List
+	    c_array_from_list/3,        % -Ptr, +Count, +List
+	    c_array_from_compound/2,    % -Ptr,  +Compound
+	    c_array_from_compound/3,    % -Ptr,  +Count, +Compound
+	    c_array_to_compound/3,      % +Ptr, +Name, -Compound
+	    c_array_to_compound/4,      % +Ptr, +Count, +Name, -Compound
+
 
             c_enum_in/3,                % :Id, +Enum, -Int
             c_enum_out/3,               % :Id, +Enum, +Int
@@ -117,8 +124,14 @@
     c_current_union_field(:,?,?),
     c_current_typedef(:,:),
     c_struct_dict(:,?),
-    c_array_list(:,?),
-    c_array_list(:,+,?),
+    c_array_to_list(:,?),
+    c_array_to_list(:,+,?),
+    c_array_from_list(:,?),
+    c_array_from_list(:,+,?),
+    c_array_from_compound(:,?),
+    c_array_from_compound(:,+,?),
+    c_array_to_compound(:,+,?),
+    c_array_to_compound(:,+,+,?),
     c_expand_type(:,:),
     type_size(:,-),
     c_type_size_align(:,-,-),
@@ -1413,42 +1426,84 @@ c_member(Type, _, _, _, _, _, _) :-
 		 *             LIST		*
 		 *******************************/
 
-%!  c_array_list(:Array, ?List)
+%!  c_array_to_list(:Array, -List)
 %
-%   Convert a C array to a prolog list and vice-versa.
+%   Convert a C array indicated by a sized c_ptr
+%   to a prolog list.
 %
 %   Examples:
+%   ---------
 %   ```
-%   % C intarray to list
-%   ?- c_alloc(CPtr, int[]=[3,1,0,2]), c_array_list(CPtr,R).
+%   % C int array to list
+%   ?- c_alloc(CPtr, int[]=[3,1,0,2]), c_array_to_list(CPtr,R).
 %   CPtr = <C int[4]>(0x5629848165c0),
 %   R = [3, 1, 0, 2].
-%
-%
 %   ```
-%
-%   Structs and union elements are converted to a c_ptr blob.
-%
-%
-%
-%   C array to list supported types:
-%   * all C numeric ty
-c_array_list(M:Ptr, List) :-
+c_array_to_list(M:Ptr, List) :-
    nonvar(Ptr),
    !,
    c_array_list2(M:Ptr,List).
 
-c_array_list(_:Ptr, List) :-
+
+%!  c_array_to_list(:Array, +Count, -List)
+%
+%   Convert a C array indicated by a sized c_ptr
+%   to a prolog list.
+%
+%   Examples:
+%   ---------
+%   ```
+%   % C int array to list
+%   ?- c_alloc(CPtr, int[]=[3,1,0,2]), c_array_to_list(CPtr,2,R).
+%   CPtr = <C int[4]>(0x5629848165c0),
+%   R = [3, 1, 0, 2].
+%   ```
+c_array_to_list(M:Ptr, Count, List) :-
+   nonvar(Ptr),
+   !,
+   c_array_list3(M:Ptr,Count,List).
+
+
+%!  c_array_from_list(:Array, +List)
+%
+%   Unify Array with a c_ptr that points
+%   to a C array with the elements of List.
+%
+%   For now only numeric elements are supported.
+%
+%   Examples:
+%   ---------
+%   ```
+%   ?- c_array_from_list(Ptr,[3,2,0]).
+%   Ptr = <C long[3]>(0x55a265c6c3e0).
+%   ```
+c_array_from_list(_:Ptr, List) :-
    nonvar(List),
    list_numeric(List,CTyp),
    !,
    c_alloc(Ptr,CTyp[]=List).
 
-% c_array_list(_:Ptr, List) :-
-%    nonvar(List),
-%    list_text(List,CTyp),
-%    !,
-%    c_alloc(Ptr,CTyp[]=List).
+
+%!  c_array_from_list(:Array, +Count, -List)
+%
+%   Unify Array with a c_ptr that points
+%   to a C array with Count elements from List.
+%
+%   For now only numeric elements are supported.
+%
+%   Examples:
+%   ---------
+%   ```
+%   ?- c_array_from_list(Ptr,2,[3,2,0]).
+%   Ptr = <C long[2]>(0x55a265c494c0).
+%   ```
+c_array_from_list(_:Ptr, Count, List) :-
+   nonvar(List),
+   list_numeric(List,CTyp),
+   length(L,Count),
+   prefix(L,List),
+   !,
+   c_alloc(Ptr,CTyp[]=L).
 
 c_array_list_type(_:Ptr, List, CTyp) :-
    nonvar(List),
@@ -1456,18 +1511,107 @@ c_array_list_type(_:Ptr, List, CTyp) :-
    c_alloc(Ptr,CTyp[]=List).
 
 
-c_array_list(M:Ptr, Count, List) :-
-   nonvar(Ptr),
-   !,
-   c_array_list3(M:Ptr,Count,List).
-
-
-
 list_numeric([H|_],long) :-
    integer(H).
 
 list_numeric([H|_],double) :-
    float(H).
+
+
+%!  c_array_to_compound(:Ptr, +Name, -Compound)
+%
+%   Unify Compound with arguments obtained from the
+%   C array pointed by the sized c_ptr Ptr.
+%
+%   Example
+%   --------
+%   ```
+%   ?- c_alloc(Arr,int[]=[3,0,1]), c_array_to_compound(Arr,myterm,C).
+%   Arr = <C int[3]>(0x561f2497ff00),
+%   C = myterm(3, 0, 1).
+%   ```
+c_array_to_compound(M:Ptr, Name, Compound) :-
+   nonvar(Ptr),
+   !,
+   c_array_compound3(M:Ptr,Name,Compound).
+
+
+%!  c_array_to_compound(:Ptr, +Count, +Name, -Compound)
+%
+%   Unify Compound with Count arguments obtained from the
+%   C array pointed by the Ptr. Ptr can be an unsized
+%   c_ptr (e.g. a c_ptr containing *int).
+%
+%   Example
+%   --------
+%   ```
+%   ?- c_alloc(Arr,int[]=[3,0,1]), c_array_to_compound(Arr,2,myterm,C).
+%   Arr = <C int[3]>(0x561f2497fc00),
+%   C = myterm(3, 0).
+%   ```
+c_array_to_compound(M:Ptr, Count, Name, Compound) :-
+   nonvar(Ptr),
+   !,
+   c_array_compound4(M:Ptr,Count,Name,Compound).
+
+
+%!  c_array_from_compound(:Ptr, +Compound)
+%
+%   Unify Ptr with an ffi blob c_ptr, which
+%   points to a C array containing all the arguments
+%   of the compount term Compound.
+%
+%   For now only numeric elements are supported.
+%
+%   Example
+%   --------
+%   ```
+%   ?- c_array_from_compound(Ptr,c(3,1,2)).
+%   Ptr = <C long[3]>(0x561f248c6080).
+%   ```
+c_array_from_compound(M:Ptr, Compound) :-
+   nonvar(Compound),
+   !,
+   functor(Compound, _Name, Count),
+   c_array_from_compound(M:Ptr, Count, Compound).
+
+
+%!  c_array_from_compound(:Ptr, +Count, +Compound)
+%
+%   Like c_array_from_compound/2 but produce a C array
+%   with only Count arguments from Compound.
+%
+%   For now only numeric elements are supported.
+%
+%   Example
+%   --------
+%   ```
+%   ?- c_array_from_compound(Ptr,2,c(3,1,2)).
+%   Ptr = <C long[2]>(0x561f248a70c0).
+%   ```
+c_array_from_compound(_:Ptr, Count, Compound) :-
+   nonvar(Compound),
+   !,
+   compound_numeric(Compound,Typ),
+   c_sizeof(Typ, Size),
+   c_calloc(Ptr, Typ, Size, Count),
+   c_put_compound(Compound, Size, Ptr).
+
+
+% we only check the first argument,
+% and leave it to the user to make
+% sure all elements are of the same
+% type
+compound_numeric(Compound,long) :-
+   arg(1, Compound, H),
+   integer(H),
+   !.
+
+compound_numeric(Compound,double) :-
+   arg(1, Compound, H),
+   float(H),
+   !.
+
 
 		 /*******************************
 		 *             DICT		*

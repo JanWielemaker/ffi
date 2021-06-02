@@ -937,9 +937,6 @@ value_to_term(term_t arrt, c_ptr *ref, void* vp, c_type type, int ptype, term_t 
       case CT_CLOSURE:
       { term_t t=PL_new_term_ref();
 	void **p = vp;
-	/* void *u = unify_ptr(t, p, 1, &(ref->type)); */
-        /* Sdprintf("u = %p %p %p\n",u,*p,p); */
-        /* return PL_put_term(value,t); */
 	return (unify_ptr(t, p, 1, &(ref->type)) != NULL) &&
                 PL_put_term(value,t);
       }
@@ -976,6 +973,7 @@ c_array_list_(term_t arrt, size_t count, term_t list)
     size = ref->type.size;
     vp = (void*)((char *)ref->ptr) + (count-1)*size;
 
+    //Sdprintf("ref->count = %u , count = %u, ptrl= %u \n",ref->count, count, ref->type.ptrl);
 
     while( n < count)
     { if ( !( value_to_term(arrt, ref, vp, ctype, AS_LIST, value) &&
@@ -987,6 +985,48 @@ c_array_list_(term_t arrt, size_t count, term_t list)
   }
 
   return PL_unify(l,list);
+}
+
+static foreign_t
+c_array_compound_(term_t arrt, size_t count, term_t name, term_t compound)
+{ term_t av = PL_new_term_refs(count); // compound term arguments
+  term_t t  = PL_new_term_ref();
+  c_ptr *ref;
+  void *vp;
+  c_type ctype;
+  size_t n,size;
+  functor_t ftor;
+  atom_t ftor_atom;
+
+  if (!PL_get_atom_ex(name,&ftor_atom))
+    return FALSE;
+
+  if ( !(ftor = PL_new_functor(ftor_atom, count)) )
+    PL_resource_error("functor");
+
+  if ( (ref=get_ptr_ref_ex(arrt, NULL))
+     )
+  { if ( !ref->ptr )
+      null_pointer_error(arrt);
+
+
+    n = 0;
+    ctype = ref->type.type;
+    size = ref->type.size;
+    vp = (void*)((char *)ref->ptr);
+
+    //Sdprintf("cmpnd ref->count = %u , count=%u, ptrl= %u \n",ref->count, count, ref->type.ptrl);
+
+    while( n < count)
+    { if (!value_to_term(arrt, ref, vp, ctype, AS_LIST, av+n))
+	return FALSE;
+      vp += size;
+      n++;
+    }
+    return PL_cons_functor_v(t, ftor, av) &&
+           PL_unify(compound,t);
+  } else
+    return FALSE;
 }
 
 // Documented in ffi.pl
@@ -1027,6 +1067,213 @@ c_array_list3(term_t arrt, term_t countt, term_t list)
       return PL_domain_error("positive_count",countt);
 
    return c_array_list_(arrt, count, list);
+}
+
+static foreign_t
+term_to_value(term_t arrt, const c_ptr *ref, term_t e, c_type type, void *vp)
+{ switch(type)
+  { case CT_CHAR:
+    { int i;
+      char *p = vp;
+      if (!PL_get_integer_ex(e, &i))
+        return FALSE;
+      *p = (char) i;
+      return TRUE;
+    }
+    case CT_UCHAR:
+    { int i;
+      unsigned char *p = vp;
+      if (!PL_get_integer_ex(e, &i))
+        return FALSE;
+      *p = (unsigned char) i;
+      return TRUE;
+    }
+    case CT_WCHAR_T:
+    { int i;
+      wchar_t *p = vp;
+      if (!PL_get_integer_ex(e, &i))
+        return FALSE;
+      *p = (wchar_t) i;
+      return TRUE;
+    }
+    case CT_SHORT:
+    { int i;
+      short *p = vp;
+      if (!PL_get_integer_ex(e, &i))
+        return FALSE;
+      *p = (short) i;
+      return TRUE;
+    }
+    case CT_USHORT:
+    { int i;
+      unsigned short *p = vp;
+      if (!PL_get_integer_ex(e, &i))
+        return FALSE;
+      *p = (unsigned short) i;
+      return TRUE;
+    }
+    case CT_ENUM:
+    case CT_INT:
+    { int *p = vp;
+      return  PL_get_integer_ex(e, p);
+    }
+    case CT_UINT:
+    { int i;
+      unsigned int *p = vp;
+      if (!PL_get_integer_ex(e, &i))
+        return FALSE;
+      *p = (unsigned int) i;
+      return TRUE;
+    }
+    case CT_LONG:
+    { long *p = vp;
+      //Sdprintf("in long p=%p",vp);
+      return  PL_get_long_ex(e, p);
+    }
+    case CT_ULONG:
+    { long l;
+      unsigned long *p = vp;
+      if (!PL_get_long_ex(e, &l))
+        return FALSE;
+      *p = (unsigned long) l;
+      return TRUE;
+    }
+    case CT_SIZE_T:
+    { int i;
+      size_t *p = vp;
+      if (!PL_get_integer_ex(e, &i))
+        return FALSE;
+      *p = (size_t) i;
+      return TRUE;
+    }
+    case CT_LONGLONG:
+    { int64_t i;
+      long long *p = vp;
+      if (!PL_get_int64_ex(e, &i))
+        return FALSE;
+      *p = (long long) i;
+      return TRUE;
+    }
+    case CT_ULONGLONG:
+    { int64_t i;
+      unsigned long long *p = vp;
+      if (!PL_get_int64_ex(e, &i))
+        return FALSE;
+      *p = (unsigned long long) i;
+      return TRUE;
+    }
+    case CT_FLOAT:
+    { double d;
+      float *p = vp;
+      if (!PL_get_float_ex(e, &d))
+        return FALSE;
+      *p = (float) d;
+      return TRUE;
+    }
+    case CT_BOOL:
+    { int b;
+      _Bool *p = vp;
+      if (!PL_get_bool(e, &b))
+        return FALSE;
+      *p = (_Bool) b;
+      return TRUE;
+    }
+    case CT_DOUBLE:
+    { double *p = vp;
+      return PL_get_float_ex(e, p);
+    } // TODO check this is working
+    case CT_STRUCT:
+    case CT_UNION:
+    case CT_CALLBACK:
+    case CT_CLOSURE:
+    { void **p = vp;
+      return PL_get_pointer_ex(e, p);
+    }
+    default:
+      assert(0);
+  }
+}
+
+
+static foreign_t
+c_put_compound(term_t compound, term_t esizet, term_t cptr)
+{ c_ptr *ref;
+  size_t esize,n,count;
+  c_type ctype;
+  void *vp;
+  term_t e = PL_new_term_ref();
+
+  if ( (ref=get_ptr_ref_ex(cptr, NULL)) )
+  { if (ref->count < 1)
+       return PL_domain_error("array",cptr);
+
+    if ( !ref->ptr )
+      null_pointer_error(cptr);
+
+    if (ref->count == SZ_UNKNOWN)
+      return PL_type_error("fixed_size_array",cptr);
+
+    if (!PL_get_size_ex(esizet, &esize))
+      return PL_domain_error("size",esizet);
+
+
+    n = 0;
+    ctype = ref->type.type;
+    count = ref->count;
+    vp = (void*)((char *)ref->ptr);
+
+    //Sdprintf("ref->count = %u , count = %u, ptrl= %u \n",ref->count, count, ref->type.ptrl);
+
+    while( n < count)
+    { if ( !( _PL_get_arg(n+1, compound, e)  &&
+	      term_to_value(cptr, ref, e, ctype, vp) ))
+	return FALSE;
+      vp += esize;
+      n++;
+    }
+    return TRUE;
+  }
+  return FALSE;
+
+}
+
+static foreign_t
+c_array_compound3(term_t arrt, term_t name, term_t compound)
+{ c_ptr *ref;
+  if ( (ref=get_ptr_ref_ex(arrt, NULL)) )
+  { if (ref->count < 1)
+       return PL_domain_error("array",arrt);
+
+    if ( !ref->ptr )
+      null_pointer_error(arrt);
+
+    if (ref->count == SZ_UNKNOWN)
+      return PL_type_error("fixed_size_array",arrt);
+
+    return c_array_compound_(arrt, ref->count, name, compound);
+  }
+
+  return FALSE;
+}
+
+
+static foreign_t
+c_array_compound4(term_t arrt, term_t countt, term_t name, term_t compound)
+{  size_t count;
+   c_ptr  *ref;
+
+   if (!PL_get_size_ex(countt, &count))
+      return FALSE;
+
+   if ( (ref=get_ptr_ref_ex(arrt, NULL)) &&
+         ( ( count > ref->count ) &&
+           ( ref->type.ptrl == 0 ) ) )
+      return PL_domain_error("count_less_or_equal_to_size",countt);
+
+   if (count < 1)
+      return PL_domain_error("positive_count",countt);
+
+   return c_array_compound_(arrt, count, name, compound);
 }
 
 #define VALID(ref, off, type) valid_offset(ref, off, sizeof(type), offset)
@@ -1484,23 +1731,26 @@ install_c_memory(void)
   FUNCTOR_array2 = PL_new_functor(ATOM_nil, 2);
   FUNCTOR_star1  = PL_new_functor(ATOM_star, 1);
 
-  PL_register_foreign("c_calloc",	4, c_calloc,	   0);
-  PL_register_foreign("c_recalloc",	2, c_recalloc,	   0);
-  PL_register_foreign("c_free",		1, c_free,	   0);
-  PL_register_foreign("c_disown",	1, c_disown,	   0);
-  PL_register_foreign("c_load",		4, c_load,	   0);
-  PL_register_foreign("c_store",	4, c_store,	   0);
-  PL_register_foreign("c_offset",	6, c_offset,	   0);
-  PL_register_foreign("c_address",	2, c_address,	   0);
-  PL_register_foreign("c_dim",	        3, c_dim,	   0);
-  PL_register_foreign("c_typeof",	2, c_typeof,	   0);
-  PL_register_foreign("c_sizeof",	2, c_sizeof,	   0);
-  PL_register_foreign("c_alignof",	2, c_alignof,	   0);
-  PL_register_foreign("c_alloc_string",	3, c_alloc_string, 0);
-  PL_register_foreign("c_load_string",	4, c_load_string4, 0);
-  PL_register_foreign("c_load_string",	5, c_load_string5, 0);
-  PL_register_foreign("c_nil",		1, c_nil,          0);
-  PL_register_foreign("c_is_nil",	1, c_is_nil,       0);
-  PL_register_foreign("c_array_list2",	2, c_array_list2,  0);
-  PL_register_foreign("c_array_list3",	3, c_array_list3,  0);
+  PL_register_foreign("c_calloc",	     4, c_calloc,	   0);
+  PL_register_foreign("c_recalloc",	     2, c_recalloc,	   0);
+  PL_register_foreign("c_free",		     1, c_free,	           0);
+  PL_register_foreign("c_disown",	     1, c_disown,	   0);
+  PL_register_foreign("c_load",		     4, c_load,	           0);
+  PL_register_foreign("c_store",	     4, c_store,	   0);
+  PL_register_foreign("c_offset",	     6, c_offset,	   0);
+  PL_register_foreign("c_address",	     2, c_address,	   0);
+  PL_register_foreign("c_dim",	             3, c_dim,	           0);
+  PL_register_foreign("c_typeof",	     2, c_typeof,	   0);
+  PL_register_foreign("c_sizeof",	     2, c_sizeof,	   0);
+  PL_register_foreign("c_alignof",	     2, c_alignof,	   0);
+  PL_register_foreign("c_alloc_string",	     3, c_alloc_string,    0);
+  PL_register_foreign("c_load_string",	     4, c_load_string4,    0);
+  PL_register_foreign("c_load_string",	     5, c_load_string5,    0);
+  PL_register_foreign("c_nil",		     1, c_nil,             0);
+  PL_register_foreign("c_is_nil",	     1, c_is_nil,          0);
+  PL_register_foreign("c_array_list2",	     2, c_array_list2,     0);
+  PL_register_foreign("c_array_list3",	     3, c_array_list3,     0);
+  PL_register_foreign("c_array_compound3",   3, c_array_compound3, 0);
+  PL_register_foreign("c_array_compound4",   4, c_array_compound4, 0);
+  PL_register_foreign("c_put_compound",      3, c_put_compound,    0);
 }
