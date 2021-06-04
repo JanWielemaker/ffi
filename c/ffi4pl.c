@@ -404,13 +404,13 @@ ffi_callback_ptr(term_t lib, term_t name, term_t fptr)
   // it in blob <fptr>
   if ( get_ptr(lib, &libh, &tspec) &&
        PL_get_chars(name, &fname, CVT_ATOM|CVT_EXCEPTION) )
-  { DEBUG(1, Sdprintf("Found c callback %s in %p ...\n", fname, libh));
-
-    if ( (p=dlsym(libh->lib, fname)) )
+  { if ( (p=dlsym(libh->lib, fname)) )
     { type_spec tspec = { CT_CALLBACK, 1, 0, ATOM_c_callback,
 			  sizeof(*p), NULL};
+      DEBUG(1, Sdprintf("Found c callback %s in library %p at address %p ...\n", fname, libh, p));
       return unify_ptr(fptr, p, 0, &tspec) != NULL;
     }
+    return PL_existence_error("exported_C_function",name);
   }
   return FALSE;
 }
@@ -801,7 +801,7 @@ pl_ffi_call(term_t prototype, term_t goal)
 	    if ( !get_ptr(arg, &as[argi].p, 0) )
 	      return FALSE;
 	    argv[argi] = &as[argi].p;
- 	    break;
+	    break;
 	  default:
 	    assert(0);
 	}
