@@ -14,9 +14,10 @@ function and storing one in a struct field.
 test_ccallback :-
     run_tests([ ccallback ]).
 
+c_define(mycallback, 'C'(ctwice(int, [int])) ).
 :- c_import("#include \"test_ccallback.c\"",
             [ test_ccallback ],
-            [ test_passcallback('C'(ctwice(int, [int])), int, [int]),
+            [ test_passcallback(mycallback, int, [int]),
               test_passcallback(null, int, [int]) as test_passcallbacknull,
               test_instruct(struct(funcs),  [int])
             ]).

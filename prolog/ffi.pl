@@ -1794,7 +1794,8 @@ cpp_expand(Modules, T0, CCallback) :-
     nonvar(T0),
     T0 = 'C'(sym(FName)),
     member(M, Modules),
-    c_symbol_callback(M:FName, CCallback).
+    c_symbol_callback(M:FName, CCallback),
+    !.
 cpp_expand(Modules, T0, T) :-
     atom(T0),
     member(M, Modules),
@@ -1846,7 +1847,10 @@ cpp_eval(Compound0, Val) :-
 cpp_eval_func((A|B), V)  :- !, V is A \/ B.
 cpp_eval_func(~(A), V)   :- !, V is \A.
 cpp_eval_func(&(A,B), V) :- !, V is A /\ B.
-cpp_eval_func(Term, V)   :-    V is Term.
+cpp_eval_func(Term, V)   :-
+    current_arithmetic_function(Term),
+    !,
+    V is Term.
 
 
 system:term_expansion(T0, T) :-
