@@ -14,7 +14,7 @@ test_cmem :-
 test(unsigned_signed_char, Out == -1) :-
     c_alloc(Ptr, uchar),
     c_store(Ptr, 0, uchar, 255),
-    c_load(Ptr, 0, char, Out).
+    c_load(Ptr, 0, schar, Out).
 
 test(range, error(domain_error(offset, _))) :-
     c_alloc(Ptr, char),

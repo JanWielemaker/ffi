@@ -56,7 +56,7 @@ A type is either a primitive type or a constructed type.
 The following basic types are identified:
 
   $ Signed integers :
-  `char`, `short`, `int`, `long` and `longlong`
+  `char`, `schar`, `short`, `int`, `long` and `longlong`
   $ Unsigned integers :
   `uchar`, `ushort`, `uint`, `ulong` and `ulonglong`
   $ Floats :
@@ -67,6 +67,11 @@ The following basic types are identified:
 In addition, the type =wchar_t= is recognised by the library to
 facilitate portable exchange of Unicode text represented as wide
 character strings.
+
+Note that we have `char`, `schar` and `uchar`.  The latter two are
+explicitly signed or unsigned.  Whether `char` is signed or not
+depends on the C compiler used to compile the this package.
+
 
 ### Constructed types
 

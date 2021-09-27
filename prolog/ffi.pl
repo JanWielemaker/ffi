@@ -451,6 +451,7 @@ variadic_param(Type0, Type) :-
 variadic_param(Type, Type).
 
 default_promotion(char,    int).
+default_promotion(schar,   int).
 default_promotion(uchar,   uint).
 default_promotion('_Bool', uint).
 default_promotion(short,   int).
@@ -522,10 +523,12 @@ compatible_arg(struct(Name),    *(struct(Name)), _).
 compatible_arg(*struct(Name),   *(struct(Name)), _).
 compatible_arg(union(Name),     *(union(Name)), _).
 compatible_arg(*union(Name),    *(union(Name)), _).
+compatible_arg(char,            schar, _).
 compatible_arg(string,          *(char), _).
+compatible_arg(string,          *(schar), _).
 compatible_arg(string(wchar_t), *(Type), _) :- !, wchar_t_type(Type).
 compatible_arg(string(Enc),     *(char), _) :- Enc \== wchar_t.
-compatible_arg(string(Enc),     *(char), _) :- Enc \== wchar_t.
+compatible_arg(string(Enc),     *(schar), _) :- Enc \== wchar_t.
 compatible_arg(*TypeName,       CType, Types) :-
     atom(TypeName),
     memberchk(typedef(TypeName, Type), Types),
@@ -589,13 +592,16 @@ compatible_ret(*(Type,_Free), CType, Types) :- % deprecated
     !,
     compatible_ret(*(Type), CType, Types).
 compatible_ret(Type, Type, _) :- !.
-compatible_ret(*(struct(Name)),  *(struct(Name)), _).
-compatible_ret(*(union(Name)),   *(union(Name)), _).
+compatible_ret(*(char),          *(schar), _).
+compatible_ret(*(schar),         *(char), _).
 compatible_ret(string,           *(char), _).
+compatible_ret(string,           *(schar), _).
 compatible_ret(string(wchar_t),  *(Type), _) :- !, wchar_t_type(Type).
 compatible_ret(string(Enc),      *(char), _) :- Enc \== wchar_t.
+compatible_ret(string(Enc),      *(schar), _) :- Enc \== wchar_t.
 
 int_type(char).
+int_type(schar).
 int_type(uchar).
 int_type(short).
 int_type(ushort).

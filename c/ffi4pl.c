@@ -447,7 +447,8 @@ to_ffi_type(const type_spec *tspec)
     return &ffi_type_pointer;
 
   switch(tspec->type)
-  { case CT_CHAR:	return &ffi_type_schar;
+  { case CT_CHAR:	return (char) 255 == -1 ? &ffi_type_schar : &ffi_type_uchar;
+    case CT_SCHAR:	return &ffi_type_schar;
     case CT_UCHAR:	return &ffi_type_uchar;
     case CT_WCHAR_T:	return ffi_type_wchar_t();
     case CT_SHORT:	return &ffi_type_sshort;
@@ -632,7 +633,9 @@ unify_output(term_t t, const type_spec *tp, const argstore *as)
   } else
   { switch(tp->type)
     { case CT_VOID:	 return TRUE;
-      case CT_CHAR:      return PL_unify_int64 (t, as->c);
+      case CT_CHAR:	 return (char) 255 == -1 ? PL_unify_int64 (t, as->c)
+						 : PL_unify_uint64(t, as->uc);
+      case CT_SCHAR:     return PL_unify_int64 (t, as->c);
       case CT_BOOL:	 return PL_unify_bool(t, as->bl);
       case CT_UCHAR:     return PL_unify_uint64(t, as->uc);
       case CT_WCHAR_T:
@@ -710,6 +713,7 @@ pl_ffi_call(term_t prototype, term_t goal)
       } else
       { switch(t->type)
 	{ case CT_CHAR:
+	  case CT_SCHAR:
 	    if ( !PL_cvt_i_char(arg, &as[argi].c) )
 	      return FALSE;
 	    argv[argi] = &as[argi].c;
@@ -952,6 +956,7 @@ call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp)
 	} else
 	{ switch(tspec->type)
 	  { case CT_CHAR:      rc = BIND_INT(char);		     break;
+	    case CT_SCHAR:     rc = BIND_INT(signed char);	     break;
 	    case CT_UCHAR:     rc = BIND_INT(unsigned char);         break;
 	    case CT_BOOL:      rc = BIND_BOOL(_Bool);		     break;
 	    case CT_WCHAR_T:   rc = BIND_INT(wchar_t);               break;
@@ -987,7 +992,8 @@ call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp)
 	  { rc = get_ptr(rt, ret, 0);
 	  } else
 	  { switch(ctx->ret_type.type)
-	    { case CT_CHAR:      rc = PL_cvt_i_char(rt, ret);   break;
+	    { case CT_SCHAR:
+	      case CT_CHAR:      rc = PL_cvt_i_char(rt, ret);   break;
 	      case CT_UCHAR:     rc = PL_cvt_i_uchar(rt, ret);  break;
 	      case CT_BOOL:	 rc = PL_cvt_i_bool(rt, ret);   break;
 	      case CT_WCHAR_T:   rc = PL_cvt_i_wchar(rt, ret);  break;

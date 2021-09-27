@@ -49,6 +49,7 @@ static atom_t ATOM_short;
 static atom_t ATOM_int;
 static atom_t ATOM_long;
 static atom_t ATOM_longlong;
+static atom_t ATOM_schar;
 static atom_t ATOM_uchar;
 static atom_t ATOM_ushort;
 static atom_t ATOM_uint;
@@ -104,6 +105,7 @@ typedef struct c_dep
 typedef enum c_type
 { CT_UNKNOWN = 0,
   CT_CHAR,
+  CT_SCHAR,
   CT_UCHAR,
   CT_WCHAR_T,
   CT_SHORT,
@@ -262,6 +264,7 @@ static const char *
 tname(const type_spec *tspec)
 { switch(tspec->type)
   { case CT_CHAR:      return "char";
+    case CT_SCHAR:     return "schar";
     case CT_UCHAR:     return "uchar";
     case CT_WCHAR_T:   return "wchar_t";
     case CT_SHORT:     return "short";
@@ -616,6 +619,8 @@ get_type(term_t t, type_spec *tspec)
   if ( rc && arity == 0 )
   { if      ( qn == ATOM_char      ) tspec->type = CT_CHAR,
 				     tspec->size = sizeof(char);
+    else if ( qn == ATOM_schar     ) tspec->type = CT_SCHAR,
+				     tspec->size = sizeof(char);
     else if ( qn == ATOM_uchar     ) tspec->type = CT_UCHAR,
 				     tspec->size = sizeof(char);
     else if ( qn == ATOM_wchar_t   ) tspec->type = CT_WCHAR_T,
@@ -680,6 +685,7 @@ unify_type(term_t t, const type_spec *tspec)
 
   switch(tspec->type)
   { case CT_CHAR:      a = ATOM_char;       break;
+    case CT_SCHAR:     a = ATOM_schar;      break;
     case CT_UCHAR:     a = ATOM_uchar;      break;
     case CT_WCHAR_T:   a = ATOM_wchar_t;    break;
     case CT_SHORT:     a = ATOM_short;      break;
@@ -862,6 +868,10 @@ value_to_term(term_t arrt, c_ptr *ref, void* vp, c_type type, int ptype, term_t 
     { case CT_CHAR:
       { const char *p = vp;
         return  PL_put_integer(value, *p);
+      }
+      case CT_SCHAR:
+      { const signed char *p = vp;
+        return PL_put_integer(value, *p);
       }
       case CT_UCHAR:
       { const unsigned char *p = vp;
@@ -1078,6 +1088,14 @@ term_to_value(term_t arrt, const c_ptr *ref, term_t e, c_type type, void *vp)
       if (!PL_get_integer_ex(e, &i))
         return FALSE;
       *p = (char) i;
+      return TRUE;
+    }
+    case CT_SCHAR:
+    { int i;
+      signed char *p = vp;
+      if (!PL_get_integer_ex(e, &i))
+        return FALSE;
+      *p = (unsigned char) i;
       return TRUE;
     }
     case CT_UCHAR:
@@ -1297,6 +1315,9 @@ c_load(term_t ptr, term_t offset, term_t type, term_t value)
     if ( PL_get_atom(type, &ta) )
     { if ( ta == ATOM_char )
       { const char *p = vp;
+	return VALID(ref, off, char) && PL_unify_integer(value, *p);
+      } else if ( ta == ATOM_schar )
+      { const signed char *p = vp;
 	return VALID(ref, off, char) && PL_unify_integer(value, *p);
       } else if ( ta == ATOM_uchar )
       { const unsigned char *p = vp;
@@ -1524,6 +1545,7 @@ c_sizeof(term_t type, term_t bytes)
 
   if ( PL_get_atom(type, &ta) )
   {      if ( ta == ATOM_char )      sz = sizeof(char);
+    else if ( ta == ATOM_schar )     sz = sizeof(signed char);
     else if ( ta == ATOM_uchar )     sz = sizeof(unsigned char);
     else if ( ta == ATOM__Bool )     sz = sizeof(_Bool);
     else if ( ta == ATOM_short )     sz = sizeof(short);
@@ -1555,6 +1577,7 @@ c_alignof(term_t type, term_t bytes)
 
   if ( PL_get_atom(type, &ta) )
   {      if ( ta == ATOM_char )      sz = __alignof__(char);
+    else if ( ta == ATOM_schar )     sz = __alignof__(signed char);
     else if ( ta == ATOM_uchar )     sz = __alignof__(unsigned char);
     else if ( ta == ATOM__Bool )     sz = __alignof__(_Bool);
     else if ( ta == ATOM_short )     sz = __alignof__(short);
@@ -1696,6 +1719,7 @@ install_c_memory(void)
   MKATOM(int);
   MKATOM(long);
   MKATOM(longlong);
+  MKATOM(schar);
   MKATOM(uchar);
   MKATOM(ushort);
   MKATOM(uint);

@@ -452,7 +452,7 @@ simple_type(s, [long,long], int,  longlong).
 simple_type(s, [long],      int,  long).
 simple_type(s, [],          int,  int).
 simple_type(s, [short],     int,  short).
-simple_type(s, [],          char, char).
+simple_type(s, [],          char, schar).
 
 %!  untypedef(+Types, +Type0, -Type)
 
