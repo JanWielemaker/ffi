@@ -9,6 +9,7 @@ CFLAGS=-shared -fPIC
 TESTS=test_mode test_marshall test_bool test_enum test_struct test_union    \
       test_funcptr test_ccallback test_array
 TESTSO=$(addprefix test/$(SWIARCH)/, $(addsuffix .$(SOEXT), $(TESTS)))
+TESTFLAGS=-q -t halt -f none
 
 all:	env $(FFI4PL)
 
@@ -35,18 +36,18 @@ tags:
 	etags c/*.[ch]
 
 check:	$(TESTSO)
-	$(SWIPL) -q -g test_cmem -t halt test/test_cmem.pl
-	$(SWIPL) -q -g test_mode -t halt test/test_mode.pl
-	$(SWIPL) -q -g test_marshall -t halt test/test_marshall.pl
-	$(SWIPL) -q -g test_bool -t halt test/test_bool.pl
-	$(SWIPL) -q -g test_enum -t halt test/test_enum.pl
-	$(SWIPL) -q -g test_struct -t halt test/test_struct.pl
-	$(SWIPL) -q -g test_union -t halt test/test_union.pl
-	$(SWIPL) -q -g test_funcptr -t halt test/test_funcptr.pl
-	$(SWIPL) -q -g test_qsort -t halt test/test_qsort.pl
-	$(SWIPL) -q -g test_libc -t halt test/test_libc.pl
-	$(SWIPL) -q -g test_ccallback -t halt test/test_ccallback.pl
-	$(SWIPL) -q -g test_array -t halt test/test_array.pl
+	$(SWIPL) $(TESTFLAGS) -g test_cmem test/test_cmem.pl
+	$(SWIPL) $(TESTFLAGS) -g test_mode test/test_mode.pl
+	$(SWIPL) $(TESTFLAGS) -g test_marshall test/test_marshall.pl
+	$(SWIPL) $(TESTFLAGS) -g test_bool test/test_bool.pl
+	$(SWIPL) $(TESTFLAGS) -g test_enum test/test_enum.pl
+	$(SWIPL) $(TESTFLAGS) -g test_struct test/test_struct.pl
+	$(SWIPL) $(TESTFLAGS) -g test_union test/test_union.pl
+	$(SWIPL) $(TESTFLAGS) -g test_funcptr test/test_funcptr.pl
+	$(SWIPL) $(TESTFLAGS) -g test_qsort test/test_qsort.pl
+	$(SWIPL) $(TESTFLAGS) -g test_libc test/test_libc.pl
+	$(SWIPL) $(TESTFLAGS) -g test_ccallback test/test_ccallback.pl
+	$(SWIPL) $(TESTFLAGS) -g test_array test/test_array.pl
 
 install::
 
