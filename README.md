@@ -20,6 +20,7 @@ Below is an example making the POSIX statfs() function available.
 
 ```{prolog}
 :- use_module(library(ffi)).
+:- use_module(library(cerror)).
 
 :- c_import("#include <sys/vfs.h>",
             [ libc ],
