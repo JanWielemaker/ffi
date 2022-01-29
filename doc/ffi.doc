@@ -3,6 +3,7 @@
 \usepackage{pl}
 \usepackage{plpage}
 \usepackage{html}
+\usepackage{tabulary}
 \sloppy
 \makeindex
 
