@@ -88,7 +88,7 @@ static atom_t ATOM_void;			/* void */
 static functor_t FUNCTOR_minus1;
 
 static int	get_closure(term_t t, void **func);
-static int	PL_cvt_i_bool(term_t t, _Bool *b);
+static int	PL_cvt_i_Bool(term_t t, _Bool *b);
 
 #include "cmemory.c"
 
@@ -527,7 +527,7 @@ ci_function_free(void *ptr)
 }
 
 static int
-PL_cvt_i_bool(term_t t, _Bool *b)
+PL_cvt_i_Bool(term_t t, _Bool *b)
 { int i;
 
   if ( PL_get_bool_ex(t, &i) )
@@ -724,7 +724,7 @@ pl_ffi_call(term_t prototype, term_t goal)
 	    argv[argi] = &as[argi].uc;
 	    break;
 	  case CT_BOOL:
-	    if ( !PL_cvt_i_bool(arg, &as[argi].bl) )
+	    if ( !PL_cvt_i_Bool(arg, &as[argi].bl) )
 	      return FALSE;
 	    argv[argi] = &as[argi].bl;
 	    break;
@@ -995,7 +995,7 @@ call_closure(ffi_cif *cif, void *ret, void* args[], void *ctxp)
 	    { case CT_SCHAR:
 	      case CT_CHAR:      rc = PL_cvt_i_char(rt, ret);   break;
 	      case CT_UCHAR:     rc = PL_cvt_i_uchar(rt, ret);  break;
-	      case CT_BOOL:	 rc = PL_cvt_i_bool(rt, ret);   break;
+	      case CT_BOOL:	 rc = PL_cvt_i_Bool(rt, ret);   break;
 	      case CT_WCHAR_T:   rc = PL_cvt_i_wchar(rt, ret);  break;
 	      case CT_SHORT:     rc = PL_cvt_i_short(rt, ret);  break;
 	      case CT_USHORT:    rc = PL_cvt_i_ushort(rt, ret); break;

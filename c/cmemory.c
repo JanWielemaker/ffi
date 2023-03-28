@@ -1451,7 +1451,7 @@ c_store(term_t ptr, term_t offset, term_t type, term_t value)
       else if ( ta == ATOM_uchar )
 	return VALID(ref, off, char) && PL_cvt_i_uchar(value, vp);
       else if ( ta == ATOM__Bool )
-	return VALID(ref, off, char) && PL_cvt_i_bool(value, vp);
+	return VALID(ref, off, char) && PL_cvt_i_Bool(value, vp);
       else if ( ta == ATOM_wchar_t )
 	return VALID(ref, off, wchar_t) && PL_cvt_i_wchar(value, vp);
       else if ( ta == ATOM_short )
