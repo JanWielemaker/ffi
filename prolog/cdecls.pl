@@ -616,6 +616,7 @@ c99_header_ast(Header, Flags, AST) :-
 
 debug_dump_header(Header, Flags) :-
     debugging(ffi(dump(cpp_output, File))),
+    nonvar(File),
     !,
     setup_call_cleanup(
         open(File, write, Out),
