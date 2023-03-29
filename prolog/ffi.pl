@@ -594,6 +594,10 @@ compatible_ret(*(Type,_Free), CType, Types) :- % deprecated
 compatible_ret(Type, Type, _) :- !.
 compatible_ret(*(char),          *(schar), _).
 compatible_ret(*(schar),         *(char), _).
+compatible_ret(atom, CType, Types) :-
+    compatible_ret(string, CType, Types).
+compatible_ret(atom(Enc), CType, Types) :-
+    compatible_ret(string(Enc), CType, Types).
 compatible_ret(string,           *(char), _).
 compatible_ret(string,           *(schar), _).
 compatible_ret(string(wchar_t),  *(Type), _) :- !, wchar_t_type(Type).
