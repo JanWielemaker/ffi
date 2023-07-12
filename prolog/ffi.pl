@@ -1695,9 +1695,11 @@ c_enum_out(_Id, Enum, Value) :-
 %
 %   Compile an enum declaration into clauses for '$c_enum'/3.
 
+:- det(compile_enum//2).
 compile_enum(Name, Values) -->
     enum_clauses(Values, 0, Name).
 
+:- det(enum_clauses//3).
 enum_clauses([], _, _) --> [].
 enum_clauses([enum_value(Id, -)|T], I, Name) -->
     !,

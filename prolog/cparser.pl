@@ -120,7 +120,7 @@ unary_expression(++(UE)) -->
     [++], unary_expression(UE).
 unary_expression(--(UE)) -->
     [--], unary_expression(UE).
-unary_expression(op(Op, Expr)) -->
+unary_expression(o(Op, Expr)) -->
     unary_operator(Op),
     cast_expression(Expr).
 unary_expression(sizeof(Expr)) -->
