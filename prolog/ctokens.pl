@@ -134,6 +134,8 @@ keyword(while)        --> "while".
 keyword('_Bool')      --> "_Bool".
 keyword('_Complex')   --> "_Complex".
 keyword('_Imaginary') --> "_Imaginary".
+keyword('__int128_t') --> "__int128_t".
+keyword('__uint128_t') --> "__uint128_t".
 keyword('_Float128')   --> "_Float128".		% GCC
 keyword('__attribute__') --> "__attribute__".   % GCC
 keyword('__restrict__') --> "__restrict__".

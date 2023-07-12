@@ -347,6 +347,8 @@ type_specifier(type(signed))     --> [signed].
 type_specifier(type(unsigned))   --> [unsigned].
 type_specifier(type('_Bool'))    --> ['_Bool'].
 type_specifier(type('_Complex')) --> ['_Complex'].
+type_specifier(type('__uint128_t')) --> ['__uint128_t'].
+type_specifier(type('__int128_t')) --> ['__int128_t'].
 type_specifier(type('_Float128')) --> ['_Float128'].
 type_specifier(type('__builtin_va_list')) --> ['__builtin_va_list'].
 type_specifier(type('__gnuc_va_list')) --> ['__gnuc_va_list'].
