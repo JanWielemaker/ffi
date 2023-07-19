@@ -134,8 +134,15 @@ keyword(while)        --> "while".
 keyword('_Bool')      --> "_Bool".
 keyword('_Complex')   --> "_Complex".
 keyword('_Imaginary') --> "_Imaginary".
+keyword('__signed__') --> "__signed__".
 keyword('__int128_t') --> "__int128_t".
 keyword('__uint128_t') --> "__uint128_t".
+keyword('_Float16')   --> "_Float16".		% GCC
+keyword('_Float32')   --> "_Float32".		% GCC
+keyword('_Float32x')   --> "_Float32x".		% GCC
+keyword('_Float64')   --> "_Float64".		% GCC
+keyword('_Float64x')   --> "_Float64x".		% GCC
+keyword('_Float80')   --> "_Float80".		% GCC
 keyword('_Float128')   --> "_Float128".		% GCC
 keyword('__attribute__') --> "__attribute__".   % GCC
 keyword('__restrict__') --> "__restrict__".
