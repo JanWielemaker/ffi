@@ -3,7 +3,8 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2018, VU University Amsterdam
+    Copyright (c)  2018-2023, VU University Amsterdam
+                              SWI-Prolog Solutions b.v.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -148,7 +149,7 @@ c_define(py_owned, py_object~'MyPy_DECREF').
               'PyDict_New'([py_owned]),
               'PyDict_SetItemString'(py_object, string(utf8), py_object, [int]),
               'PyDict_SetItem'(py_object, py_object, py_object, [int]),
-              'PyDict_Next'(py_object, *int, *py_object, *py_object, [int]),
+              'PyDict_Next'(py_object, *'Py_ssize_t', *py_object, *py_object, [int]),
 
               'PyObject_CallObject'(py_object, py_object, [py_owned]),
               'PyObject_Str'(py_object, [py_owned]),
@@ -470,7 +471,7 @@ py_sequence(Len, Len, _, []).
 py_dict_pairs(PyDict, Pairs) :-
     c_alloc(KeyP, *('PyObject')),
     c_alloc(ValP, *('PyObject')),
-    c_alloc(PosP, int),
+    c_alloc(PosP, 'Py_ssize_t'),
     py_dict_pairs(PyDict, PosP, KeyP, ValP, Pairs).
 
 py_dict_pairs(PyDict, PosP, KeyP, ValP, [Key-Val|T]) :-
