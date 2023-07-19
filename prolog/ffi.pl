@@ -1216,10 +1216,14 @@ c_alloc(Ptr, M:Type) :-
 c_init(M:Type[], Data, Ptr) :-
     !,
     c_init_array(M:Type, Data, Ptr).
-c_init(_:Type, Data, Ptr) :-
-    atom(Type),                                 % primitive type
+c_init(M:Type0, Data, Ptr) :-
+    atom(Type0),				% primitive type
     !,
-    type_size(Type, Size),
+    (   c_sizeof(Type0, Size)
+    ->  Type = Type0
+    ;   c_current_typedef(M:Type0, M:Type),
+        c_sizeof(Type, Size)
+    ),
     c_calloc(Ptr, Type, Size, 1),
     c_store(Ptr, 0, Type, Data).
 c_init(Type, Data, Ptr) :-                      % user types
