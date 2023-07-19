@@ -1,5 +1,5 @@
-CFLAGS=$(shell pkg-config --cflags python3)
-LIBS=$(shell pkg-config --libs python3)
+CFLAGS=$(shell pkg-config --cflags python3-embed)
+LIBS=$(shell pkg-config --libs python3-embed)
 
 all: env mypython.$(SOEXT)
 
@@ -14,3 +14,5 @@ endif
 mypython.$(SOEXT): mypython.c
 	gcc -fPIC -shared -o $@ $(CFLAGS) $< $(LIBS)
 
+clean:
+	rm -rf mypython.$(SOEXT)
