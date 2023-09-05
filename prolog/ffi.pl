@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2018-2021, VU University Amsterdam
+    Copyright (c)  2018-2023, VU University Amsterdam
                               SWI-Prolog Solutions b.v.
     All rights reserved.
 
@@ -1309,6 +1309,8 @@ c_load_(Ptr, Offset, Type, Value) :-
         c_enum_out(Value, M:Enum, IntValue)
     ;   Plain = *(PtrType)
     ->  c_load(Ptr, Offset, pointer(PtrType), Value)
+    ;   Plain = funcptr(_RetType, _ArgsTypes)   % TBD: represent in closure?
+    ->  c_load(Ptr, Offset, pointer(closure), Value)
     ;   domain_error(type, Type)
     ).
 
