@@ -1,5 +1,5 @@
 name(ffi).
-version('0.7').
+version('0.8').
 title('Dynamically call C functions').
 keywords(['C', 'foreign interface', scripting]).
 author( 'Jan Wielemaker', 'J.Wielemaker@vu.nl' ).
