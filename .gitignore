@@ -16,3 +16,4 @@ lib
 .gdbinit
 TAGS
 __pycache__
+status.db
